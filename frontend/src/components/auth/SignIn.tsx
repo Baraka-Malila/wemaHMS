@@ -192,7 +192,7 @@ const SignIn: React.FC = () => {
               <label 
                 className="block mb-2"
                 style={{
-                  fontFamily: 'Roboto, sans-serif',
+                  fontFamily: 'Inter, sans-serif', // Changed to Inter
                   fontSize: '14px',
                   lineHeight: '22px',
                   fontWeight: '600', // Slightly less bold
@@ -213,7 +213,7 @@ const SignIn: React.FC = () => {
                     height: '44px', // Slightly larger for better UX
                     paddingLeft: '44px',
                     paddingRight: '16px',
-                    fontFamily: 'Roboto, sans-serif',
+                    fontFamily: 'Inter, sans-serif', // Changed to Inter
                     fontSize: '14px',
                     lineHeight: '22px',
                     fontWeight: '400',
@@ -253,7 +253,7 @@ const SignIn: React.FC = () => {
               <label 
                 className="block mb-2"
                 style={{
-                  fontFamily: 'Roboto, sans-serif',
+                  fontFamily: 'Inter, sans-serif', // Changed to Inter
                   fontSize: '14px',
                   lineHeight: '22px',
                   fontWeight: '600',
@@ -274,7 +274,7 @@ const SignIn: React.FC = () => {
                     height: '44px',
                     paddingLeft: '44px',
                     paddingRight: '44px',
-                    fontFamily: 'Roboto, sans-serif',
+                    fontFamily: 'Inter, sans-serif', // Changed to Inter
                     fontSize: '14px',
                     lineHeight: '22px',
                     fontWeight: '400',
@@ -371,7 +371,7 @@ const SignIn: React.FC = () => {
                 <span 
                   className="ml-3"
                   style={{
-                    fontFamily: 'Roboto, sans-serif',
+                    fontFamily: 'Inter, sans-serif', // Changed to Inter
                     fontSize: '14px',
                     lineHeight: '22px',
                     fontWeight: '400',
@@ -386,7 +386,7 @@ const SignIn: React.FC = () => {
                 href="/auth/forgot-password"
                 className="hover:underline transition-colors"
                 style={{
-                  fontFamily: 'Roboto, sans-serif',
+                  fontFamily: 'Inter, sans-serif', // Changed to Inter
                   fontSize: '14px',
                   lineHeight: '22px',
                   fontWeight: '400',
@@ -406,11 +406,11 @@ const SignIn: React.FC = () => {
               style={{
                 height: '48px',
                 padding: '0 24px',
-                fontFamily: 'Roboto, sans-serif',
+                fontFamily: 'Inter, sans-serif', // Changed to Inter
                 fontSize: '16px',
                 lineHeight: '24px',
-                fontWeight: '500',
-                color: '#1F2937', // Softer dark color
+                fontWeight: '600', // Made bolder
+                color: '#1E40AF', // Stronger blue - but let's test if it works with the theme
                 background: '#C8DEF6FF',
                 opacity: isSubmitting ? 0.7 : 1,
                 cursor: isSubmitting ? 'not-allowed' : 'pointer'
@@ -438,7 +438,7 @@ const SignIn: React.FC = () => {
           <div 
             className="text-center mt-6"
             style={{
-              fontFamily: 'Open Sans, sans-serif',
+              fontFamily: 'Inter, sans-serif', // Changed to Inter
               fontSize: '14px',
               lineHeight: '22px',
               fontWeight: '400',
