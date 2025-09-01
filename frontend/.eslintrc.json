@@ -1,0 +1,10 @@
+{
+  "root": true,
+  "extends": ["next", "next/core-web-vitals", "eslint:recommended"],
+  "plugins": ["@typescript-eslint"],
+  "rules": {
+    "semi": ["error", "always"],
+    "quotes": ["error", "double"],
+    "@typescript-eslint/no-unused-vars": "warn"
+  }
+}

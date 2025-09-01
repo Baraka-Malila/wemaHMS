@@ -1,0 +1,70 @@
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15
+    container_name: wema_postgres
+    environment:
+      POSTGRES_DB: wema_hms
+      POSTGRES_USER: wema_user
+      POSTGRES_PASSWORD: wema_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    networks:
+      - wema_network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: wema_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - wema_network
+
+  # Django Backend
+  backend:
+    build: ./backend
+    container_name: wema_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - DEBUG=1
+      - DB_HOST=db
+      - DB_NAME=wema_hms
+      - DB_USER=wema_user
+      - DB_PASSWORD=wema_password
+      - REDIS_URL=redis://redis:6379/0
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,*
+    depends_on:
+      - db
+      - redis
+    networks:
+      - wema_network
+
+  # Next.js Frontend
+  frontend:
+    build: ./frontend
+    container_name: wema_frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - wema_network
+
+volumes:
+  postgres_data:
+
+networks:
+  wema_network:
+    driver: bridge
