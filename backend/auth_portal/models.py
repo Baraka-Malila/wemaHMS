@@ -6,12 +6,45 @@ import uuid
 
 
 class UserManager(BaseUserManager):
-    def create_user(self, employee_id, password=None, **extra_fields):
-        if not employee_id:
-            raise ValueError('Employee ID is required')
+    def _generate_employee_id(self, role):
+        """Auto-generate employee ID based on role"""
+        role_prefixes = {
+            'ADMIN': 'ADM',
+            'RECEPTION': 'REC',
+            'DOCTOR': 'DOC',
+            'LAB': 'LAB',
+            'PHARMACY': 'PHA',
+            'NURSE': 'NUR',
+            'FINANCE': 'FIN',
+        }
         
-        extra_fields.setdefault('is_active', True)
-        user = self.model(employee_id=employee_id, **extra_fields)
+        prefix = role_prefixes.get(role, 'EMP')
+        
+        # Get the last employee ID with this prefix
+        last_user = User.objects.filter(
+            employee_id__startswith=prefix
+        ).order_by('employee_id').last()
+        
+        if last_user:
+            # Extract number and increment
+            last_number = int(last_user.employee_id[3:])
+            new_number = last_number + 1
+        else:
+            new_number = 1
+        
+        return f"{prefix}{new_number:03d}"
+    
+    def create_user(self, password=None, **extra_fields):
+        role = extra_fields.get('role')
+        if not role:
+            raise ValueError('Role is required')
+        
+        # Auto-generate employee ID if not provided
+        if 'employee_id' not in extra_fields:
+            extra_fields['employee_id'] = self._generate_employee_id(role)
+        
+        extra_fields.setdefault('is_active', False)  # Inactive until admin approval
+        user = self.model(**extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
@@ -19,6 +52,7 @@ class UserManager(BaseUserManager):
     def create_superuser(self, employee_id, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('is_active', True)  # Superuser is always active
         extra_fields.setdefault('role', 'ADMIN')
         
         if extra_fields.get('is_staff') is not True:
@@ -26,7 +60,9 @@ class UserManager(BaseUserManager):
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('Superuser must have is_superuser=True.')
         
-        return self.create_user(employee_id, password, **extra_fields)
+        # For superuser, allow manual employee_id
+        extra_fields['employee_id'] = employee_id
+        return self.create_user(password, **extra_fields)
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -73,6 +109,17 @@ class User(AbstractBaseUser, PermissionsMixin):
         blank=True,
         related_name='created_users'
     )
+    
+    # Approval system
+    is_approved = models.BooleanField(default=False)
+    approved_by = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_users'
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
     
     objects = UserManager()
     

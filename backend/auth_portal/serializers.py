@@ -51,33 +51,17 @@ class LoginSerializer(serializers.Serializer):
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    """Serializer for user registration (admin only)"""
+    """Serializer for user self-registration"""
     password = serializers.CharField(write_only=True, validators=[validate_password])
     confirm_password = serializers.CharField(write_only=True)
     
     class Meta:
         model = User
         fields = [
-            'employee_id', 'full_name', 'email', 'phone_number', 
+            'full_name', 'email', 'phone_number', 
             'role', 'password', 'confirm_password'
         ]
-    
-    def validate_employee_id(self, value):
-        """Validate and format employee ID"""
-        value = value.upper()
-        
-        # Check format using the model validator
-        if not value or len(value) != 6:
-            raise serializers.ValidationError(
-                'Employee ID must be in format: ABC123 (3 letters + 3 numbers)'
-            )
-        
-        if not (value[:3].isalpha() and value[3:].isdigit()):
-            raise serializers.ValidationError(
-                'Employee ID must be in format: ABC123 (3 letters + 3 numbers)'
-            )
-        
-        return value
+        # Remove employee_id since it's auto-generated
     
     def validate(self, attrs):
         if attrs['password'] != attrs['confirm_password']:
@@ -87,15 +71,90 @@ class RegisterSerializer(serializers.ModelSerializer):
         return attrs
     
     def create(self, validated_data):
+        # Employee ID will be auto-generated based on role
+        user = User.objects.create_user(**validated_data)
+        return user
+
+
+class AdminRegisterSerializer(serializers.ModelSerializer):
+    """Serializer for admin creating users directly (approved automatically)"""
+    password = serializers.CharField(write_only=True, validators=[validate_password])
+    confirm_password = serializers.CharField(write_only=True)
+    
+    class Meta:
+        model = User
+        fields = [
+            'full_name', 'email', 'phone_number', 
+            'role', 'password', 'confirm_password'
+        ]
+    
+    def validate(self, attrs):
+        if attrs['password'] != attrs['confirm_password']:
+            raise serializers.ValidationError('Passwords do not match.')
+        
+        attrs.pop('confirm_password')
+        return attrs
+    
+    def create(self, validated_data):
         # Get the admin user creating this account
         request = self.context.get('request')
-        created_by = request.user if request and request.user.is_authenticated else None
+        admin_user = request.user if request and request.user.is_authenticated else None
         
-        user = User.objects.create_user(
-            created_by=created_by,
-            **validated_data
-        )
+        user = User.objects.create_user(**validated_data)
+        
+        # Auto-approve since admin is creating directly
+        user.is_active = True
+        user.is_approved = True
+        user.created_by = admin_user
+        user.approved_by = admin_user
+        user.approved_at = timezone.now()
+        user.save()
+        
         return user
+
+
+class PendingUserSerializer(serializers.ModelSerializer):
+    """Serializer for pending user approval"""
+    
+    class Meta:
+        model = User
+        fields = [
+            'id', 'employee_id', 'full_name', 'email', 
+            'phone_number', 'role', 'created_at'
+        ]
+        read_only_fields = ['id', 'employee_id', 'created_at']
+
+
+class ApproveUserSerializer(serializers.Serializer):
+    """Serializer for admin to approve/reject user"""
+    user_id = serializers.UUIDField()
+    action = serializers.ChoiceField(choices=['approve', 'reject'])
+    
+    def validate_user_id(self, value):
+        try:
+            user = User.objects.get(id=value, is_active=False, is_approved=False)
+        except User.DoesNotExist:
+            raise serializers.ValidationError('User not found or already processed.')
+        
+        return value
+    
+    def save(self):
+        user_id = self.validated_data['user_id']
+        action = self.validated_data['action']
+        
+        user = User.objects.get(id=user_id)
+        admin_user = self.context['request'].user
+        
+        if action == 'approve':
+            user.is_active = True
+            user.is_approved = True
+            user.approved_by = admin_user
+            user.approved_at = timezone.now()
+            user.save()
+            return user
+        else:  # reject
+            user.delete()
+            return None
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):

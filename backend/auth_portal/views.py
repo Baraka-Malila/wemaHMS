@@ -9,8 +9,11 @@ from drf_yasg import openapi
 from .models import User, PasswordResetToken
 from .serializers import (
     LoginSerializer, 
-    RegisterSerializer, 
+    RegisterSerializer,
+    AdminRegisterSerializer,
     UserSerializer,
+    PendingUserSerializer,
+    ApproveUserSerializer,
     PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer,
     ChangePasswordSerializer
@@ -113,11 +116,51 @@ def logout_view(request):
     request_body=RegisterSerializer,
     responses={
         201: openapi.Response(
-            description='User created successfully',
+            description='Registration request submitted',
             examples={
                 'application/json': {
                     'success': True,
-                    'message': 'User created successfully',
+                    'message': 'Registration request submitted for approval',
+                    'employee_id': 'DOC001',
+                    'instructions': 'Wait for admin approval to activate your account'
+                }
+            }
+        ),
+        400: 'Validation error'
+    }
+)
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def register_view(request):
+    """Self-registration for new users (requires admin approval)"""
+    serializer = RegisterSerializer(data=request.data)
+    
+    if serializer.is_valid():
+        user = serializer.save()
+        return Response({
+            'success': True,
+            'message': 'Registration request submitted for approval',
+            'employee_id': user.employee_id,
+            'instructions': 'Wait for admin approval to activate your account'
+        }, status=status.HTTP_201_CREATED)
+    
+    return Response({
+        'success': False,
+        'message': 'Validation error',
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@swagger_auto_schema(
+    method='post',
+    request_body=AdminRegisterSerializer,
+    responses={
+        201: openapi.Response(
+            description='User created successfully by admin',
+            examples={
+                'application/json': {
+                    'success': True,
+                    'message': 'User created and approved successfully',
                     'user': {
                         'employee_id': 'DOC001',
                         'full_name': 'Dr. Jane Smith',
@@ -127,26 +170,26 @@ def logout_view(request):
             }
         ),
         400: 'Validation error',
-        403: 'Only admins can create users'
+        403: 'Only admins can create users directly'
     }
 )
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
-def register_view(request):
-    """Register new user (Admin only)"""
+def admin_create_user_view(request):
+    """Admin creates user directly (auto-approved)"""
     if not request.user.is_admin:
         return Response({
             'success': False,
-            'message': 'Only administrators can create new users'
+            'message': 'Only administrators can create users directly'
         }, status=status.HTTP_403_FORBIDDEN)
     
-    serializer = RegisterSerializer(data=request.data, context={'request': request})
+    serializer = AdminRegisterSerializer(data=request.data, context={'request': request})
     
     if serializer.is_valid():
         user = serializer.save()
         return Response({
             'success': True,
-            'message': 'User created successfully',
+            'message': 'User created and approved successfully',
             'user': UserSerializer(user).data
         }, status=status.HTTP_201_CREATED)
     
@@ -313,7 +356,7 @@ def profile_view(request):
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def users_list_view(request):
-    """List all users (Admin only)"""
+    """List all active users (Admin only)"""
     if not request.user.is_admin:
         return Response({
             'success': False,
@@ -326,3 +369,102 @@ def users_list_view(request):
         'success': True,
         'users': UserSerializer(users, many=True).data
     }, status=status.HTTP_200_OK)
+
+
+@swagger_auto_schema(
+    method='get',
+    responses={
+        200: openapi.Response(
+            description='List of pending user approvals',
+            examples={
+                'application/json': {
+                    'success': True,
+                    'pending_users': [
+                        {
+                            'id': 'uuid',
+                            'employee_id': 'DOC002',
+                            'full_name': 'Dr. John Doe',
+                            'role': 'DOCTOR'
+                        }
+                    ]
+                }
+            }
+        ),
+        403: 'Only admins can view pending approvals'
+    }
+)
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def pending_approvals_view(request):
+    """List users pending approval (Admin only)"""
+    if not request.user.is_admin:
+        return Response({
+            'success': False,
+            'message': 'Only administrators can view pending approvals'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    pending_users = User.objects.filter(
+        is_active=False, 
+        is_approved=False
+    ).order_by('created_at')
+    
+    return Response({
+        'success': True,
+        'pending_users': PendingUserSerializer(pending_users, many=True).data
+    }, status=status.HTTP_200_OK)
+
+
+@swagger_auto_schema(
+    method='post',
+    request_body=ApproveUserSerializer,
+    responses={
+        200: openapi.Response(
+            description='User approved/rejected successfully',
+            examples={
+                'application/json': {
+                    'success': True,
+                    'message': 'User approved successfully',
+                    'user': {
+                        'employee_id': 'DOC002',
+                        'full_name': 'Dr. John Doe',
+                        'is_active': True
+                    }
+                }
+            }
+        ),
+        400: 'Validation error',
+        403: 'Only admins can approve users'
+    }
+)
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def approve_user_view(request):
+    """Approve or reject user registration (Admin only)"""
+    if not request.user.is_admin:
+        return Response({
+            'success': False,
+            'message': 'Only administrators can approve users'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    serializer = ApproveUserSerializer(data=request.data, context={'request': request})
+    
+    if serializer.is_valid():
+        user = serializer.save()
+        
+        if user:  # approved
+            return Response({
+                'success': True,
+                'message': f'User {user.employee_id} approved successfully',
+                'user': UserSerializer(user).data
+            }, status=status.HTTP_200_OK)
+        else:  # rejected
+            return Response({
+                'success': True,
+                'message': 'User registration rejected and removed'
+            }, status=status.HTTP_200_OK)
+    
+    return Response({
+        'success': False,
+        'message': 'Validation error',
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
