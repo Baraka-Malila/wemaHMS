@@ -31,6 +31,7 @@ DJANGO_APPS = [
 
 THIRD_PARTY_APPS = [
     'rest_framework',
+    'rest_framework.authtoken',
     'corsheaders',
     'drf_yasg',
 ]
@@ -96,6 +97,9 @@ CACHES = {
         }
     }
 }
+
+# Custom User Model
+AUTH_USER_MODEL = 'auth_portal.User'
 
 # Django REST Framework
 REST_FRAMEWORK = {
