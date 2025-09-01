@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, FormEvent, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 interface LoginResponse {
@@ -20,12 +20,35 @@ interface LoginResponse {
 
 const SignIn: React.FC = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState<{ employeeId?: string; password?: string; general?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // Auto-fill employee ID from URL params (from registration redirect)
+  useEffect(() => {
+    const employeeIdParam = searchParams.get('employeeId');
+    const messageParam = searchParams.get('message');
+    
+    if (employeeIdParam || messageParam) {
+      if (employeeIdParam) {
+        setEmployeeId(employeeIdParam);
+      }
+      
+      if (messageParam) {
+        setSuccessMessage(messageParam);
+        // Clear the message after 5 seconds
+        setTimeout(() => setSuccessMessage(''), 5000);
+      }
+      
+      // Clear URL parameters after using them (one-time auto-fill)
+      router.replace('/login', undefined);
+    }
+  }, [searchParams, router]);
 
   const validate = () => {
     const newErrors: typeof errors = {};
@@ -64,7 +87,14 @@ const SignIn: React.FC = () => {
         }),
       });
 
-      const data: LoginResponse = await response.json();
+      const text = await response.text();
+      const data: LoginResponse = text ? JSON.parse(text) : {};
+
+      if (!response.ok) {
+        // Handle 400 errors with specific error messages from backend
+        setErrors({ general: data.message || `HTTP error! status: ${response.status}` });
+        return;
+      }
 
       if (data.success && data.token && data.user) {
         // Store authentication data
@@ -179,6 +209,25 @@ const SignIn: React.FC = () => {
             Sign in
           </h1>
           
+          {/* Success Message */}
+          {successMessage && (
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <svg 
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    fill: '#10B981'
+                  }}
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z" />
+                </svg>
+                <p className="text-green-700 text-sm font-medium">{successMessage}</p>
+              </div>
+            </div>
+          )}
+
           {/* General Error Message */}
           {errors.general && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -385,7 +434,7 @@ const SignIn: React.FC = () => {
               </label>
 
               <Link
-                href="/auth/forgot-password"
+                href="/forgot-password"
                 className="hover:underline transition-colors"
                 style={{
                   fontFamily: 'Inter, sans-serif', // Changed to Inter
@@ -449,7 +498,7 @@ const SignIn: React.FC = () => {
           >
             Don&apos;t have an account?{' '}
             <Link
-              href="/auth/register"
+              href="/register"
               className="hover:underline transition-colors"
               style={{ 
                 color: '#4A90E2FF',

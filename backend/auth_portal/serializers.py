@@ -11,15 +11,28 @@ from .models import User, PasswordResetToken
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for user information (safe for public viewing)"""
     portal_access = serializers.ReadOnlyField()
+    remaining_temporary_hours = serializers.SerializerMethodField()
     
     class Meta:
         model = User
         fields = [
             'id', 'employee_id', 'full_name', 'email', 
             'phone_number', 'role', 'is_active', 
-            'created_at', 'last_login', 'portal_access'
+            'created_at', 'last_login', 'portal_access',
+            'remaining_temporary_hours'
         ]
         read_only_fields = ['id', 'created_at', 'last_login']
+    
+    def get_remaining_temporary_hours(self, obj):
+        """Calculate remaining temporary access hours"""
+        if obj.is_approved or not obj.temporary_access_expires:
+            return None
+        
+        remaining = obj.temporary_access_expires - timezone.now()
+        if remaining.total_seconds() <= 0:
+            return 0
+        
+        return round(remaining.total_seconds() / 3600, 1)  # Convert to hours with 1 decimal
 
 
 class LoginSerializer(serializers.Serializer):
@@ -45,6 +58,13 @@ class LoginSerializer(serializers.Serializer):
         
         if not user.is_active:
             raise serializers.ValidationError('User account is disabled.')
+        
+        # Check if user can login (approved or has temporary access)
+        if not user.can_login:
+            if user.temporary_access_expires and timezone.now() >= user.temporary_access_expires:
+                raise serializers.ValidationError('Temporary access expired. Please contact admin for account approval.')
+            else:
+                raise serializers.ValidationError('Account pending admin approval.')
         
         attrs['user'] = user
         return attrs
@@ -73,6 +93,12 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         # Employee ID will be auto-generated based on role
         user = User.objects.create_user(**validated_data)
+        
+        # Set temporary access for 8 hours
+        user.is_active = True
+        user.temporary_access_expires = timezone.now() + timedelta(hours=8)
+        user.save()
+        
         return user
 
 

@@ -139,9 +139,10 @@ def register_view(request):
         user = serializer.save()
         return Response({
             'success': True,
-            'message': 'Registration request submitted for approval',
+            'message': 'Registration successful',
             'employee_id': user.employee_id,
-            'instructions': 'Wait for admin approval to activate your account'
+            'instructions': 'You can login immediately for 8 hours. Admin approval needed for permanent access.',
+            'temporary_access_hours': 8
         }, status=status.HTTP_201_CREATED)
     
     return Response({

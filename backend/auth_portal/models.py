@@ -121,6 +121,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
     approved_at = models.DateTimeField(null=True, blank=True)
     
+    # Temporary access for new users (8 hours)
+    temporary_access_expires = models.DateTimeField(null=True, blank=True)
+    
     objects = UserManager()
     
     USERNAME_FIELD = 'employee_id'
@@ -137,6 +140,18 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def is_admin(self):
         return self.role == 'ADMIN'
+    
+    @property
+    def has_temporary_access(self):
+        """Check if user still has temporary access (8 hours from registration)"""
+        if not self.temporary_access_expires:
+            return False
+        return timezone.now() < self.temporary_access_expires
+    
+    @property
+    def can_login(self):
+        """Check if user can login (either approved or has temporary access)"""
+        return self.is_active and (self.is_approved or self.has_temporary_access)
     
     @property
     def portal_access(self):
