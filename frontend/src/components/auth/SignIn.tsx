@@ -164,15 +164,15 @@ const SignIn: React.FC = () => {
             padding: '24px' // Reduced padding
           }}
         >
-          {/* Sign in Title - Softer color */}
+          {/* Sign in Title - Strong blue with Open Sans font */}
           <h1 
             className="text-center mb-6" // Reduced margin
             style={{
-              fontFamily: 'Open Sans, sans-serif',
+              fontFamily: 'Open Sans, sans-serif', // Clean Open Sans
               fontSize: '24px', // Smaller font
               lineHeight: '32px',
-              fontWeight: '600', // Less bold
-              color: '#2D3748', // Softer than pure black
+              fontWeight: '700', // Bold like your CSS specification
+              color: '#2563EB', // Strong blue to match button
               marginTop: '4px'
             }}
           >
@@ -208,7 +208,7 @@ const SignIn: React.FC = () => {
                   value={employeeId}
                   onChange={(e) => setEmployeeId(e.target.value)}
                   placeholder="Enter your employee ID"
-                  className="w-full border-0 rounded-lg outline-none transition-all duration-200"
+                  className="w-full border-0 rounded-lg outline-none transition-all duration-200 placeholder-gray-400"
                   style={{
                     height: '44px', // Slightly larger for better UX
                     paddingLeft: '44px',
@@ -217,15 +217,16 @@ const SignIn: React.FC = () => {
                     fontSize: '14px',
                     lineHeight: '22px',
                     fontWeight: '400',
-                    background: '#F9FAFB',
-                    borderRadius: '8px'
+                    background: '#F5F5F5', // Less transparent, more solid
+                    borderRadius: '8px',
+                    color: '#1F2937' // Darker text for better readability
                   }}
                   onFocus={(e) => {
                     e.target.style.background = '#FFFFFF';
                     e.target.style.boxShadow = '0 0 0 3px rgba(74, 144, 226, 0.1)';
                   }}
                   onBlur={(e) => {
-                    e.target.style.background = '#F9FAFB';
+                    e.target.style.background = '#F5F5F5';
                     e.target.style.boxShadow = 'none';
                   }}
                 />
@@ -269,7 +270,7 @@ const SignIn: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
-                  className="w-full border-0 rounded-lg outline-none transition-all duration-200"
+                  className="w-full border-0 rounded-lg outline-none transition-all duration-200 placeholder-gray-400"
                   style={{
                     height: '44px',
                     paddingLeft: '44px',
@@ -278,15 +279,16 @@ const SignIn: React.FC = () => {
                     fontSize: '14px',
                     lineHeight: '22px',
                     fontWeight: '400',
-                    background: '#F9FAFB',
-                    borderRadius: '8px'
+                    background: '#F5F5F5', // Less transparent, more solid
+                    borderRadius: '8px',
+                    color: '#1F2937' // Darker text for better readability
                   }}
                   onFocus={(e) => {
                     e.target.style.background = '#FFFFFF';
                     e.target.style.boxShadow = '0 0 0 3px rgba(74, 144, 226, 0.1)';
                   }}
                   onBlur={(e) => {
-                    e.target.style.background = '#F9FAFB';
+                    e.target.style.background = '#F5F5F5';
                     e.target.style.boxShadow = 'none';
                   }}
                 />
