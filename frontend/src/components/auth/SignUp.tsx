@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, FormEvent } from 'react';
+import React, { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import RegistrationSuccessModal from './RegistrationSuccessModal';
@@ -45,6 +45,54 @@ const SignUp: React.FC = () => {
     general?: string;
   }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Form persistence: Save form data to localStorage when user navigates to terms/privacy
+  useEffect(() => {
+    const savedFormData = localStorage.getItem('wema_signup_form_data');
+    const savedAgreeToTerms = localStorage.getItem('wema_signup_agree_terms');
+    
+    if (savedFormData) {
+      try {
+        const parsedData = JSON.parse(savedFormData);
+        setFormData(parsedData);
+      } catch (error) {
+        console.error('Error parsing saved form data:', error);
+      }
+    }
+    
+    if (savedAgreeToTerms) {
+      setAgreeToTerms(savedAgreeToTerms === 'true');
+    }
+  }, []);
+
+  // Save form data whenever it changes
+  useEffect(() => {
+    if (formData.fullName || formData.email || formData.phoneNumber) {
+      localStorage.setItem('wema_signup_form_data', JSON.stringify(formData));
+    }
+  }, [formData]);
+
+  // Save terms agreement when it changes
+  useEffect(() => {
+    localStorage.setItem('wema_signup_agree_terms', agreeToTerms.toString());
+  }, [agreeToTerms]);
+
+  // Clear saved data on successful submission
+  const clearSavedData = () => {
+    localStorage.removeItem('wema_signup_form_data');
+    localStorage.removeItem('wema_signup_agree_terms');
+  };
+
+  // Clear saved data when component unmounts (navigating to different auth page)
+  useEffect(() => {
+    return () => {
+      // Only clear if not going to terms/privacy pages
+      const currentPath = window.location.pathname;
+      if (!currentPath.includes('/terms') && !currentPath.includes('/privacy') && !currentPath.includes('/register')) {
+        clearSavedData();
+      }
+    };
+  }, []);
 
   const departments = [
     { value: 'ADMIN', label: 'Admin' },
@@ -131,14 +179,53 @@ const SignUp: React.FC = () => {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
       const text = await response.text();
       const data: SignUpResponse = text ? JSON.parse(text) : {};
 
+      if (!response.ok) {
+        // Handle 400 errors with specific error messages from backend
+        if (data.errors) {
+          // Map backend field errors to frontend error state
+          const backendErrors: typeof errors = {};
+          
+          // Map backend field names to frontend field names
+          if (data.errors.full_name) {
+            backendErrors.fullName = data.errors.full_name[0];
+          }
+          if (data.errors.role) {
+            backendErrors.department = data.errors.role[0];
+          }
+          if (data.errors.phone_number) {
+            backendErrors.phoneNumber = data.errors.phone_number[0];
+          }
+          if (data.errors.email) {
+            backendErrors.email = data.errors.email[0];
+          }
+          if (data.errors.password) {
+            backendErrors.password = data.errors.password[0];
+          }
+          if (data.errors.confirm_password) {
+            backendErrors.confirmPassword = data.errors.confirm_password[0];
+          }
+          if (data.errors.non_field_errors) {
+            backendErrors.general = data.errors.non_field_errors[0];
+          }
+          
+          // If no specific field errors, show general message
+          if (Object.keys(backendErrors).length === 0) {
+            backendErrors.general = data.message || 'Validation error occurred';
+          }
+          
+          setErrors(backendErrors);
+        } else {
+          setErrors({ general: data.message || `HTTP error! status: ${response.status}` });
+        }
+        return;
+      }
+
       if (data.success && data.employee_id) {
+        // Clear saved form data on successful registration
+        clearSavedData();
         // Show success modal instead of redirecting immediately
         setGeneratedEmployeeId(data.employee_id);
         setShowModal(true);

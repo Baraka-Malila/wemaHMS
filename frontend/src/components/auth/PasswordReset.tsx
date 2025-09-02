@@ -51,12 +51,14 @@ const PasswordReset: React.FC = () => {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
       const text = await response.text();
       const data: PasswordResetResponse = text ? JSON.parse(text) : {};
+
+      if (!response.ok) {
+        // Handle 400 errors with specific error messages from backend
+        setErrors({ general: data.message || `HTTP error! status: ${response.status}` });
+        return;
+      }
 
       if (data.success && data.token) {
         setGeneratedToken(data.token);
