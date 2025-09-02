@@ -4,8 +4,12 @@ from . import views
 app_name = 'admin_portal'
 
 urlpatterns = [
-    # Admin portal endpoints will be added here
-    # path('dashboard/', views.AdminDashboardView.as_view(), name='dashboard'),
-    # path('users/', views.UserListView.as_view(), name='users'),
-    # path('reports/', views.ReportsView.as_view(), name='reports'),
+    # Dashboard APIs
+    path('dashboard/stats/', views.dashboard_stats_view, name='dashboard_stats'),
+    path('dashboard/revenue/', views.revenue_chart_view, name='revenue_chart'),
+    path('dashboard/appointments/', views.appointment_breakdown_view, name='appointment_breakdown'),
+    
+    # Pharmacy & System Monitoring
+    path('pharmacy/alerts/', views.pharmacy_alerts_view, name='pharmacy_alerts'),
+    path('activities/', views.activities_feed_view, name='activities_feed'),
 ]
