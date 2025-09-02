@@ -327,8 +327,7 @@ export default function AdminDashboard() {
         )}
       </div>
 
-      <style dangerouslySetInnerHTML={{
-        __html: `
+      <style jsx>{`
         /* WemaHMS - Admin Dashboard v-2 */
         .page {
           position: relative;
@@ -872,7 +871,7 @@ export default function AdminDashboard() {
           background: #EF4444;
           color: white;
         }
-      `}} />
+      `}</style>
     </div>
   );
 }
