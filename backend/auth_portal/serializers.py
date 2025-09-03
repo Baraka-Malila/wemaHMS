@@ -158,7 +158,8 @@ class ApproveUserSerializer(serializers.Serializer):
     
     def validate_user_id(self, value):
         try:
-            user = User.objects.get(id=value, is_active=False, is_approved=False)
+            # User should not be permanently approved yet, regardless of active status
+            user = User.objects.get(id=value, is_approved=False)
         except User.DoesNotExist:
             raise serializers.ValidationError('User not found or already processed.')
         

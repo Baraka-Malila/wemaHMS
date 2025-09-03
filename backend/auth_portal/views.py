@@ -405,8 +405,9 @@ def pending_approvals_view(request):
         }, status=status.HTTP_403_FORBIDDEN)
     
     pending_users = User.objects.filter(
-        is_active=False, 
         is_approved=False
+    ).exclude(
+        is_superuser=True  # Exclude superuser admin accounts from pending approvals
     ).order_by('created_at')
     
     return Response({
