@@ -63,81 +63,176 @@ export default function AdminDashboard() {
         return;
       }
 
-      // For now, use mock data to match the design
-      setStats({
-        patients_today: 145,
-        patients_yesterday: 123,
-        patients_change_percentage: 18,
-        active_staff: 89,
-        total_staff: 120,
-        staff_breakdown: {
-          DOCTOR: 25,
-          NURSE: 40,
-          ADMIN: 24
-        },
-        appointments_today: 23,
-        scheduled_appointments: 18,
-        walk_in_appointments: 5
-      });
-
-      setActivities([
-        {
-          id: 1,
-          type: 'patient_admission',
-          type_display: 'Patient Admission',
-          message: 'Patient John Doe admitted to Ward 3A',
-          timestamp: '2025-09-03T10:30:00Z',
-          time_ago: '10 min ago',
-          metadata: {}
-        },
-        {
-          id: 2,
-          type: 'staff_update',
-          type_display: 'Staff Update',
-          message: 'Dr. Jane Smith updated patient record for IP2023005',
-          timestamp: '2025-09-03T10:15:00Z',
-          time_ago: '15 min ago',
-          metadata: {}
-        },
-        {
-          id: 3,
-          type: 'medication_added',
-          type_display: 'Medication Added',
-          message: 'New medication "XYZ Drug" added to inventory',
-          timestamp: '2025-09-03T10:00:00Z',
-          time_ago: '1 hour ago',
-          metadata: {}
-        },
-        {
-          id: 4,
-          type: 'staff_clockin',
-          type_display: 'Staff Clock-in',
-          message: 'Nurse Alice Johnson clocked in for shift',
-          timestamp: '2025-09-03T09:45:00Z',
-          time_ago: '2 hours ago',
-          metadata: {}
-        },
-        {
-          id: 5,
-          type: 'system_backup',
-          type_display: 'System Backup',
-          message: 'System backup completed successfully',
-          timestamp: '2025-09-03T09:30:00Z',
-          time_ago: '3 hours ago',
-          metadata: {}
+      // Fetch dashboard stats from real API
+      try {
+        const statsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/admin/dashboard/stats/`, {
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json();
+          setStats(statsData);
+        } else {
+          console.warn('Dashboard stats API not available, using mock data');
+          // Fallback to mock data
+          setStats({
+            patients_today: 145,
+            patients_yesterday: 123,
+            patients_change_percentage: 18,
+            active_staff: 89,
+            total_staff: 120,
+            staff_breakdown: {
+              DOCTOR: 25,
+              NURSE: 40,
+              ADMIN: 24
+            },
+            appointments_today: 23,
+            scheduled_appointments: 18,
+            walk_in_appointments: 5
+          });
         }
-      ]);
+      } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+        // Fallback to mock data
+        setStats({
+          patients_today: 145,
+          patients_yesterday: 123,
+          patients_change_percentage: 18,
+          active_staff: 89,
+          total_staff: 120,
+          staff_breakdown: {
+            DOCTOR: 25,
+            NURSE: 40,
+            ADMIN: 24
+          },
+          appointments_today: 23,
+          scheduled_appointments: 18,
+          walk_in_appointments: 5
+        });
+      }
 
-      setPharmacyAlerts({
-        critical: [
-          { name: 'Amoxicillin', stock: 8, threshold: 10 },
-          { name: 'Insulin', stock: 5, threshold: 10 }
-        ],
-        low_stock: [
-          { name: 'Paracetamol', stock: 15, threshold: 20 },
-          { name: 'Bandages', stock: 9, threshold: 30 }
-        ]
-      });
+      // Fetch activities from real API
+      try {
+        const activitiesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/admin/activities/`, {
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (activitiesResponse.ok) {
+          const activitiesData = await activitiesResponse.json();
+          setActivities(activitiesData.activities || activitiesData);
+        } else {
+          console.warn('Activities API not available, using mock data');
+          // Fallback to mock data
+          setActivities([
+            {
+              id: 1,
+              type: 'patient_admission',
+              type_display: 'Patient Admission',
+              message: 'Patient John Doe admitted to Ward 3A (Mock)',
+              timestamp: '2025-09-03T10:30:00Z',
+              time_ago: '10 min ago',
+              metadata: {}
+            },
+            {
+              id: 2,
+              type: 'staff_update',
+              type_display: 'Staff Update',
+              message: 'Dr. Jane Smith updated patient record (Mock)',
+              timestamp: '2025-09-03T10:15:00Z',
+              time_ago: '15 min ago',
+              metadata: {}
+            },
+            {
+              id: 3,
+              type: 'system_backup',
+              type_display: 'System Backup',
+              message: 'System backup completed successfully',
+              timestamp: '2025-09-03T09:30:00Z',
+              time_ago: '3 hours ago',
+              metadata: {}
+            }
+          ]);
+        }
+      } catch (error) {
+        console.error('Error fetching activities:', error);
+        // Fallback to mock data
+        setActivities([
+          {
+            id: 1,
+            type: 'patient_admission',
+            type_display: 'Patient Admission',
+            message: 'Patient John Doe admitted to Ward 3A (Mock)',
+            timestamp: '2025-09-03T10:30:00Z',
+            time_ago: '10 min ago',
+            metadata: {}
+          },
+          {
+            id: 2,
+            type: 'staff_update',
+            type_display: 'Staff Update',
+            message: 'Dr. Jane Smith updated patient record (Mock)',
+            timestamp: '2025-09-03T10:15:00Z',
+            time_ago: '15 min ago',
+            metadata: {}
+          },
+          {
+            id: 3,
+            type: 'system_backup',
+            type_display: 'System Backup',
+            message: 'System backup completed successfully',
+            timestamp: '2025-09-03T09:30:00Z',
+            time_ago: '3 hours ago',
+            metadata: {}
+          }
+        ]);
+      }
+
+      // Fetch pharmacy alerts from real API
+      try {
+        const pharmacyResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/admin/pharmacy/alerts/`, {
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (pharmacyResponse.ok) {
+          const pharmacyData = await pharmacyResponse.json();
+          setPharmacyAlerts(pharmacyData);
+        } else {
+          console.warn('Pharmacy alerts API not available, using mock data');
+          // Fallback to mock data
+          setPharmacyAlerts({
+            critical: [
+              { name: 'Amoxicillin (Mock)', stock: 8, threshold: 10 },
+              { name: 'Insulin (Mock)', stock: 5, threshold: 10 }
+            ],
+            low_stock: [
+              { name: 'Paracetamol (Mock)', stock: 15, threshold: 20 },
+              { name: 'Bandages (Mock)', stock: 9, threshold: 30 }
+            ]
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching pharmacy alerts:', error);
+        // Fallback to mock data
+        setPharmacyAlerts({
+          critical: [
+            { name: 'Amoxicillin (Mock)', stock: 8, threshold: 10 },
+            { name: 'Insulin (Mock)', stock: 5, threshold: 10 }
+          ],
+          low_stock: [
+            { name: 'Paracetamol (Mock)', stock: 15, threshold: 20 },
+            { name: 'Bandages (Mock)', stock: 9, threshold: 30 }
+          ]
+        });
+      }
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
