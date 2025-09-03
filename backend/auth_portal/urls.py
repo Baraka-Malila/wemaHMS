@@ -13,6 +13,8 @@ urlpatterns = [
     path('admin/create-user/', views.admin_create_user_view, name='admin_create_user'),
     path('admin/pending-approvals/', views.pending_approvals_view, name='pending_approvals'),
     path('admin/approve-user/', views.approve_user_view, name='approve_user'),
+    path('admin/update-user/<uuid:user_id>/', views.update_user_view, name='update_user'),
+    path('admin/delete-user/<uuid:user_id>/', views.delete_user_view, name='delete_user'),
     
     # Password management
     path('password-reset-request/', views.password_reset_request_view, name='password_reset_request'),

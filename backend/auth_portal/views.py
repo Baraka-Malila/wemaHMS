@@ -470,3 +470,138 @@ def approve_user_view(request):
         'message': 'Validation error',
         'errors': serializer.errors
     }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@swagger_auto_schema(
+    method='put',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'full_name': openapi.Schema(type=openapi.TYPE_STRING),
+            'email': openapi.Schema(type=openapi.TYPE_STRING),
+            'phone_number': openapi.Schema(type=openapi.TYPE_STRING),
+            'role': openapi.Schema(type=openapi.TYPE_STRING, enum=['DOCTOR', 'NURSE', 'PHARMACY', 'LAB', 'FINANCE', 'RECEPTION']),
+        }
+    ),
+    responses={
+        200: openapi.Response(
+            description='User updated successfully',
+            examples={
+                'application/json': {
+                    'success': True,
+                    'message': 'User updated successfully',
+                    'user': {
+                        'employee_id': 'DOC002',
+                        'full_name': 'Dr. John Doe Updated',
+                        'email': 'john.updated@hospital.com'
+                    }
+                }
+            }
+        ),
+        400: 'Validation error',
+        403: 'Only admins can update users',
+        404: 'User not found'
+    }
+)
+@api_view(['PUT'])
+@permission_classes([permissions.IsAuthenticated])
+def update_user_view(request, user_id):
+    """Update user information (Admin only)"""
+    if not request.user.is_admin:
+        return Response({
+            'success': False,
+            'message': 'Only administrators can update users'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({
+            'success': False,
+            'message': 'User not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # Update user fields
+    full_name = request.data.get('full_name')
+    email = request.data.get('email')
+    phone_number = request.data.get('phone_number')
+    role = request.data.get('role')
+    
+    if full_name:
+        user.full_name = full_name
+    if email:
+        # Check email uniqueness
+        if User.objects.filter(email=email).exclude(id=user_id).exists():
+            return Response({
+                'success': False,
+                'message': 'Email already exists'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        user.email = email
+    if phone_number:
+        user.phone_number = phone_number
+    if role:
+        if role not in ['DOCTOR', 'NURSE', 'PHARMACY', 'LAB', 'FINANCE', 'RECEPTION', 'ADMIN']:
+            return Response({
+                'success': False,
+                'message': 'Invalid role'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        user.role = role
+    
+    user.save()
+    
+    return Response({
+        'success': True,
+        'message': 'User updated successfully',
+        'user': UserSerializer(user).data
+    }, status=status.HTTP_200_OK)
+
+
+@swagger_auto_schema(
+    method='delete',
+    responses={
+        200: openapi.Response(
+            description='User deleted successfully',
+            examples={
+                'application/json': {
+                    'success': True,
+                    'message': 'User deleted successfully'
+                }
+            }
+        ),
+        403: 'Only admins can delete users',
+        404: 'User not found'
+    }
+)
+@api_view(['DELETE'])
+@permission_classes([permissions.IsAuthenticated])
+def delete_user_view(request, user_id):
+    """Delete user (Admin only)"""
+    if not request.user.is_admin:
+        return Response({
+            'success': False,
+            'message': 'Only administrators can delete users'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({
+            'success': False,
+            'message': 'User not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # Prevent deletion of admin users
+    if user.is_admin:
+        return Response({
+            'success': False,
+            'message': 'Cannot delete admin users'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Store user info for response
+    employee_id = user.employee_id
+    user.delete()
+    
+    return Response({
+        'success': True,
+        'message': f'User {employee_id} deleted successfully'
+    }, status=status.HTTP_200_OK)
