@@ -406,11 +406,6 @@ export default function StaffManagement() {
   };
 
   const handleDeleteStaff = async (staffId: string, staffName: string) => {
-    // Note: Delete endpoint may not be available in the current API
-    // This is a placeholder for when the endpoint is implemented
-    alert(`Delete functionality for ${staffName} is not yet implemented in the API. Please contact the backend developer to add the delete endpoint.`);
-    return;
-    
     if (!confirm(`Are you sure you want to delete ${staffName}?`)) return;
     
     try {
@@ -422,23 +417,18 @@ export default function StaffManagement() {
           'Content-Type': 'application/json',
         },
       });
+
+      const data = await response.json();
       
-      if (response.ok) {
+      if (data.success) {
         fetchStaffData(); // Refresh data
-        alert('Staff member deleted successfully');
+        alert(data.message);
       } else {
-        let errorMessage = 'Unknown error';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorData.detail || 'Delete failed';
-        } catch (parseError) {
-          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        }
-        alert(`Failed to delete staff: ${errorMessage}`);
+        alert(`Error: ${data.message}`);
       }
     } catch (error) {
-      console.error('Error deleting staff:', error);
-      alert('Network error deleting staff. Please try again.');
+      console.error('Delete error:', error);
+      alert('Failed to delete staff member. Please try again.');
     }
   };
 
@@ -449,19 +439,8 @@ export default function StaffManagement() {
   const handleSaveEdit = async () => {
     if (!editingStaff) return;
 
-    // Note: Update endpoint may not be available in the current API
-    // This is a placeholder for when the endpoint is implemented
-    alert(`Edit functionality for ${editingStaff?.full_name || 'this user'} is not yet implemented in the API. Please contact the backend developer to add the update endpoint.`);
-    setEditingStaff(null);
-    return;
-
     try {
       const token = localStorage.getItem('auth_token');
-      
-      // Parse full name into first and last name for the API
-      const nameParts = editingStaff?.full_name?.trim().split(' ') || [];
-      const first_name = nameParts[0] || '';
-      const last_name = nameParts.slice(1).join(' ') || '';
       
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/auth/admin/update-user/${editingStaff?.id}/`, {
         method: 'PUT',
@@ -470,32 +449,25 @@ export default function StaffManagement() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          first_name,
-          last_name,
+          full_name: editingStaff?.full_name,
           email: editingStaff?.email,
           role: editingStaff?.role,
-          phone_number: editingStaff?.phone_number,
-          is_active: editingStaff?.is_active
+          phone_number: editingStaff?.phone_number
         }),
       });
+
+      const data = await response.json();
       
-      if (response.ok) {
+      if (data.success) {
         fetchStaffData(); // Refresh data
         setEditingStaff(null);
-        alert('Staff updated successfully');
+        alert(data.message);
       } else {
-        let errorMessage = 'Unknown error';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorData.detail || 'Update failed';
-        } catch (parseError) {
-          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        }
-        alert(`Failed to update staff: ${errorMessage}`);
+        alert(`Error: ${data.message}`);
       }
     } catch (error) {
-      console.error('Error updating staff:', error);
-      alert('Network error updating staff. Please try again.');
+      console.error('Update error:', error);
+      alert('Failed to update staff member. Please try again.');
     }
   };
 
@@ -783,7 +755,7 @@ export default function StaffManagement() {
                 color: '#171A1F'
               }}>Pending Approvals</h3>
               
-              <div className="space-y-3 max-h-64 overflow-y-auto">
+              <div className="space-y-3 max-h-96 overflow-y-auto">
                 {pendingApprovals.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     No pending approvals
