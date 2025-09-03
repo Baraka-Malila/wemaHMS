@@ -14,6 +14,7 @@ interface Staff {
   created_at: string;
   last_login: string | null;
   portal_access: string;
+  remaining_temporary_hours: number | null;
 }
 
 interface PendingApproval {
@@ -272,6 +273,19 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ isOpen, onClose
 };
 
 export default function StaffManagement() {
+  // Helper function to determine if a user is truly active
+  const isUserTrulyActive = (staff: Staff): boolean => {
+    // If user is not active, they're definitely inactive
+    if (!staff.is_active) return false;
+    
+    // If user has temporary access (remaining_temporary_hours is not null), check if it's expired
+    if (staff.remaining_temporary_hours !== null && staff.remaining_temporary_hours <= 0) {
+      return false;
+    }
+    
+    return true;
+  };
+
   const [loading, setLoading] = useState(true);
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [filteredStaff, setFilteredStaff] = useState<Staff[]>([]);
@@ -510,7 +524,7 @@ export default function StaffManagement() {
               lineHeight: '32px',
               fontWeight: '700',
               color: '#171A1F'
-            }}>{staffList.length}</div>
+            }}>{staffList.filter(staff => isUserTrulyActive(staff)).length}</div>
             <div style={{
               fontFamily: 'Roboto, sans-serif',
               fontSize: '12px',
@@ -687,15 +701,29 @@ export default function StaffManagement() {
                           <span 
                             className="px-2 py-1 rounded text-xs"
                             style={{
-                              background: staff.is_active ? '#DCFCE7' : '#FEE2E2',
-                              color: staff.is_active ? '#166534' : '#DC2626',
+                              background: isUserTrulyActive(staff) ? '#DCFCE7' : '#FEE2E2',
+                              color: isUserTrulyActive(staff) ? '#166534' : '#DC2626',
                               fontFamily: 'Roboto, sans-serif',
                               fontSize: '11px',
                               fontWeight: '500'
                             }}
                           >
-                            {staff.is_active ? 'Active' : 'Inactive'}
+                            {isUserTrulyActive(staff) ? 'Active' : 'Inactive'}
                           </span>
+                          {staff.remaining_temporary_hours !== null && (
+                            <span 
+                              className="px-2 py-1 rounded text-xs"
+                              style={{
+                                background: staff.remaining_temporary_hours > 0 ? '#FEF3C7' : '#FEE2E2',
+                                color: staff.remaining_temporary_hours > 0 ? '#92400E' : '#DC2626',
+                                fontFamily: 'Roboto, sans-serif',
+                                fontSize: '11px',
+                                fontWeight: '500'
+                              }}
+                            >
+                              Temp: {staff.remaining_temporary_hours > 0 ? `${staff.remaining_temporary_hours}h left` : 'Expired'}
+                            </span>
+                          )}
                           <div className="flex space-x-1">
                             <button
                               onClick={() => handleEditStaff(staff)}
