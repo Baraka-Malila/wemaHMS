@@ -165,10 +165,22 @@ export default function AdminDashboard() {
       >
         <div className="flex items-center gap-3">
           <span className="text-lg">❄️</span>
-          <span className="text-lg font-bold text-blue-600" style={{ fontFamily: 'Open Sans, sans-serif' }}>WemaHMS</span>
+          <span className="text-lg font-bold" style={{ 
+            fontFamily: 'Open Sans, sans-serif',
+            fontSize: '25px',
+            lineHeight: '25px',
+            fontWeight: '700',
+            color: '#4A90E2FF'
+          }}>WemaHMS</span>
         </div>
         
-        <div className="absolute left-1/2 transform -translate-x-1/2 text-lg font-semibold text-blue-600">ADMIN</div>
+        <div className="absolute left-1/2 transform -translate-x-1/2 text-lg font-semibold" style={{
+          fontFamily: 'Open Sans, sans-serif',
+          fontSize: '25px',
+          lineHeight: '25px',
+          fontWeight: '700',
+          color: '#4A90E2FF'
+        }}>ADMIN</div>
         
         <div className="flex items-center space-x-4">
           <button className="p-1.5 hover:bg-gray-100 rounded-lg">
@@ -180,7 +192,7 @@ export default function AdminDashboard() {
           <button className="p-1.5 hover:bg-gray-100 rounded-lg">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.5">
               <circle cx="12" cy="12" r="3"/>
-              <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1 1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
           </button>
           <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
@@ -196,7 +208,7 @@ export default function AdminDashboard() {
           style={{ background: '#F8F9FA' }}
         >
           <nav className="flex-1 p-6 space-y-2">
-            <div className="flex items-center gap-3 px-3 py-3 text-white rounded-lg font-medium" style={{ background: '#6B7280' }}>
+            <div className="flex items-center gap-3 px-3 py-3 text-white rounded-lg font-medium" style={{ background: '#9CA3AF' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <rect x="3" y="3" width="7" height="7"/>
                 <rect x="14" y="3" width="7" height="7"/>
@@ -289,24 +301,24 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* Total Patients Today - Special Blue Card */}
                 <div 
-                  className="p-6 rounded-lg border"
+                  className="p-6 rounded-xl"
                   style={{ 
                     background: '#F2F7FD',
-                    borderColor: '#E5E7EB',
-                    boxShadow: '0px 0px 1px rgba(23, 26, 31, 0.08), 0px 0px 2px rgba(23, 26, 31, 0.08)'
+                    border: '1px solid rgba(229, 231, 235, 0.6)',
+                    boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
                   }}
                 >
                   <h3 className="mb-2" style={{
-                    fontFamily: 'Open Sans, sans-serif',
+                    fontFamily: 'Roboto, sans-serif',
                     fontSize: '14px',
                     lineHeight: '20px',
                     fontWeight: '600',
                     color: '#565D6D'
                   }}>Total Patients Today</h3>
                   <div className="mb-1" style={{
-                    fontFamily: 'Roboto, sans-serif',
-                    fontSize: '32px',
-                    lineHeight: '40px',
+                    fontFamily: 'Open Sans, sans-serif',
+                    fontSize: '48px',
+                    lineHeight: '56px',
                     fontWeight: '700',
                     color: '#171A1F'
                   }}>145</div>
@@ -320,9 +332,13 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Active Staff Members */}
-                <div className="p-6 rounded-lg border border-gray-200 shadow-sm" style={{ background: '#F8F9FA' }}>
+                <div className="p-6 rounded-xl" style={{ 
+                  background: '#F8F9FA',
+                  border: '1px solid rgba(229, 231, 235, 0.6)',
+                  boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
+                }}>
                   <h3 className="mb-2" style={{
-                    fontFamily: 'Open Sans, sans-serif',
+                    fontFamily: 'Roboto, sans-serif',
                     fontSize: '14px',
                     lineHeight: '20px',
                     fontWeight: '600',
@@ -356,22 +372,26 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Upcoming Appointments - Donut Chart */}
-                <div className="p-6 rounded-lg border border-gray-200 shadow-sm flex flex-col items-center" style={{ background: '#F8F9FA' }}>
-                  <div className="mb-2" style={{
-                    fontFamily: 'Open Sans, sans-serif',
+                <div className="p-4 rounded-xl flex flex-col items-center justify-center" style={{ 
+                  background: '#F8F9FA',
+                  border: '1px solid rgba(229, 231, 235, 0.6)',
+                  boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
+                }}>
+                  <div className="mb-3" style={{
+                    fontFamily: 'Roboto, sans-serif',
                     fontSize: '14px',
                     lineHeight: '20px',
                     fontWeight: '600',
                     color: '#565D6D'
                   }}>Appointments</div>
-                  <div className="relative w-28 h-28 mb-4">
-                    <svg className="w-28 h-28 transform -rotate-90" viewBox="0 0 120 120">
+                  <div className="relative w-40 h-40 mb-3">
+                    <svg className="w-40 h-40 transform -rotate-90" viewBox="0 0 120 120">
                       <circle
                         cx="60"
                         cy="60"
                         r="35"
                         fill="none"
-                        stroke="#e5e7eb"
+                        stroke="#C7D2FE"
                         strokeWidth="14"
                       />
                       <circle
@@ -379,26 +399,27 @@ export default function AdminDashboard() {
                         cy="60"
                         r="35"
                         fill="none"
-                        stroke="#3b82f6"
+                        stroke="#4A90E2"
                         strokeWidth="14"
                         strokeDasharray="175 50"
                       />
-                      <text x="60" y="70" className="text-xl font-bold fill-current" style={{
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span style={{
                         fontFamily: 'Roboto, sans-serif',
-                        fontSize: '20px',
-                        lineHeight: '28px',
+                        fontSize: '28px',
+                        lineHeight: '32px',
                         fontWeight: '700',
                         color: '#171A1F'
-                      }} textAnchor="middle" transform="rotate(90 60 60)">
-                        23
-                      </text>
-                    </svg>
+                      }}>23</span>
+                    </div>
                   </div>
-                  <button className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700" style={{
+                  <button className="px-4 py-2 text-white text-sm rounded-md hover:opacity-90" style={{
                     fontFamily: 'Roboto, sans-serif',
                     fontSize: '12px',
                     lineHeight: '16px',
-                    fontWeight: '500'
+                    fontWeight: '500',
+                    background: '#4A90E2'
                   }}>
                     View Schedule
                   </button>
@@ -408,71 +429,81 @@ export default function AdminDashboard() {
               {/* Middle Row - Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Daily Revenue Summary - Line Chart */}
-                <div className="lg:col-span-2 p-6 rounded-lg border border-gray-200 shadow-sm" style={{ background: '#F8F9FA' }}>
-                  <h3 className="mb-4" style={{
-                    fontFamily: 'Open Sans, sans-serif',
-                    fontSize: '20px',
-                    lineHeight: '28px',
+                <div className="lg:col-span-2 p-6 rounded-xl" style={{ 
+                  background: '#F8F9FA',
+                  border: '1px solid rgba(229, 231, 235, 0.6)',
+                  boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
+                }}>
+                  <h3 className="mb-3" style={{
+                    fontFamily: 'Roboto, sans-serif',
+                    fontSize: '14px',
+                    lineHeight: '20px',
                     fontWeight: '600',
-                    color: '#171A1F'
+                    color: '#565D6D'
                   }}>Daily Revenue Summary</h3>
-                  <div className="relative h-[300px] w-full">
-                    <svg className="w-full h-full" viewBox="0 0 700 300">
+                  <div className="relative h-[320px] w-full">
+                    <svg className="w-full h-full" viewBox="0 0 700 320">
                       {/* Grid lines - Horizontal */}
                       <g stroke="#f3f4f6" strokeWidth="1">
-                        <line x1="50" y1="45" x2="650" y2="45" />
-                        <line x1="50" y1="90" x2="650" y2="90" />
-                        <line x1="50" y1="135" x2="650" y2="135" />
-                        <line x1="50" y1="180" x2="650" y2="180" />
-                        <line x1="50" y1="225" x2="650" y2="225" />
+                        <line x1="50" y1="40" x2="650" y2="40" />
+                        <line x1="50" y1="88" x2="650" y2="88" />
+                        <line x1="50" y1="136" x2="650" y2="136" />
+                        <line x1="50" y1="184" x2="650" y2="184" />
+                        <line x1="50" y1="232" x2="650" y2="232" />
+                        <line x1="50" y1="280" x2="650" y2="280" />
                       </g>
                       
                       {/* Y-axis scale labels */}
-                      <text x="35" y="50" textAnchor="end" className="text-xs fill-gray-500">$75k</text>
-                      <text x="35" y="95" textAnchor="end" className="text-xs fill-gray-500">$60k</text>
-                      <text x="35" y="140" textAnchor="end" className="text-xs fill-gray-500">$45k</text>
-                      <text x="35" y="185" textAnchor="end" className="text-xs fill-gray-500">$30k</text>
-                      <text x="35" y="230" textAnchor="end" className="text-xs fill-gray-500">$15k</text>
+                      <text x="35" y="45" textAnchor="end" className="text-xs fill-gray-500">$75k</text>
+                      <text x="35" y="93" textAnchor="end" className="text-xs fill-gray-500">$60k</text>
+                      <text x="35" y="141" textAnchor="end" className="text-xs fill-gray-500">$45k</text>
+                      <text x="35" y="189" textAnchor="end" className="text-xs fill-gray-500">$30k</text>
+                      <text x="35" y="237" textAnchor="end" className="text-xs fill-gray-500">$15k</text>
+                      <text x="35" y="285" textAnchor="end" className="text-xs fill-gray-500">$0</text>
                       
                       {/* Line chart path matching the image */}
                       <path
-                        d="M 80 225 L 180 205 L 280 175 L 380 185 L 480 155 L 580 135 L 620 130"
+                        d="M 80 280 L 180 240 L 280 136 L 380 156 L 480 88 L 580 58 L 620 48"
                         fill="none"
-                        stroke="#3b82f6"
+                        stroke="#4A90E2"
                         strokeWidth="3"
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       />
                       
                       {/* Data points */}
-                      <circle cx="80" cy="225" r="4" fill="#3b82f6" />
-                      <circle cx="180" cy="205" r="4" fill="#3b82f6" />
-                      <circle cx="280" cy="175" r="4" fill="#3b82f6" />
-                      <circle cx="380" cy="185" r="4" fill="#3b82f6" />
-                      <circle cx="480" cy="155" r="4" fill="#3b82f6" />
-                      <circle cx="580" cy="135" r="4" fill="#3b82f6" />
-                      <circle cx="620" cy="130" r="4" fill="#3b82f6" />
+                      <circle cx="80" cy="280" r="4" fill="#4A90E2" />
+                      <circle cx="180" cy="240" r="4" fill="#4A90E2" />
+                      <circle cx="280" cy="136" r="4" fill="#4A90E2" />
+                      <circle cx="380" cy="156" r="4" fill="#4A90E2" />
+                      <circle cx="480" cy="88" r="4" fill="#4A90E2" />
+                      <circle cx="580" cy="58" r="4" fill="#4A90E2" />
+                      <circle cx="620" cy="48" r="4" fill="#4A90E2" />
                       
                       {/* X-axis labels */}
-                      <text x="80" y="260" textAnchor="middle" className="text-xs fill-gray-500">Mon</text>
-                      <text x="180" y="260" textAnchor="middle" className="text-xs fill-gray-500">Tue</text>
-                      <text x="280" y="260" textAnchor="middle" className="text-xs fill-gray-500">Wed</text>
-                      <text x="380" y="260" textAnchor="middle" className="text-xs fill-gray-500">Thu</text>
-                      <text x="480" y="260" textAnchor="middle" className="text-xs fill-gray-500">Fri</text>
-                      <text x="580" y="260" textAnchor="middle" className="text-xs fill-gray-500">Sat</text>
-                      <text x="620" y="260" textAnchor="middle" className="text-xs fill-gray-500">Sun</text>
+                      <text x="80" y="305" textAnchor="middle" className="text-xs fill-gray-500">Mon</text>
+                      <text x="180" y="305" textAnchor="middle" className="text-xs fill-gray-500">Tue</text>
+                      <text x="280" y="305" textAnchor="middle" className="text-xs fill-gray-500">Wed</text>
+                      <text x="380" y="305" textAnchor="middle" className="text-xs fill-gray-500">Thu</text>
+                      <text x="480" y="305" textAnchor="middle" className="text-xs fill-gray-500">Fri</text>
+                      <text x="580" y="305" textAnchor="middle" className="text-xs fill-gray-500">Sat</text>
+                      <text x="620" y="305" textAnchor="middle" className="text-xs fill-gray-500">Sun</text>
                     </svg>
                   </div>
                 </div>
 
                 {/* Pharmacy Inventory Alerts */}
-                <div className="p-6 rounded-lg border border-gray-200 shadow-sm" style={{ background: '#F8F9FA' }}>
+                <div className="p-6 rounded-xl" style={{ 
+                  background: '#F8F9FA',
+                  border: '1px solid rgba(229, 231, 235, 0.6)',
+                  boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
+                }}>
                   <h3 className="mb-4" style={{
-                    fontFamily: 'Open Sans, sans-serif',
-                    fontSize: '20px',
-                    lineHeight: '28px',
+                    fontFamily: 'Roboto, sans-serif',
+                    fontSize: '14px',
+                    lineHeight: '20px',
                     fontWeight: '600',
-                    color: '#171A1F'
+                    color: '#565D6D'
                   }}>Pharmacy Inventory Alerts</h3>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center p-3 rounded-lg" style={{ background: '#F3F4F6' }}>
@@ -627,13 +658,17 @@ export default function AdminDashboard() {
               {/* Bottom Row - Activities and Status */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Recent Activities */}
-                <div className="lg:col-span-2 p-6 rounded-lg border border-gray-200 shadow-sm" style={{ background: '#F8F9FA' }}>
+                <div className="lg:col-span-2 p-6 rounded-xl" style={{ 
+                  background: '#F8F9FA',
+                  border: '1px solid rgba(229, 231, 235, 0.6)',
+                  boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
+                }}>
                   <h3 className="mb-4" style={{
-                    fontFamily: 'Open Sans, sans-serif',
-                    fontSize: '20px',
-                    lineHeight: '28px',
+                    fontFamily: 'Roboto, sans-serif',
+                    fontSize: '14px',
+                    lineHeight: '20px',
                     fontWeight: '600',
-                    color: '#171A1F'
+                    color: '#565D6D'
                   }}>Recent Activities</h3>
                   <div className="space-y-4">
                     {activities.map((activity) => (
@@ -691,13 +726,17 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* System Status */}
-                <div className="p-6 rounded-lg border border-gray-200 shadow-sm" style={{ background: '#F8F9FA' }}>
+                <div className="p-6 rounded-xl" style={{ 
+                  background: '#F8F9FA',
+                  border: '1px solid rgba(229, 231, 235, 0.6)',
+                  boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
+                }}>
                   <h3 className="mb-4" style={{
-                    fontFamily: 'Open Sans, sans-serif',
-                    fontSize: '20px',
-                    lineHeight: '28px',
+                    fontFamily: 'Roboto, sans-serif',
+                    fontSize: '14px',
+                    lineHeight: '20px',
                     fontWeight: '600',
-                    color: '#171A1F'
+                    color: '#565D6D'
                   }}>System Status</h3>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
