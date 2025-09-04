@@ -39,6 +39,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     'auth_portal',
     'admin_portal',
+    'patients',
     'pharmacy',
     'reception',
 ]

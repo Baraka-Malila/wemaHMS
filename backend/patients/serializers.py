@@ -1,0 +1,159 @@
+from rest_framework import serializers
+from django.contrib.auth import get_user_model
+from .models import Patient, PatientStatusHistory, PatientNote
+
+User = get_user_model()
+
+
+class PatientSerializer(serializers.ModelSerializer):
+    """Main patient serializer with all fields"""
+    
+    age = serializers.ReadOnlyField()
+    bmi = serializers.ReadOnlyField()
+    is_new_patient = serializers.ReadOnlyField()
+    created_by_name = serializers.CharField(source='created_by.full_name', read_only=True)
+    last_updated_by_name = serializers.CharField(source='last_updated_by.full_name', read_only=True)
+    
+    class Meta:
+        model = Patient
+        fields = [
+            'id', 'patient_id', 'full_name', 'phone_number', 'gender', 'date_of_birth',
+            'emergency_contact_name', 'emergency_contact_phone', 'address', 'tribe',
+            'weight', 'height', 'blood_group', 'allergies', 'chronic_conditions',
+            'file_fee_paid', 'file_fee_amount', 'file_fee_payment_date',
+            'current_status', 'current_location',
+            'created_at', 'updated_at', 'created_by_name', 'last_updated_by_name',
+            'age', 'bmi', 'is_new_patient'
+        ]
+        read_only_fields = [
+            'id', 'patient_id', 'created_at', 'updated_at', 'file_fee_payment_date',
+            'age', 'bmi', 'is_new_patient', 'created_by_name', 'last_updated_by_name'
+        ]
+    
+    def validate_date_of_birth(self, value):
+        """Ensure date of birth is not in the future"""
+        from datetime import date
+        if value > date.today():
+            raise serializers.ValidationError("Date of birth cannot be in the future.")
+        return value
+    
+    def validate_phone_number(self, value):
+        """Custom phone number validation"""
+        if not value.replace('+', '').replace('-', '').replace(' ', '').isdigit():
+            raise serializers.ValidationError("Phone number must contain only digits, +, -, and spaces.")
+        return value
+
+
+class PatientSearchSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for search results"""
+    
+    age = serializers.ReadOnlyField()
+    
+    class Meta:
+        model = Patient
+        fields = [
+            'id', 'patient_id', 'full_name', 'phone_number', 'gender',
+            'current_status', 'current_location', 'age', 'created_at'
+        ]
+
+
+class PatientDetailSerializer(serializers.ModelSerializer):
+    """Detailed patient information with related data"""
+    
+    age = serializers.ReadOnlyField()
+    bmi = serializers.ReadOnlyField()
+    is_new_patient = serializers.ReadOnlyField()
+    created_by_name = serializers.CharField(source='created_by.full_name', read_only=True)
+    created_by_role = serializers.CharField(source='created_by.role', read_only=True)
+    last_updated_by_name = serializers.CharField(source='last_updated_by.full_name', read_only=True)
+    
+    # Include recent status history
+    recent_status_changes = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Patient
+        fields = [
+            'id', 'patient_id', 'full_name', 'phone_number', 'gender', 'date_of_birth',
+            'emergency_contact_name', 'emergency_contact_phone', 'address', 'tribe',
+            'weight', 'height', 'blood_group', 'allergies', 'chronic_conditions',
+            'file_fee_paid', 'file_fee_amount', 'file_fee_payment_date',
+            'current_status', 'current_location',
+            'created_at', 'updated_at', 'created_by_name', 'created_by_role',
+            'last_updated_by_name', 'age', 'bmi', 'is_new_patient',
+            'recent_status_changes'
+        ]
+    
+    def get_recent_status_changes(self, obj):
+        """Get last 5 status changes"""
+        recent_changes = obj.status_history.all()[:5]
+        return PatientStatusHistorySerializer(recent_changes, many=True).data
+
+
+class PatientStatusUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating patient status only"""
+    
+    notes = serializers.CharField(required=False, allow_blank=True, help_text="Optional notes about status change")
+    
+    class Meta:
+        model = Patient
+        fields = ['current_status', 'current_location', 'notes']
+    
+    def validate_current_status(self, value):
+        """Ensure valid status transitions"""
+        if not value:
+            raise serializers.ValidationError("Status is required.")
+        
+        valid_statuses = [choice[0] for choice in Patient.STATUS_CHOICES]
+        if value not in valid_statuses:
+            raise serializers.ValidationError(f"Invalid status. Valid options: {', '.join(valid_statuses)}")
+        
+        return value
+
+
+class PatientStatusHistorySerializer(serializers.ModelSerializer):
+    """Serializer for patient status history"""
+    
+    changed_by_name = serializers.CharField(source='changed_by.full_name', read_only=True)
+    changed_by_role = serializers.CharField(source='changed_by.role', read_only=True)
+    patient_name = serializers.CharField(source='patient.full_name', read_only=True)
+    
+    class Meta:
+        model = PatientStatusHistory
+        fields = [
+            'id', 'previous_status', 'new_status', 'previous_location', 'new_location',
+            'changed_at', 'notes', 'changed_by_name', 'changed_by_role', 'patient_name'
+        ]
+
+
+class PatientNoteSerializer(serializers.ModelSerializer):
+    """Serializer for patient notes"""
+    
+    created_by_name = serializers.CharField(source='created_by.full_name', read_only=True)
+    created_by_role = serializers.CharField(source='created_by.role', read_only=True)
+    
+    class Meta:
+        model = PatientNote
+        fields = [
+            'id', 'note', 'note_type', 'created_at',
+            'created_by_name', 'created_by_role'
+        ]
+        read_only_fields = ['id', 'created_at', 'created_by_name', 'created_by_role']
+
+
+class PatientCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating new patients (minimal required fields)"""
+    
+    class Meta:
+        model = Patient
+        fields = [
+            'full_name', 'phone_number', 'gender', 'date_of_birth',
+            'emergency_contact_name', 'emergency_contact_phone', 'address', 'tribe',
+            'weight', 'height', 'blood_group', 'allergies', 'chronic_conditions'
+        ]
+    
+    def validate_date_of_birth(self, value):
+        """Ensure date of birth is not in the future"""
+        from datetime import date
+        if value > date.today():
+            raise serializers.ValidationError("Date of birth cannot be in the future.")
+        return value
