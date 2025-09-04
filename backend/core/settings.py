@@ -40,6 +40,8 @@ LOCAL_APPS = [
     'auth_portal',
     'admin_portal',
     'patients',
+    'doctor',
+    'lab',
     'pharmacy',
     'reception',
 ]
