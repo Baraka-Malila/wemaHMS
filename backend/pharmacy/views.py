@@ -14,21 +14,259 @@ from .serializers import (
 from core.permissions import IsPharmacyStaff, IsDoctorStaff, IsStaffMember
 
 
+# ==================== PHARMACY OPERATIONS ====================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsPharmacyStaff])
+def prescription_queue(request):
+    """
+    Get all pending prescriptions waiting to be processed.
+    Shows queue for pharmacy staff to dispense medications.
+    """
+    try:
+        prescriptions = PrescriptionQueue.objects.filter(
+            status__in=['PENDING', 'IN_PROGRESS']
+        ).order_by('priority', 'created_at')
+        
+        serializer = PrescriptionQueueSerializer(prescriptions, many=True)
+        return Response({
+            'success': True,
+            'queue_count': prescriptions.count(),
+            'prescriptions': serializer.data
+        })
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsPharmacyStaff])
+def scan_medication(request):
+    """
+    Process scanned barcode/QR during medication dispensing.
+    Updates running total and creates dispense record.
+    """
+    try:
+        serializer = ScanRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                'success': False,
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get prescription and validate
+        prescription = get_object_or_404(
+            PrescriptionQueue, 
+            id=serializer.validated_data['prescription_id']
+        )
+        
+        if prescription.status == 'COMPLETED':
+            return Response({
+                'success': False,
+                'error': 'Prescription already completed'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Find medication by scanned code
+        scanned_code = serializer.validated_data['scanned_code']
+        medication = Medication.objects.filter(
+            Q(barcode=scanned_code) | Q(qr_code=scanned_code),
+            is_active=True
+        ).first()
+        
+        if not medication:
+            return Response({
+                'success': False,
+                'error': 'Medication not found or inactive'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        quantity = serializer.validated_data.get('quantity', 1)
+        
+        # Check stock availability
+        if medication.current_stock < quantity:
+            return Response({
+                'success': False,
+                'error': f'Insufficient stock. Available: {medication.current_stock}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Update prescription status to IN_PROGRESS
+        if prescription.status == 'PENDING':
+            prescription.status = 'IN_PROGRESS'
+            prescription.processed_by = request.user
+            prescription.save()
+        
+        # Create dispense record
+        dispense_record = DispenseRecord.objects.create(
+            prescription_queue=prescription,
+            medication=medication,
+            scanned_code=scanned_code,
+            quantity_scanned=quantity,
+            unit_price=medication.unit_price,
+            scanned_by=request.user
+        )
+        
+        # Update running total
+        prescription.total_amount = F('total_amount') + (medication.unit_price * quantity)
+        prescription.save()
+        prescription.refresh_from_db()
+        
+        # Update medication stock
+        medication.current_stock = F('current_stock') - quantity
+        medication.save()
+        medication.refresh_from_db()
+        
+        # Create stock movement record
+        StockMovement.objects.create(
+            medication=medication,
+            movement_type='DISPENSE',
+            quantity=-quantity,
+            reference=str(prescription.id),
+            performed_by=request.user,
+            notes=f'Dispensed for prescription {prescription.prescription_id}'
+        )
+        
+        return Response({
+            'success': True,
+            'item': medication.name,
+            'quantity': quantity,
+            'unit_price': float(medication.unit_price),
+            'line_total': float(medication.unit_price * quantity),
+            'running_total': float(prescription.total_amount),
+            'remaining_stock': medication.current_stock
+        })
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsPharmacyStaff])
+def complete_prescription(request, prescription_id):
+    """
+    Mark prescription as completed and finalize billing.
+    """
+    try:
+        prescription = get_object_or_404(PrescriptionQueue, id=prescription_id)
+        
+        if prescription.status == 'COMPLETED':
+            return Response({
+                'success': False,
+                'error': 'Prescription already completed'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        prescription.status = 'COMPLETED'
+        prescription.save()
+        
+        # TODO: Send to finance app for billing when implemented
+        # finance_integration.create_prescription_bill(prescription)
+        
+        return Response({
+            'success': True,
+            'message': 'Prescription completed successfully',
+            'prescription_id': str(prescription.id),
+            'total_amount': float(prescription.total_amount),
+            'patient_id': prescription.patient_id
+        })
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ==================== INVENTORY MANAGEMENT ====================
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated, IsPharmacyStaff])
+def medications_list(request):
+    """
+    GET: List all medications for pharmacy management
+    POST: Add completely new medication to inventory
+    """
+    if request.method == 'GET':
+        medications = Medication.objects.all().order_by('name')
+        serializer = MedicationSerializer(medications, many=True)
+        return Response({
+            'success': True,
+            'count': medications.count(),
+            'medications': serializer.data
+        })
+    
+    elif request.method == 'POST':
+        serializer = MedicationSerializer(data=request.data)
+        if serializer.is_valid():
+            medication = serializer.save()
+            return Response({
+                'success': True,
+                'message': 'New medication added successfully',
+                'medication': MedicationSerializer(medication).data
+            }, status=status.HTTP_201_CREATED)
+        
+        return Response({
+            'success': False,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsAuthenticated, IsPharmacyStaff])
+def medication_detail(request, pk):
+    """
+    GET: View specific medication details
+    PATCH: Update medication info (price, reorder level, etc.)
+    """
+    try:
+        medication = get_object_or_404(Medication, pk=pk)
+        
+        if request.method == 'GET':
+            serializer = MedicationSerializer(medication)
+            return Response({
+                'success': True,
+                'medication': serializer.data
+            })
+        
+        elif request.method == 'PATCH':
+            serializer = MedicationSerializer(medication, data=request.data, partial=True)
+            if serializer.is_valid():
+                medication = serializer.save()
+                return Response({
+                    'success': True,
+                    'message': 'Medication updated successfully',
+                    'medication': serializer.data
+                })
+            
+            return Response({
+                'success': False,
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsStaffMember])
 def available_medications(request):
     """
-    Get all available medications for doctors to use in prescriptions.
-    Shared endpoint for doctors and pharmacy staff.
+    Get available medications for doctors to use in prescriptions.
+    Shows only active medications with stock > 0.
     """
     try:
-        # Only show active medications with stock > 0
         medications = Medication.objects.filter(
             is_active=True,
             current_stock__gt=0
         ).order_by('name')
         
-        # Use simplified serializer for doctors, full for pharmacy staff
+        # Simplified view for doctors, detailed for pharmacy staff
         if hasattr(request.user, 'role') and request.user.role == 'PHARMACY':
             serializer = MedicationSerializer(medications, many=True)
         else:
@@ -47,8 +285,84 @@ def available_medications(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsPharmacyStaff])
+def restock_medication(request):
+    """
+    Add stock to existing medications by scanning codes.
+    Used when receiving new supplies from vendors.
+    """
+    try:
+        serializer = RestockSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({
+                'success': False,
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        medication_id = serializer.validated_data['medication_id']
+        quantity = serializer.validated_data['quantity']
+        scanned_codes = serializer.validated_data.get('scanned_codes', [])
+        
+        medication = get_object_or_404(Medication, id=medication_id)
+        
+        # Update stock
+        old_stock = medication.current_stock
+        medication.current_stock = F('current_stock') + quantity
+        medication.last_restocked = timezone.now()
+        medication.save()
+        medication.refresh_from_db()
+        
+        # Create stock movement record
+        StockMovement.objects.create(
+            medication=medication,
+            movement_type='RESTOCK',
+            quantity=quantity,
+            scanned_codes=scanned_codes,
+            performed_by=request.user,
+            notes=f'Restocked from {old_stock} to {medication.current_stock}'
+        )
+        
+        return Response({
+            'success': True,
+            'message': f'Successfully restocked {medication.name}',
+            'medication': medication.name,
+            'quantity_added': quantity,
+            'new_stock_level': medication.current_stock
+        })
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsPharmacyStaff])
+def low_stock_alert(request):
+    """
+    Get medications that are running low on stock.
+    Helps pharmacy staff know what to reorder.
+    """
+    try:
+        low_stock_meds = Medication.objects.filter(
+            current_stock__lte=F('reorder_level'),
+            is_active=True
+        ).order_by('current_stock')
+        
+        serializer = MedicationSerializer(low_stock_meds, many=True)
+        return Response({
+            'success': True,
+            'alert_count': low_stock_meds.count(),
+            'low_stock_medications': serializer.data
+        })
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 def prescription_queue(request):
     """
     Get all pending prescriptions waiting to be processed.
