@@ -34,7 +34,7 @@ from .serializers import PatientRegistrationSerializer, PatientUpdateSerializer
         400: openapi.Response(description="Invalid patient data or duplicate phone number"),
         401: openapi.Response(description="Authentication required")
     },
-    tags=['Reception - Patient Management']
+    tags=['Reception Portal']
 )
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -129,7 +129,7 @@ def register_patient(request):
         404: openapi.Response(description="Patient not found"),
         401: openapi.Response(description="Authentication required")
     },
-    tags=['Reception - Patient Management']
+    tags=['Reception Portal']
 )
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
@@ -228,7 +228,7 @@ def update_patient_details(request, patient_id):
         400: openapi.Response(description="Invalid payment amount or patient already paid"),
         404: openapi.Response(description="Patient not found")
     },
-    tags=['Reception - Payment Management']
+    tags=['Reception Portal']
 )
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -320,7 +320,7 @@ def process_file_fee_payment(request, patient_id):
             )
         )
     },
-    tags=['Reception - Dashboard']
+    tags=['Reception Portal']
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -391,7 +391,7 @@ def reception_dashboard(request):
         404: openapi.Response(description="Patient not found"),
         401: openapi.Response(description="Authentication required")
     },
-    tags=['Reception - Patient Management']
+    tags=['Reception Portal']
 )
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])

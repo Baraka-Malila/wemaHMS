@@ -57,7 +57,7 @@ from .serializers import (
         400: openapi.Response(description="Missing or invalid search query"),
         401: openapi.Response(description="Authentication required")
     },
-    tags=['Patients - Core APIs']
+    tags=['Patient Core - Universal APIs']
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -123,7 +123,7 @@ def search_patients(request):
         404: openapi.Response(description="Patient not found"),
         401: openapi.Response(description="Authentication required")
     },
-    tags=['Patients - Core APIs']
+    tags=['Patient Core - Universal APIs']
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -173,7 +173,7 @@ def get_patient_details(request, patient_id):
         404: openapi.Response(description="Patient not found"),
         401: openapi.Response(description="Authentication required")
     },
-    tags=['Patients - Core APIs']
+    tags=['Patient Core - Universal APIs']
 )
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
