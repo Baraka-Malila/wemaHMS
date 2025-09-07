@@ -1,373 +1,392 @@
-from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
-from django.db.models import Sum, Q
+from rest_framework.permissions import IsAuthenticated
+from django.db.models import Q, Sum, Count
 from django.utils import timezone
-from decimal import Decimal
+from datetime import datetime, timedelta
+from core.permissions import IsStaffMember, IsAdminUser
+from .models import ServicePricing, ExpenseCategory, ExpenseRecord, StaffSalary
+from .serializers import (
+    ServicePricingSerializer, ExpenseCategorySerializer, ExpenseRecordSerializer,
+    StaffSalarySerializer
+)
 
-from .models import ServicePricing, PatientBill, BillLineItem, DailyBalance
-from core.permissions import IsAdminUser, IsStaffMember
 
-
-# ==================== SERVICE PRICING (ADMIN CONTROLLED) ====================
-
-@api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated, IsStaffMember])
-def service_pricing(request):
+class ServicePricingViewSet(viewsets.ModelViewSet):
     """
-    GET: List all service prices (for all departments)
-    POST: Add new service pricing (admin only)
+    Admin manages all service pricing.
+    Staff can only view pricing for billing.
     """
-    if request.method == 'GET':
-        services = ServicePricing.objects.filter(is_active=True)
-        
-        # Filter by category if requested
-        category = request.GET.get('category')
-        if category:
-            services = services.filter(service_category=category)
-        
-        # Filter by department
-        department = request.GET.get('department')
-        if department:
-            services = services.filter(department=department)
-        
-        services_data = []
-        for service in services:
-            services_data.append({
-                'id': str(service.id),
-                'service_name': service.service_name,
-                'service_code': service.service_code,
-                'service_category': service.service_category,
-                'standard_price': float(service.standard_price),
-                'emergency_price': float(service.emergency_price) if service.emergency_price else None,
-                'department': service.department,
-                'description': service.description
-            })
-        
-        return Response({
-            'success': True,
-            'count': len(services_data),
-            'services': services_data
-        })
+    queryset = ServicePricing.objects.all()
+    serializer_class = ServicePricingSerializer
+    permission_classes = [IsAuthenticated, IsStaffMember]
     
-    elif request.method == 'POST':
-        # Only admin can add new services
-        if not (hasattr(request.user, 'role') and request.user.role == 'ADMIN'):
-            return Response({
-                'success': False,
-                'error': 'Only admin can add new services'
-            }, status=status.HTTP_403_FORBIDDEN)
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), IsAdminUser()]
+        return [IsAuthenticated(), IsStaffMember()]
+    
+    @action(detail=False, methods=['get'])
+    def by_category(self, request):
+        """Get services grouped by category."""
+        category = request.query_params.get('category')
+        queryset = self.get_queryset()
+        
+        if category:
+            queryset = queryset.filter(service_category=category)
+        
+        queryset = queryset.filter(is_active=True)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def lookup_price(self, request):
+        """Quick price lookup for billing."""
+        service_code = request.query_params.get('service_code')
+        is_emergency = request.query_params.get('emergency', 'false').lower() == 'true'
+        
+        if not service_code:
+            return Response(
+                {'error': 'service_code parameter required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         try:
-            service = ServicePricing.objects.create(
-                service_name=request.data['service_name'],
-                service_code=request.data['service_code'],
-                service_category=request.data['service_category'],
-                standard_price=request.data['standard_price'],
-                emergency_price=request.data.get('emergency_price'),
-                department=request.data['department'],
-                description=request.data.get('description', ''),
-                created_by=request.user
+            service = ServicePricing.objects.get(
+                service_code=service_code,
+                is_active=True
             )
             
-            return Response({
-                'success': True,
-                'message': 'Service pricing added successfully',
-                'service_id': str(service.id)
-            }, status=status.HTTP_201_CREATED)
+            price = service.emergency_price if is_emergency and service.emergency_price else service.standard_price
             
-        except Exception as e:
             return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['PATCH'])
-@permission_classes([IsAuthenticated, IsAdminUser])
-def update_service_pricing(request, service_id):
-    """
-    Update service pricing (admin only)
-    """
-    try:
-        service = get_object_or_404(ServicePricing, id=service_id)
-        
-        # Update allowed fields
-        if 'standard_price' in request.data:
-            service.standard_price = request.data['standard_price']
-        if 'emergency_price' in request.data:
-            service.emergency_price = request.data['emergency_price']
-        if 'service_name' in request.data:
-            service.service_name = request.data['service_name']
-        if 'description' in request.data:
-            service.description = request.data['description']
-        if 'is_active' in request.data:
-            service.is_active = request.data['is_active']
-        
-        service.save()
-        
-        return Response({
-            'success': True,
-            'message': 'Service pricing updated successfully'
-        })
-        
-    except Exception as e:
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-
-# ==================== BILLING OPERATIONS ====================
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated, IsStaffMember])
-def create_bill(request):
-    """
-    Create new patient bill (called by all departments)
-    """
-    try:
-        # Create the bill
-        bill = PatientBill.objects.create(
-            patient_id=request.data['patient_id'],
-            patient_name=request.data['patient_name'],
-            service_date=request.data['service_date'],
-            due_date=request.data.get('due_date', timezone.now().date()),
-            insurance_provider=request.data.get('insurance_provider'),
-            insurance_number=request.data.get('insurance_number'),
-            created_by=request.user
-        )
-        
-        # Add line items
-        total_amount = Decimal('0.00')
-        for item_data in request.data['line_items']:
-            # Get service pricing if service_code provided
-            service = None
-            if 'service_code' in item_data:
-                service = ServicePricing.objects.filter(
-                    service_code=item_data['service_code']
-                ).first()
-            
-            line_item = BillLineItem.objects.create(
-                patient_bill=bill,
-                service_pricing=service,
-                service_name=item_data['service_name'],
-                service_code=item_data.get('service_code', 'CUSTOM'),
-                service_category=item_data.get('service_category', 'OTHER'),
-                quantity=item_data.get('quantity', 1),
-                unit_price=item_data['unit_price'],
-                source_department=item_data.get('source_department', 'UNKNOWN'),
-                source_reference=item_data.get('source_reference', ''),
-                service_date=request.data['service_date'],
-                provided_by=request.user
-            )
-            total_amount += line_item.line_total
-        
-        # Update bill totals
-        bill.subtotal = total_amount
-        bill.save()
-        
-        return Response({
-            'success': True,
-            'message': 'Bill created successfully',
-            'bill_number': bill.bill_number,
-            'bill_id': str(bill.id),
-            'total_amount': float(bill.patient_amount)
-        }, status=status.HTTP_201_CREATED)
-        
-    except Exception as e:
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, IsStaffMember])
-def patient_bills(request, patient_id):
-    """
-    Get all bills for a specific patient
-    """
-    try:
-        bills = PatientBill.objects.filter(patient_id=patient_id).order_by('-bill_date')
-        
-        bills_data = []
-        for bill in bills:
-            bills_data.append({
-                'id': str(bill.id),
-                'bill_number': bill.bill_number,
-                'service_date': bill.service_date,
-                'bill_date': bill.bill_date,
-                'subtotal': float(bill.subtotal),
-                'insurance_covered': float(bill.insurance_covered),
-                'patient_amount': float(bill.patient_amount),
-                'total_paid': float(bill.total_paid),
-                'balance_due': float(bill.balance_due),
-                'bill_status': bill.bill_status,
-                'due_date': bill.due_date
+                'service_name': service.service_name,
+                'service_code': service.service_code,
+                'price': price,
+                'emergency_price': service.emergency_price,
+                'standard_price': service.standard_price,
+                'department': service.department
             })
         
-        # Calculate totals
-        total_outstanding = sum(bill.balance_due for bill in bills if bill.balance_due > 0)
+        except ServicePricing.DoesNotExist:
+            return Response(
+                {'error': 'Service not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
+class ExpenseCategoryViewSet(viewsets.ModelViewSet):
+    """
+    Manage expense categories.
+    Admin can create/edit categories.
+    Staff can view for expense entry.
+    """
+    queryset = ExpenseCategory.objects.filter(is_active=True)
+    serializer_class = ExpenseCategorySerializer
+    permission_classes = [IsAuthenticated, IsStaffMember]
+    
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), IsAdminUser()]
+        return [IsAuthenticated(), IsStaffMember()]
+    
+    @action(detail=False, methods=['get'])
+    def by_type(self, request):
+        """Get categories grouped by type."""
+        category_type = request.query_params.get('type')
+        queryset = self.get_queryset()
+        
+        if category_type:
+            queryset = queryset.filter(category_type=category_type)
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class ExpenseRecordViewSet(viewsets.ModelViewSet):
+    """
+    Expense tracking and management.
+    Staff can create/view expenses.
+    Admin can approve/reject expenses.
+    """
+    queryset = ExpenseRecord.objects.all()
+    serializer_class = ExpenseRecordSerializer
+    permission_classes = [IsAuthenticated, IsStaffMember]
+    
+    def get_queryset(self):
+        queryset = ExpenseRecord.objects.all()
+        
+        # Filter by status
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            queryset = queryset.filter(expense_status=status_filter)
+        
+        # Filter by date range
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+        
+        if start_date:
+            try:
+                start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+                queryset = queryset.filter(expense_date__gte=start_date)
+            except ValueError:
+                pass
+        
+        if end_date:
+            try:
+                end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+                queryset = queryset.filter(expense_date__lte=end_date)
+            except ValueError:
+                pass
+        
+        # Filter by category
+        category = self.request.query_params.get('category')
+        if category:
+            queryset = queryset.filter(category__id=category)
+        
+        return queryset.order_by('-expense_date', '-created_at')
+    
+    def perform_create(self, serializer):
+        serializer.save(requested_by=self.request.user)
+    
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        """Admin approves an expense."""
+        if not request.user.is_admin:
+            return Response(
+                {'error': 'Only admins can approve expenses'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        expense = self.get_object()
+        
+        if expense.expense_status != 'PENDING':
+            return Response(
+                {'error': 'Only pending expenses can be approved'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        expense.expense_status = 'APPROVED'
+        expense.approved_by = request.user
+        expense.save()
+        
+        serializer = self.get_serializer(expense)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        """Admin rejects an expense."""
+        if not request.user.is_admin:
+            return Response(
+                {'error': 'Only admins can reject expenses'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        expense = self.get_object()
+        
+        if expense.expense_status != 'PENDING':
+            return Response(
+                {'error': 'Only pending expenses can be rejected'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        expense.expense_status = 'REJECTED'
+        expense.approved_by = request.user
+        expense.save()
+        
+        serializer = self.get_serializer(expense)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def mark_paid(self, request, pk=None):
+        """Mark expense as paid."""
+        expense = self.get_object()
+        
+        if expense.expense_status != 'APPROVED':
+            return Response(
+                {'error': 'Only approved expenses can be marked as paid'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        payment_date = request.data.get('payment_date')
+        payment_reference = request.data.get('payment_reference', '')
+        
+        if payment_date:
+            try:
+                payment_date = datetime.strptime(payment_date, '%Y-%m-%d').date()
+            except ValueError:
+                payment_date = timezone.now().date()
+        else:
+            payment_date = timezone.now().date()
+        
+        expense.expense_status = 'PAID'
+        expense.payment_date = payment_date
+        expense.payment_reference = payment_reference
+        expense.paid_by = request.user
+        expense.save()
+        
+        serializer = self.get_serializer(expense)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def pending_approval(self, request):
+        """Get expenses pending approval."""
+        expenses = self.get_queryset().filter(expense_status='PENDING')
+        serializer = self.get_serializer(expenses, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def monthly_summary(self, request):
+        """Get monthly expense summary."""
+        month = request.query_params.get('month')
+        year = request.query_params.get('year')
+        
+        if not month or not year:
+            today = timezone.now().date()
+            month = today.month
+            year = today.year
+        else:
+            month = int(month)
+            year = int(year)
+        
+        # Calculate date range for the month
+        start_date = datetime(year, month, 1).date()
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1).date() - timedelta(days=1)
+        else:
+            end_date = datetime(year, month + 1, 1).date() - timedelta(days=1)
+        
+        # Get expenses for the month
+        expenses = ExpenseRecord.objects.filter(
+            expense_date__gte=start_date,
+            expense_date__lte=end_date,
+            expense_status='PAID'
+        )
+        
+        # Summary by category
+        category_summary = expenses.values(
+            'category__name',
+            'category__category_type'
+        ).annotate(
+            total_amount=Sum('amount'),
+            expense_count=Count('id')
+        ).order_by('-total_amount')
+        
+        # Overall totals
+        total_expenses = expenses.aggregate(Sum('amount'))['amount__sum'] or 0
         
         return Response({
-            'success': True,
-            'patient_id': patient_id,
-            'bills_count': len(bills_data),
-            'total_outstanding': float(total_outstanding),
-            'bills': bills_data
+            'month': month,
+            'year': year,
+            'total_expenses': total_expenses,
+            'category_breakdown': category_summary,
+            'expense_count': expenses.count()
         })
-        
-    except Exception as e:
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated, IsStaffMember])
-def process_payment(request):
+class StaffSalaryViewSet(viewsets.ModelViewSet):
     """
-    Process payment for a patient bill
+    Staff salary and payroll management.
+    Admin can manage all salaries.
+    Staff can view their own salaries.
     """
-    try:
-        bill = get_object_or_404(PatientBill, id=request.data['bill_id'])
-        payment_amount = Decimal(str(request.data['payment_amount']))
+    queryset = StaffSalary.objects.all()
+    serializer_class = StaffSalarySerializer
+    permission_classes = [IsAuthenticated, IsStaffMember]
+    
+    def get_queryset(self):
+        queryset = StaffSalary.objects.all()
         
-        # Update bill payment
-        bill.total_paid += payment_amount
-        bill.save()  # This will auto-update status and balance
+        # Non-admin users can only see their own salaries
+        if not self.request.user.is_admin:
+            queryset = queryset.filter(staff_member=self.request.user)
         
-        # TODO: Create payment record for audit trail
+        # Filter by month/year
+        month = self.request.query_params.get('month')
+        year = self.request.query_params.get('year')
         
-        return Response({
-            'success': True,
-            'message': 'Payment processed successfully',
-            'bill_number': bill.bill_number,
-            'amount_paid': float(payment_amount),
-            'new_balance': float(bill.balance_due),
-            'bill_status': bill.bill_status
-        })
+        if month and year:
+            try:
+                filter_date = datetime(int(year), int(month), 1).date()
+                queryset = queryset.filter(salary_month=filter_date)
+            except ValueError:
+                pass
         
-    except Exception as e:
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-
-# ==================== DAILY OPERATIONS ====================
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated, IsAdminUser])
-def close_daily_balance(request):
-    """
-    Close the day and create daily balance record
-    """
-    try:
-        close_date = request.data['close_date']
+        return queryset.order_by('-salary_month', 'staff_member__full_name')
+    
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), IsAdminUser()]
+        return [IsAuthenticated(), IsStaffMember()]
+    
+    @action(detail=True, methods=['post'])
+    def mark_paid(self, request, pk=None):
+        """Mark salary as paid."""
+        if not request.user.is_admin:
+            return Response(
+                {'error': 'Only admins can mark salaries as paid'},
+                status=status.HTTP_403_FORBIDDEN
+            )
         
-        # Check if already closed
-        if DailyBalance.objects.filter(balance_date=close_date).exists():
-            return Response({
-                'success': False,
-                'error': 'Day already closed'
-            }, status=status.HTTP_400_BAD_REQUEST)
+        salary = self.get_object()
         
-        # Calculate department revenues for the day
-        day_bills = PatientBill.objects.filter(service_date=close_date)
+        payment_date = request.data.get('payment_date')
+        payment_reference = request.data.get('payment_reference', '')
         
-        consultation_revenue = day_bills.filter(
-            line_items__service_category='CONSULTATION'
-        ).aggregate(total=Sum('line_items__line_total'))['total'] or Decimal('0.00')
+        if payment_date:
+            try:
+                payment_date = datetime.strptime(payment_date, '%Y-%m-%d').date()
+            except ValueError:
+                payment_date = timezone.now().date()
+        else:
+            payment_date = timezone.now().date()
         
-        pharmacy_revenue = day_bills.filter(
-            line_items__service_category='MEDICATION'
-        ).aggregate(total=Sum('line_items__line_total'))['total'] or Decimal('0.00')
+        salary.payment_status = 'PAID'
+        salary.payment_date = payment_date
+        salary.payment_reference = payment_reference
+        salary.save()
         
-        lab_revenue = day_bills.filter(
-            line_items__service_category='LAB_TEST'
-        ).aggregate(total=Sum('line_items__line_total'))['total'] or Decimal('0.00')
+        serializer = self.get_serializer(salary)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def payroll_summary(self, request):
+        """Get payroll summary for a month."""
+        month = request.query_params.get('month')
+        year = request.query_params.get('year')
         
-        nursing_revenue = day_bills.filter(
-            line_items__service_category='NURSING'
-        ).aggregate(total=Sum('line_items__line_total'))['total'] or Decimal('0.00')
+        if not month or not year:
+            today = timezone.now().date()
+            month = today.month
+            year = today.year
+        else:
+            month = int(month)
+            year = int(year)
         
-        total_revenue = consultation_revenue + pharmacy_revenue + lab_revenue + nursing_revenue
+        filter_date = datetime(year, month, 1).date()
         
-        # Create daily balance record
-        daily_balance = DailyBalance.objects.create(
-            balance_date=close_date,
-            consultation_revenue=consultation_revenue,
-            pharmacy_revenue=pharmacy_revenue,
-            lab_revenue=lab_revenue,
-            nursing_revenue=nursing_revenue,
-            total_revenue=total_revenue,
-            cash_collected=request.data.get('cash_collected', 0),
-            card_payments=request.data.get('card_payments', 0),
-            mobile_payments=request.data.get('mobile_payments', 0),
-            closed_by=request.user,
-            closed_at=timezone.now(),
-            is_balanced=True  # Assume balanced for now
+        salaries = StaffSalary.objects.filter(salary_month=filter_date)
+        
+        # Summary calculations
+        summary = salaries.aggregate(
+            total_basic=Sum('basic_salary'),
+            total_allowances=Sum('allowances'),
+            total_overtime=Sum('overtime_amount'),
+            total_deductions=Sum('deductions'),
+            total_net=Sum('net_salary')
+        )
+        
+        # Payment status breakdown
+        status_breakdown = salaries.values('payment_status').annotate(
+            count=Count('id'),
+            total_amount=Sum('net_salary')
         )
         
         return Response({
-            'success': True,
-            'message': 'Daily balance closed successfully',
-            'balance_date': close_date,
-            'total_revenue': float(total_revenue),
-            'balance_id': str(daily_balance.id)
+            'month': month,
+            'year': year,
+            'staff_count': salaries.count(),
+            'summary': summary,
+            'payment_status': status_breakdown
         })
-        
-    except Exception as e:
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, IsStaffMember])
-def daily_status(request):
-    """
-    Get current day financial status
-    """
-    try:
-        today = timezone.now().date()
-        
-        # Check if today is closed
-        is_closed = DailyBalance.objects.filter(balance_date=today).exists()
-        
-        # Get today's totals
-        today_bills = PatientBill.objects.filter(service_date=today)
-        total_billed = today_bills.aggregate(total=Sum('subtotal'))['total'] or Decimal('0.00')
-        total_collected = today_bills.aggregate(total=Sum('total_paid'))['total'] or Decimal('0.00')
-        outstanding = today_bills.aggregate(total=Sum('balance_due'))['total'] or Decimal('0.00')
-        
-        # Bills by status
-        open_bills = today_bills.filter(bill_status='OPEN').count()
-        paid_bills = today_bills.filter(bill_status='PAID').count()
-        partial_bills = today_bills.filter(bill_status='PARTIAL').count()
-        
-        return Response({
-            'success': True,
-            'date': today,
-            'is_closed': is_closed,
-            'summary': {
-                'total_billed': float(total_billed),
-                'total_collected': float(total_collected),
-                'outstanding': float(outstanding),
-                'open_bills': open_bills,
-                'paid_bills': paid_bills,
-                'partial_bills': partial_bills
-            }
-        })
-        
-    except Exception as e:
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

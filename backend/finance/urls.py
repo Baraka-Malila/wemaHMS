@@ -1,20 +1,24 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from . import views
 
-# ==================== FINANCE ENDPOINTS (MINIMAL & GROUPED) ====================
-# Follow real workflow: Admin Pricing → Department Billing → Daily Closure
+# ==================== FINANCE ENDPOINTS (GROUPED & CLEAN) ====================
+# Real workflow: Admin Pricing → Expense Tracking → Payroll Management
+
+# Create router for ViewSets
+router = DefaultRouter()
+
+# === ADMIN & PRICING SECTION ===
+router.register(r'admin/service-pricing', views.ServicePricingViewSet, basename='service-pricing')
+
+# === EXPENSES SECTION ===
+router.register(r'expenses/categories', views.ExpenseCategoryViewSet, basename='expense-categories')
+router.register(r'expenses/records', views.ExpenseRecordViewSet, basename='expense-records')
+
+# === PAYROLL SECTION ===
+router.register(r'payroll/staff-salaries', views.StaffSalaryViewSet, basename='staff-salaries')
 
 urlpatterns = [
-    # ==================== ADMIN PRICING (ADMIN CONTROLLED) ====================
-    path('pricing/', views.service_pricing, name='service_pricing'),
-    path('pricing/<uuid:service_id>/', views.update_service_pricing, name='update_service_pricing'),
-    
-    # ==================== BILLING OPERATIONS ====================
-    path('bills/', views.create_bill, name='create_bill'),
-    path('bills/patient/<str:patient_id>/', views.patient_bills, name='patient_bills'),
-    path('payment/', views.process_payment, name='process_payment'),
-    
-    # ==================== DAILY OPERATIONS ====================
-    path('daily/close/', views.close_daily_balance, name='close_daily_balance'),
-    path('daily/status/', views.daily_status, name='daily_status'),
+    # Include all grouped ViewSet routes
+    path('api/', include(router.urls)),
 ]
