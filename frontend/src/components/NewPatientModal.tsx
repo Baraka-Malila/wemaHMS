@@ -23,19 +23,28 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
     chronic_conditions: '',
     weight: '',
     height: '',
-    tribe: ''
+    tribe: '',
+    file_fee_paid: false,
+    file_fee_amount: 2000.00
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
     }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate file fee payment
+    if (!formData.file_fee_paid) {
+      alert('Please mark the file fee as paid before registering the patient.');
+      return;
+    }
+    
     setLoading(true);
 
     try {
@@ -68,7 +77,9 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
           chronic_conditions: '',
           weight: '',
           height: '',
-          tribe: ''
+          tribe: '',
+          file_fee_paid: false,
+          file_fee_amount: 2000.00
         });
       } else {
         const errorData = await response.json();
@@ -364,6 +375,71 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
                 style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
               />
             </div>
+          </div>
+
+          {/* File Fee Payment */}
+          <div className="border-t border-gray-200 pt-4">
+            <h3 style={{
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '16px',
+              fontWeight: '600',
+              color: '#171A1F',
+              marginBottom: '12px'
+            }}>File Fee Payment</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label style={{
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#171A1F'
+                }}>File Fee Amount (TZS)</label>
+                <input
+                  type="number"
+                  name="file_fee_amount"
+                  value={formData.file_fee_amount}
+                  onChange={handleInputChange}
+                  min="0"
+                  step="0.01"
+                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                  style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
+                  readOnly
+                />
+              </div>
+
+              <div className="flex items-center">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="file_fee_paid"
+                    checked={formData.file_fee_paid}
+                    onChange={handleInputChange}
+                    className="mr-3 h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                  />
+                  <span style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    color: '#171A1F'
+                  }}>
+                    Mark as Paid
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {formData.file_fee_paid && (
+              <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <p style={{
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '14px',
+                  color: '#16A34A'
+                }}>
+                  ✅ File Fee Status: Paid - Amount: {formData.file_fee_amount.toFixed(2)} TZS
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Submit Buttons */}

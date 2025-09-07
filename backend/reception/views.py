@@ -65,11 +65,28 @@ def register_patient(request):
             **patient_data
         )
         
-        # Handle file fee
+        # Handle file fee payment (required for all new patients)
         if file_fee_paid:
             patient.file_fee_paid = True
             patient.file_fee_payment_date = timezone.now()
+            patient.file_fee_amount = 2000.00  # Fixed amount
             patient.save()
+            
+            # Create revenue record for finance tracking
+            from finance.models import RevenueRecord
+            RevenueRecord.objects.create(
+                patient=patient,
+                revenue_type='FILE_FEE',
+                description=f'File fee payment for patient {patient.patient_id}',
+                amount=2000.00,
+                payment_method='CASH',  # Default, can be updated later
+                collected_by=request.user,
+                revenue_date=timezone.now().date()
+            )
+        else:
+            return Response({
+                'error': 'File fee payment is required for patient registration'
+            }, status=status.HTTP_400_BAD_REQUEST)
         
         # Set initial location
         patient.current_location = f"Reception - {request.user.full_name}"
@@ -83,20 +100,16 @@ def register_patient(request):
             previous_location=None,
             new_location=patient.current_location,
             changed_by=request.user,
-            notes=f"Patient registered by {request.user.full_name}"
+            notes=f"Patient registered with file fee paid by {request.user.full_name}"
         )
         
         return Response({
             'message': 'Patient registered successfully',
             'patient_id': patient.patient_id,
-            'patient_uuid': str(patient.id),
             'full_name': patient.full_name,
-            'phone_number': patient.phone_number,
-            'file_fee_required': not file_fee_paid,
-            'file_fee_amount': float(patient.file_fee_amount),
-            'current_status': patient.current_status,
-            'registered_by': request.user.full_name,
-            'registered_at': patient.created_at.isoformat()
+            'file_fee_paid': patient.file_fee_paid,
+            'file_fee_amount': patient.file_fee_amount,
+            'created_at': patient.created_at.isoformat()
         }, status=status.HTTP_201_CREATED)
     
     except Exception as e:
@@ -198,6 +211,31 @@ def update_patient_details(request, patient_id):
             {'error': f'Failed to update patient: {str(e)}'},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def check_in_patient(request, patient_id):
+    """Check in an existing patient for today's visit"""
+    try:
+        patient = Patient.objects.get(id=patient_id)
+        
+        # Update patient status to indicate they're here for today's visit
+        patient.current_status = 'REGISTERED'
+        patient.current_location = 'RECEPTION'
+        patient.updated_at = timezone.now()
+        patient.save()
+        
+        return Response({
+            'message': 'Patient checked in successfully',
+            'patient_id': patient.id,
+            'status': patient.current_status
+        })
+        
+    except Patient.DoesNotExist:
+        return Response({'error': 'Patient not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @swagger_auto_schema(
@@ -350,6 +388,15 @@ def reception_dashboard(request):
         recent_patients = Patient.objects.select_related('created_by').order_by('-created_at')[:10]
         recent_data = PatientSearchSerializer(recent_patients, many=True).data
         
+        # Today's active queue - patients currently in the hospital system
+        today_active_statuses = ['REGISTERED', 'WAITING_DOCTOR', 'WITH_DOCTOR', 'WAITING_LAB', 'IN_LAB', 'LAB_RESULTS_READY', 'WAITING_PHARMACY', 'IN_PHARMACY', 'PAYMENT_PENDING']
+        todays_active_queue = Patient.objects.filter(
+            Q(created_at__date=today) | Q(updated_at__date=today),
+            current_status__in=today_active_statuses
+        ).select_related('created_by').order_by('-updated_at')
+        
+        active_queue_data = PatientSearchSerializer(todays_active_queue, many=True).data
+        
         # Patients currently registered (waiting for next service)
         patients_registered = Patient.objects.filter(current_status='REGISTERED').count()
         
@@ -362,6 +409,7 @@ def reception_dashboard(request):
             'total_patients': total_patients,
             'patients_waiting': patients_registered,
             'recent_registrations': recent_data,
+            'todays_active_queue': active_queue_data,
             'file_fee_amount': float(file_fee_amount),
             'dashboard_generated_at': timezone.now().isoformat(),
             'generated_by': request.user.full_name

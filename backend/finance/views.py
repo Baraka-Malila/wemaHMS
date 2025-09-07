@@ -6,7 +6,7 @@ from django.db.models import Sum, Count, Q
 from django.utils import timezone
 from datetime import datetime, timedelta
 from django_filters.rest_framework import DjangoFilterBackend
-from django_filters import rest_framework as filters_drf
+import django_filters
 
 from core.permissions import IsAdminUser, IsStaffMember
 from .models import ServicePricing, ExpenseCategory, ExpenseRecord, StaffSalary
@@ -20,11 +20,11 @@ from .serializers import (
 
 # Service Pricing Views (Admin Only)
 
-class ServicePricingFilter(filters_drf.FilterSet):
-    service_category = filters_drf.CharFilter(lookup_expr='icontains')
-    department = filters_drf.CharFilter(lookup_expr='icontains')
-    min_price = filters_drf.NumberFilter(field_name='standard_price', lookup_expr='gte')
-    max_price = filters_drf.NumberFilter(field_name='standard_price', lookup_expr='lte')
+class ServicePricingFilter(django_filters.FilterSet):
+    service_category = django_filters.CharFilter(lookup_expr='icontains')
+    department = django_filters.CharFilter(lookup_expr='icontains')
+    min_price = django_filters.NumberFilter(field_name='standard_price', lookup_expr='gte')
+    max_price = django_filters.NumberFilter(field_name='standard_price', lookup_expr='lte')
     
     class Meta:
         model = ServicePricing
@@ -106,12 +106,12 @@ class ExpenseCategoryViewSet(viewsets.ModelViewSet):
         return Response(categories_by_type)
 
 
-class ExpenseRecordFilter(filters_drf.FilterSet):
-    expense_date_from = filters_drf.DateFilter(field_name='expense_date', lookup_expr='gte')
-    expense_date_to = filters_drf.DateFilter(field_name='expense_date', lookup_expr='lte')
-    amount_min = filters_drf.NumberFilter(field_name='amount', lookup_expr='gte')
-    amount_max = filters_drf.NumberFilter(field_name='amount', lookup_expr='lte')
-    category_type = filters_drf.CharFilter(field_name='category__category_type')
+class ExpenseRecordFilter(django_filters.FilterSet):
+    expense_date_from = django_filters.DateFilter(field_name='expense_date', lookup_expr='gte')
+    expense_date_to = django_filters.DateFilter(field_name='expense_date', lookup_expr='lte')
+    amount_min = django_filters.NumberFilter(field_name='amount', lookup_expr='gte')
+    amount_max = django_filters.NumberFilter(field_name='amount', lookup_expr='lte')
+    category_type = django_filters.CharFilter(field_name='category__category_type')
     
     class Meta:
         model = ExpenseRecord
@@ -232,11 +232,11 @@ class ExpenseRecordViewSet(viewsets.ModelViewSet):
 
 # Payroll Views
 
-class StaffSalaryFilter(filters_drf.FilterSet):
-    salary_month_from = filters_drf.DateFilter(field_name='salary_month', lookup_expr='gte')
-    salary_month_to = filters_drf.DateFilter(field_name='salary_month', lookup_expr='lte')
-    basic_salary_min = filters_drf.NumberFilter(field_name='basic_salary', lookup_expr='gte')
-    basic_salary_max = filters_drf.NumberFilter(field_name='basic_salary', lookup_expr='lte')
+class StaffSalaryFilter(django_filters.FilterSet):
+    salary_month_from = django_filters.DateFilter(field_name='salary_month', lookup_expr='gte')
+    salary_month_to = django_filters.DateFilter(field_name='salary_month', lookup_expr='lte')
+    basic_salary_min = django_filters.NumberFilter(field_name='basic_salary', lookup_expr='gte')
+    basic_salary_max = django_filters.NumberFilter(field_name='basic_salary', lookup_expr='lte')
     
     class Meta:
         model = StaffSalary

@@ -70,9 +70,10 @@ export default function ReceptionDashboard() {
           pending_payments: data.pending_file_fees || 0
         });
         
-        // Use recent_registrations as initial patient list
-        if (data.recent_registrations) {
-          const transformedPatients = data.recent_registrations.map((patient: any) => ({
+        // Use todays_active_queue as primary patient list, fallback to recent_registrations
+        const patientData = data.todays_active_queue || data.recent_registrations || [];
+        if (patientData.length > 0) {
+          const transformedPatients = patientData.map((patient: any) => ({
             id: patient.id,
             patient_id: patient.patient_id,
             full_name: patient.full_name,
@@ -329,6 +330,39 @@ export default function ReceptionDashboard() {
     } catch (error) {
       console.error('Error deleting patient:', error);
       alert('Error deleting patient. Please try again.');
+    }
+  };
+
+  const handleCheckInPatient = async (patient: Patient) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/${patient.patient_id}/status/`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            current_status: 'WAITING_DOCTOR',
+            current_location: 'Waiting Area',
+            notes: 'Patient checked in at reception'
+          })
+        }
+      );
+
+      if (response.ok) {
+        alert(`${patient.full_name} checked in successfully`);
+        // Refresh the dashboard to update status
+        fetchDashboardData();
+      } else {
+        const errorData = await response.json();
+        alert(`Error: ${errorData.error || errorData.message || 'Failed to check in patient'}`);
+      }
+    } catch (error) {
+      console.error('Error checking in patient:', error);
+      alert('Error checking in patient. Please try again.');
     }
   };
 
@@ -656,6 +690,22 @@ export default function ReceptionDashboard() {
                     }}>{patient.current_location || 'N/A'}</td>
                     <td className="p-4">
                       <div className="flex justify-end gap-2">
+                        {/* Check In Button - only show for patients not already checked in or waiting */}
+                        {patient.current_status === 'REGISTERED' && (
+                          <button 
+                            className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                            onClick={() => handleCheckInPatient(patient)}
+                            title="Check In Patient"
+                            style={{
+                              fontFamily: 'Inter, sans-serif',
+                              fontSize: '12px',
+                              fontWeight: '500'
+                            }}
+                          >
+                            Check In
+                          </button>
+                        )}
+                        
                         {/* View Button */}
                         <button 
                           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"

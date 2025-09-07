@@ -433,6 +433,130 @@ class StaffSalary(models.Model):
 
 
 # ==============================================================================
+# REVENUE TRACKING
+# ==============================================================================
+
+class RevenueRecord(models.Model):
+    """
+    Record of all hospital revenue/income.
+    Tracks all incoming money including file fees, consultations, etc.
+    """
+    
+    REVENUE_TYPES = [
+        ('FILE_FEE', 'File Fee (New Patient)'),
+        ('CONSULTATION', 'Doctor Consultation'),
+        ('LAB_TEST', 'Laboratory Test'),
+        ('MEDICATION', 'Medication Sale'),
+        ('PROCEDURE', 'Medical Procedure'),
+        ('ADMISSION', 'Ward Admission'),
+        ('OTHER', 'Other Revenue'),
+    ]
+    
+    PAYMENT_METHODS = [
+        ('CASH', 'Cash'),
+        ('MOBILE_MONEY', 'Mobile Money'),
+        ('CARD', 'Debit/Credit Card'),
+        ('BANK_TRANSFER', 'Bank Transfer'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    # Revenue identification
+    revenue_number = models.CharField(
+        max_length=20,
+        unique=True,
+        help_text='Unique revenue number (REV20240904001)'
+    )
+    
+    # Patient reference (for patient-related revenue)
+    patient = models.ForeignKey(
+        'patients.Patient',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        help_text='Patient this revenue is related to (if applicable)'
+    )
+    
+    # Revenue details
+    revenue_type = models.CharField(
+        max_length=20,
+        choices=REVENUE_TYPES,
+        help_text='Type of revenue/service'
+    )
+    description = models.CharField(
+        max_length=200,
+        help_text='Description of the service/revenue'
+    )
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text='Amount received'
+    )
+    
+    # Payment details
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PAYMENT_METHODS,
+        default='CASH'
+    )
+    payment_reference = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text='Receipt number, transaction ID, etc.'
+    )
+    
+    # Tracking
+    collected_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        help_text='Staff member who collected the payment'
+    )
+    revenue_date = models.DateField(
+        default=timezone.now,
+        help_text='Date when revenue was collected'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'revenue_records'
+        ordering = ['-revenue_date', '-created_at']
+        indexes = [
+            models.Index(fields=['revenue_date']),
+            models.Index(fields=['revenue_type']),
+            models.Index(fields=['patient']),
+        ]
+    
+    def __str__(self):
+        return f"{self.revenue_number} - {self.get_revenue_type_display()} - {self.amount} TZS"
+    
+    def save(self, *args, **kwargs):
+        if not self.revenue_number:
+            # Auto-generate revenue number
+            today = timezone.now().date()
+            prefix = f"REV{today.strftime('%Y%m%d')}"
+            
+            # Get the latest revenue number for today
+            latest = RevenueRecord.objects.filter(
+                revenue_number__startswith=prefix
+            ).order_by('-revenue_number').first()
+            
+            if latest:
+                # Extract number and increment
+                try:
+                    latest_num = int(latest.revenue_number[-3:])
+                    new_num = latest_num + 1
+                except:
+                    new_num = 1
+            else:
+                new_num = 1
+            
+            self.revenue_number = f"{prefix}{new_num:03d}"
+        
+        super().save(*args, **kwargs)
+
+
+# ==============================================================================
 # EXISTING BILLING MODELS (KEEP AS-IS, WORKING IN PRODUCTION)
 # ==============================================================================
 # These models were created from the initial migrations and are working fine.

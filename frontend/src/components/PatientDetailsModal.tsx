@@ -8,6 +8,7 @@ interface PatientDetailsModalProps {
   patientId: string;
   onEdit?: () => void;
   onDelete?: () => void;
+  onCheckIn?: () => void;
 }
 
 interface PatientDetails {
@@ -36,7 +37,7 @@ interface PatientDetails {
   updated_at: string;
 }
 
-export default function PatientDetailsModal({ isOpen, onClose, patientId, onEdit, onDelete }: PatientDetailsModalProps) {
+export default function PatientDetailsModal({ isOpen, onClose, patientId, onEdit, onDelete, onCheckIn }: PatientDetailsModalProps) {
   const [loading, setLoading] = useState(false);
   const [patient, setPatient] = useState<PatientDetails | null>(null);
 
