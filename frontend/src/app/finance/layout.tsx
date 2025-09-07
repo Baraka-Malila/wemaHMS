@@ -3,19 +3,17 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { 
-  Stethoscope, 
-  Users, 
-  FileText, 
-  TestTube, 
-  Pill, 
-  History, 
+  DollarSign, 
+  Activity, 
+  TrendingUp, 
+  Calculator, 
   LogOut, 
   Menu, 
   X,
-  Activity
+  Banknote
 } from 'lucide-react';
 
-export default function DoctorLayout({
+export default function FinanceLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -36,7 +34,8 @@ export default function DoctorLayout({
 
     try {
       const parsedUser = JSON.parse(userData);
-      if (parsedUser.role !== 'DOCTOR') {
+      // Allow FINANCE, RECEPTION (as they handle finance too), and ADMIN
+      if (!['FINANCE', 'RECEPTION', 'ADMIN'].includes(parsedUser.role)) {
         router.push('/login');
         return;
       }
@@ -70,7 +69,7 @@ export default function DoctorLayout({
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-8 h-8 border-2 border-yellow-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
@@ -95,14 +94,14 @@ export default function DoctorLayout({
             </svg>
           </button>
           
-          {/* Doctor Branding */}
+          {/* Finance Branding */}
           <span style={{
             fontFamily: 'Inter, sans-serif',
             fontSize: '20px',
             lineHeight: '25px',
             fontWeight: '700',
-            color: '#1E40AF'
-          }}>DOCTOR</span>
+            color: '#D97706'
+          }}>FINANCE</span>
         </div>
         
         {/* Remove center heading - now empty */}
@@ -132,7 +131,7 @@ export default function DoctorLayout({
       </header>
 
       <div className="flex pt-[50px]">
-        {/* Sidebar - Doctor specific navigation */}
+        {/* Sidebar - Finance specific navigation */}
         <aside 
           className={`${sidebarCollapsed ? 'w-[70px]' : 'w-[280px]'} border-r border-gray-200 h-screen sticky top-[50px] flex flex-col transition-all duration-300`}
           style={{ background: '#F8F9FA' }}
@@ -141,85 +140,29 @@ export default function DoctorLayout({
             {/* Dashboard */}
             <div 
               className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-3 rounded-lg font-medium cursor-pointer ${
-                isActive('/doctor/dashboard') 
+                isActive('/finance/dashboard') 
                   ? 'text-white' 
                   : 'text-gray-600 hover:bg-gray-100'
               }`} 
-              style={isActive('/doctor/dashboard') ? { background: '#9CA3AF' } : {}}
-              onClick={() => router.push('/doctor/dashboard')}
+              style={isActive('/finance/dashboard') ? { background: '#9CA3AF' } : {}}
+              onClick={() => router.push('/finance/dashboard')}
             >
               <Activity className="h-5 w-5" />
               {!sidebarCollapsed && <span>Dashboard</span>}
             </div>
 
-            {/* Patient Queue */}
+            {/* Daily Operations */}
             <div 
               className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-3 rounded-lg font-medium cursor-pointer ${
-                isActive('/doctor/queue') 
+                isActive('/finance/daily-ops') 
                   ? 'text-white' 
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
-              style={isActive('/doctor/queue') ? { background: '#9CA3AF' } : {}}
-              onClick={() => router.push('/doctor/queue')}
+              style={isActive('/finance/daily-ops') ? { background: '#9CA3AF' } : {}}
+              onClick={() => router.push('/finance/daily-ops')}
             >
-              <Users className="h-5 w-5" />
-              {!sidebarCollapsed && <span>Patient Queue</span>}
-            </div>
-
-            {/* Diagnoses */}
-            <div 
-              className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-3 rounded-lg font-medium cursor-pointer ${
-                isActive('/doctor/diagnoses') 
-                  ? 'text-white' 
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-              style={isActive('/doctor/diagnoses') ? { background: '#9CA3AF' } : {}}
-              onClick={() => router.push('/doctor/diagnoses')}
-            >
-              <FileText className="h-5 w-5" />
-              {!sidebarCollapsed && <span>Diagnoses</span>}
-            </div>
-
-            {/* Lab Requests */}
-            <div 
-              className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-3 rounded-lg font-medium cursor-pointer ${
-                isActive('/doctor/lab-requests') 
-                  ? 'text-white' 
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-              style={isActive('/doctor/lab-requests') ? { background: '#9CA3AF' } : {}}
-              onClick={() => router.push('/doctor/lab-requests')}
-            >
-              <TestTube className="h-5 w-5" />
-              {!sidebarCollapsed && <span>Lab Requests</span>}
-            </div>
-
-            {/* Prescriptions */}
-            <div 
-              className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-3 rounded-lg font-medium cursor-pointer ${
-                isActive('/doctor/prescriptions') 
-                  ? 'text-white' 
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-              style={isActive('/doctor/prescriptions') ? { background: '#9CA3AF' } : {}}
-              onClick={() => router.push('/doctor/prescriptions')}
-            >
-              <Pill className="h-5 w-5" />
-              {!sidebarCollapsed && <span>Prescriptions</span>}
-            </div>
-
-            {/* Patient History */}
-            <div 
-              className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-3 rounded-lg font-medium cursor-pointer ${
-                isActive('/doctor/history') 
-                  ? 'text-white' 
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-              style={isActive('/doctor/history') ? { background: '#9CA3AF' } : {}}
-              onClick={() => router.push('/doctor/history')}
-            >
-              <History className="h-5 w-5" />
-              {!sidebarCollapsed && <span>Patient History</span>}
+              <Calculator className="h-5 w-5" />
+              {!sidebarCollapsed && <span>Daily Operations</span>}
             </div>
           </nav>
         </aside>
