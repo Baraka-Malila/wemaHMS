@@ -176,12 +176,11 @@ export default function ReceptionDashboard() {
 
   return (
     <>
-      {/* Welcome Container - Responsive to sidebar */}
+      {/* Welcome Container - Fully responsive to sidebar */}
       <div 
         className="relative mb-8 transition-all duration-300"
         style={{
           width: '100%',
-          maxWidth: '1152px',
           height: '198px',
           background: '#F1F8FEFF',
           borderRadius: '16px',
@@ -221,12 +220,12 @@ export default function ReceptionDashboard() {
           Your reception dashboard for seamless patient management.
         </p>
         
-        {/* Welcome Image - Exact positioning */}
+        {/* Welcome Image - Responsive positioning */}
         <div
           style={{
             position: 'absolute',
             top: '24px',
-            left: '928px',
+            right: '24px',
             width: '200px',
             height: '150px'
           }}
