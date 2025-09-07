@@ -112,7 +112,8 @@ const SignIn: React.FC = () => {
           'reception': '/reception/dashboard',
           'doctor': '/doctor/dashboard',
           'lab': '/lab/dashboard',
-          'nurse': '/nurse/dashboard',
+          'nurse': '/nursing/dashboard',
+          'nursing': '/nursing/dashboard',
           'finance': '/finance/dashboard',
         };
 

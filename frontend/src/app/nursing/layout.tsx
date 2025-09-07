@@ -1,207 +1,165 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { 
-  Activity,
-  Users,
-  Heart,
-  FileText,
-  AlertTriangle,
-  Menu,
-  User,
-  LogOut,
-  ChevronLeft,
-  Bell,
-  Settings
-} from 'lucide-react';
-
-interface User {
-  id: string;
-  name: string;
-  role: string;
-  permissions: string[];
-}
-
-interface SidebarProps {
-  isOpen: boolean;
-  onToggle: () => void;
-}
-
-const Sidebar = ({ isOpen, onToggle }: SidebarProps) => {
-  const router = useRouter();
-
-  const navItems = [
-    { icon: Activity, label: 'Patient Care', href: '/nursing/care', active: true },
-    { icon: Users, label: 'Ward Management', href: '/nursing/wards', active: false }
-  ];
-
-  return (
-    <div className={`fixed inset-y-0 left-0 z-50 bg-white border-r border-gray-200 transition-all duration-300 ${
-      isOpen ? 'w-64' : 'w-16'
-    }`}>
-      {/* Header */}
-      <div className="h-16 border-b border-gray-200 flex items-center justify-between px-4">
-        {isOpen && (
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
-              <Heart className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-gray-900">WEMA HMS</div>
-              <div className="text-xs text-green-600">Nursing Portal</div>
-            </div>
-          </div>
-        )}
-        <button
-          onClick={onToggle}
-          className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-        >
-          {isOpen ? <ChevronLeft className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
-      </div>
-
-      {/* Navigation */}
-      <nav className="mt-6">
-        <div className="px-3 space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.href}
-                onClick={() => router.push(item.href)}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  item.active
-                    ? 'bg-green-50 text-green-700 border border-green-200'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                <Icon className="h-5 w-5 flex-shrink-0" />
-                {isOpen && <span>{item.label}</span>}
-              </button>
-            );
-          })}
-        </div>
-      </nav>
-
-      {/* User Section */}
-      {isOpen && (
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
-          <div className="flex items-center space-x-3 mb-3">
-            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-              <User className="h-5 w-5 text-green-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-gray-900 truncate">Nurse Sarah</div>
-              <div className="text-xs text-gray-500">NURSING</div>
-            </div>
-          </div>
-          <button className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
-            <LogOut className="h-4 w-4" />
-            <span>Sign Out</span>
-          </button>
-        </div>
-      )}
-    </div>
-  );
-};
-
-interface HeaderProps {
-  sidebarOpen: boolean;
-}
-
-const Header = ({ sidebarOpen }: HeaderProps) => {
-  return (
-    <header className={`fixed top-0 right-0 z-40 h-16 bg-white border-b border-gray-200 transition-all duration-300 ${
-      sidebarOpen ? 'left-64' : 'left-16'
-    }`}>
-      <div className="h-full px-6 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <h1 className="text-lg font-semibold text-gray-900">Nursing Portal</h1>
-        </div>
-        
-        <div className="flex items-center space-x-4">
-          <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-            <Bell className="h-5 w-5" />
-          </button>
-          <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-            <Settings className="h-5 w-5" />
-          </button>
-        </div>
-      </div>
-    </header>
-  );
-};
+import React, { useState, useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 
 export default function NursingLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
-    const checkAuth = () => {
-      const token = localStorage.getItem('token');
-      const userData = localStorage.getItem('user');
+    // Check authentication
+    const token = localStorage.getItem('auth_token');
+    const userData = localStorage.getItem('user_data');
+    
+    if (!token || !userData) {
+      router.push('/login');
+      return;
+    }
 
-      if (!token || !userData) {
-        router.push('/auth/signin');
+    try {
+      const user = JSON.parse(userData);
+      setCurrentUser(user);
+      
+      // Check if user has nursing access
+      if (user.role !== 'NURSING' && user.role !== 'NURSE' && user.role !== 'ADMIN') {
+        router.push('/login');
         return;
       }
-
-      try {
-        const parsedUser = JSON.parse(userData);
-        
-        // Check if user has access to nursing portal
-        const allowedRoles = ['NURSING', 'ADMIN'];
-        if (!allowedRoles.includes(parsedUser.role)) {
-          router.push('/auth/signin');
-          return;
-        }
-
-        setUser(parsedUser);
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        router.push('/auth/signin');
-        return;
-      }
-
-      setLoading(false);
-    };
-
-    checkAuth();
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      router.push('/login');
+    }
   }, [router]);
 
-  if (loading) {
+  const handleLogout = () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_data');
+    router.push('/login');
+  };
+
+  const isActive = (path: string) => pathname === path;
+
+  if (!currentUser) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
       </div>
     );
   }
 
-  if (!user) {
-    return null;
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
-      <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
-      <Header sidebarOpen={sidebarOpen} />
-      
-      <main className={`pt-16 transition-all duration-300 ${
-        sidebarOpen ? 'ml-64' : 'ml-16'
-      }`}>
-        <div className="p-6">
-          {children}
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 px-6 py-3 fixed top-0 left-0 right-0 z-50 flex items-center justify-between">
+        {/* Left side - Toggle and Branding */}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="p-1.5 hover:bg-gray-100 rounded-lg"
+            aria-label="Toggle Sidebar"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.5">
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+          
+          {/* Nursing Branding */}
+          <span style={{
+            fontFamily: 'Inter, sans-serif',
+            fontSize: '20px',
+            lineHeight: '25px',
+            fontWeight: '700',
+            color: '#1E40AF'
+          }}>NURSING</span>
         </div>
-      </main>
+        
+        {/* Remove center heading - now empty */}
+        <div></div>
+        
+        <div className="flex items-center space-x-4">
+          <button className="p-1.5 hover:bg-gray-100 rounded-lg" aria-label="Notifications">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.5">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+          </button>
+          <button className="p-1.5 hover:bg-gray-100 rounded-lg" aria-label="Settings">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.5">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1 1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
+          <button className="p-1.5 hover:bg-red-100 rounded-lg" aria-label="Logout" onClick={handleLogout}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="1.5">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16,17 21,12 16,7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <div className="flex pt-[50px]">
+        {/* Sidebar - Nursing specific navigation */}
+        <aside 
+          className={`${sidebarCollapsed ? 'w-[70px]' : 'w-[280px]'} border-r border-gray-200 h-screen sticky top-[50px] flex flex-col transition-all duration-300`}
+          style={{ background: '#F8F9FA' }}
+        >
+          <nav className={`flex-1 ${sidebarCollapsed ? 'p-2' : 'p-6'} space-y-2`}>
+            {/* Dashboard */}
+            <div 
+              className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-3 rounded-lg font-medium cursor-pointer ${
+                isActive('/nursing/dashboard') 
+                  ? 'text-white' 
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`} 
+              style={isActive('/nursing/dashboard') ? { background: '#9CA3AF' } : {}}
+              onClick={() => router.push('/nursing/dashboard')}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="3" y="3" width="7" height="7"/>
+                <rect x="14" y="3" width="7" height="7"/>
+                <rect x="14" y="14" width="7" height="7"/>
+                <rect x="3" y="14" width="7" height="7"/>
+              </svg>
+              {!sidebarCollapsed && <span>Dashboard</span>}
+            </div>
+
+            {/* Patient Care */}
+            <div 
+              className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-3 rounded-lg font-medium cursor-pointer ${
+                isActive('/nursing/care') 
+                  ? 'text-white' 
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              style={isActive('/nursing/care') ? { background: '#9CA3AF' } : {}}
+              onClick={() => router.push('/nursing/care')}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+              </svg>
+              {!sidebarCollapsed && <span>Patient Care</span>}
+            </div>
+          </nav>
+        </aside>
+
+        {/* Main Content Container */}
+        <main className="flex-1" style={{ background: '#F8F9FA', padding: '24px' }}>
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
