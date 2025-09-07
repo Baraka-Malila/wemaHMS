@@ -7,7 +7,7 @@ import Image from 'next/image';
 interface Patient {
   id: string;
   name: string;
-  phone: string;
+  phone?: string; // Optional since some patients might not have phone numbers
   arrival_time: string;
   status: 'Waiting' | 'In Progress' | 'Completed' | 'Cancelled';
   doctor: string;
@@ -165,9 +165,9 @@ export default function ReceptionDashboard() {
   };
 
   const filteredPatients = patients.filter(patient => {
-    const matchesSearch = patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         patient.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         patient.phone.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = patient.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         patient.id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         patient.phone?.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === '' || patient.status === statusFilter;
     
@@ -474,7 +474,7 @@ export default function ReceptionDashboard() {
                       lineHeight: '20px',
                       fontWeight: '400',
                       color: '#565D6D'
-                    }}>{patient.phone}</td>
+                    }}>{patient.phone || 'N/A'}</td>
                     <td className="p-4" style={{
                       fontFamily: 'Inter, sans-serif',
                       fontSize: '14px',
