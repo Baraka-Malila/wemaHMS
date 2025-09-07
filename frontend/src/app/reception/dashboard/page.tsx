@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import NewPatientModal from '@/components/NewPatientModal';
 import ExistingPatientModal from '@/components/ExistingPatientModal';
+import PatientDetailsModal from '@/components/PatientDetailsModal';
+import EditPatientModal from '@/components/EditPatientModal';
 
 interface Patient {
   id: string;
@@ -42,6 +44,9 @@ export default function ReceptionDashboard() {
   // Modal states
   const [showNewPatientModal, setShowNewPatientModal] = useState(false);
   const [showExistingPatientModal, setShowExistingPatientModal] = useState(false);
+  const [showPatientDetailsModal, setShowPatientDetailsModal] = useState(false);
+  const [showEditPatientModal, setShowEditPatientModal] = useState(false);
+  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
 
   // Fetch dashboard data
   const fetchDashboardData = async () => {
@@ -280,10 +285,51 @@ export default function ReceptionDashboard() {
   });
 
   const handleSelectExistingPatient = (patient: Patient) => {
-    // Update the patient's status to indicate they've arrived for today's visit
-    // This could also open a modal to update their status or check them in
-    console.log('Selected patient:', patient);
-    // You can add logic here to check them in or update their status
+    // Show patient details when selected from existing patient search
+    setSelectedPatientId(patient.patient_id);
+    setShowPatientDetailsModal(true);
+  };
+
+  const handleViewPatient = (patientId: string) => {
+    setSelectedPatientId(patientId);
+    setShowPatientDetailsModal(true);
+  };
+
+  const handleEditPatient = (patientId: string) => {
+    setSelectedPatientId(patientId);
+    setShowEditPatientModal(true);
+  };
+
+  const handleDeletePatient = async (patient: Patient) => {
+    if (!confirm(`Are you sure you want to delete ${patient.full_name}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/${patient.patient_id}/delete/`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.ok) {
+        alert(`Patient ${patient.full_name} deleted successfully`);
+        // Refresh the patient list
+        fetchDashboardData();
+      } else {
+        const errorData = await response.json();
+        alert(`Error: ${errorData.message || 'Failed to delete patient'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting patient:', error);
+      alert('Error deleting patient. Please try again.');
+    }
   };
 
   return (
@@ -613,7 +659,7 @@ export default function ReceptionDashboard() {
                         {/* View Button */}
                         <button 
                           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                          onClick={() => router.push(`/reception/patients/${patient.id}`)}
+                          onClick={() => handleViewPatient(patient.patient_id)}
                           title="View Patient"
                         >
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.5">
@@ -625,7 +671,7 @@ export default function ReceptionDashboard() {
                         {/* Edit Button */}
                         <button 
                           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                          onClick={() => router.push(`/reception/patients/${patient.id}/edit`)}
+                          onClick={() => handleEditPatient(patient.patient_id)}
                           title="Edit Patient"
                         >
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.5">
@@ -637,11 +683,7 @@ export default function ReceptionDashboard() {
                         {/* Delete Button */}
                         <button 
                           className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                          onClick={() => {
-                            if (confirm(`Are you sure you want to delete ${patient.full_name}?`)) {
-                              setPatients(patients.filter(p => p.id !== patient.id));
-                            }
-                          }}
+                          onClick={() => handleDeletePatient(patient)}
                           title="Delete Patient"
                         >
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="1.5">
@@ -675,6 +717,40 @@ export default function ReceptionDashboard() {
         isOpen={showExistingPatientModal}
         onClose={() => setShowExistingPatientModal(false)}
         onSelectPatient={handleSelectExistingPatient}
+      />
+
+      <PatientDetailsModal
+        isOpen={showPatientDetailsModal}
+        onClose={() => {
+          setShowPatientDetailsModal(false);
+          setSelectedPatientId('');
+        }}
+        patientId={selectedPatientId}
+        onEdit={() => {
+          setShowPatientDetailsModal(false);
+          setShowEditPatientModal(true);
+        }}
+        onDelete={() => {
+          // Find the patient and call delete
+          const patient = patients.find(p => p.patient_id === selectedPatientId);
+          if (patient) {
+            setShowPatientDetailsModal(false);
+            handleDeletePatient(patient);
+          }
+        }}
+      />
+
+      <EditPatientModal
+        isOpen={showEditPatientModal}
+        onClose={() => {
+          setShowEditPatientModal(false);
+          setSelectedPatientId('');
+        }}
+        patientId={selectedPatientId}
+        onSuccess={() => {
+          // Refresh the patient list after successful update
+          fetchDashboardData();
+        }}
       />
     </>
   );

@@ -237,3 +237,60 @@ def update_patient_status(request, patient_id):
             {'error': f'Failed to update patient status: {str(e)}'},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+
+@swagger_auto_schema(
+    method='delete',
+    operation_summary="Delete patient record",
+    operation_description="Permanently delete a patient record. This action cannot be undone.",
+    responses={
+        200: openapi.Response(
+            description="Patient deleted successfully",
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'message': openapi.Schema(type=openapi.TYPE_STRING),
+                    'patient_id': openapi.Schema(type=openapi.TYPE_STRING),
+                    'deleted_by': openapi.Schema(type=openapi.TYPE_STRING),
+                }
+            )
+        ),
+        404: openapi.Response(description="Patient not found"),
+        401: openapi.Response(description="Authentication required")
+    },
+    tags=['Patient Core - Universal APIs']
+)
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_patient(request, patient_id):
+    """
+    Delete a patient record permanently.
+    
+    This endpoint completely removes a patient from the system.
+    Use with caution as this action cannot be undone.
+    """
+    try:
+        # Find patient
+        if len(patient_id) == 36:  # UUID format
+            patient = get_object_or_404(Patient, id=patient_id)
+        else:
+            patient = get_object_or_404(Patient, patient_id=patient_id.upper())
+        
+        patient_name = patient.full_name
+        patient_identifier = patient.patient_id
+        
+        # Delete the patient (CASCADE will handle related records)
+        patient.delete()
+        
+        return Response({
+            'message': f'Patient {patient_name} deleted successfully',
+            'patient_id': patient_identifier,
+            'deleted_by': request.user.full_name,
+            'deleted_at': timezone.now().isoformat()
+        })
+    
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to delete patient: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
