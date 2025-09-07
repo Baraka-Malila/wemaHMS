@@ -1,0 +1,296 @@
+"""
+Finance utility functions for pricing lookups and billing.
+Centralizes all pricing logic to avoid conflicts.
+"""
+from decimal import Decimal
+from .models import ServicePricing
+
+
+def get_medication_price(medication_name, medication_code=None, emergency=False):
+    """
+    Get medication price from centralized ServicePricing.
+    Falls back to medication.unit_price during migration period.
+    """
+    try:
+        # First try to find by service code
+        if medication_code:
+            service = ServicePricing.objects.filter(
+                service_code=medication_code,
+                service_category='MEDICATION',
+                is_active=True
+            ).first()
+            if service:
+                return service.emergency_price if emergency and service.emergency_price else service.standard_price
+        
+        # Then try by service name
+        service = ServicePricing.objects.filter(
+            service_name__icontains=medication_name,
+            service_category='MEDICATION',
+            is_active=True
+        ).first()
+        
+        if service:
+            return service.emergency_price if emergency and service.emergency_price else service.standard_price
+        
+        # If no service pricing found, we'll need to fallback to medication.unit_price temporarily
+        # during migration period
+        return None
+        
+    except Exception:
+        return None
+
+
+def get_lab_test_price(test_name, test_code=None, emergency=False):
+    """
+    Get lab test price from centralized ServicePricing.
+    """
+    try:
+        # First try by service code
+        if test_code:
+            service = ServicePricing.objects.filter(
+                service_code=test_code,
+                service_category='LAB_TEST',
+                is_active=True
+            ).first()
+            if service:
+                return service.emergency_price if emergency and service.emergency_price else service.standard_price
+        
+        # Then try by service name
+        service = ServicePricing.objects.filter(
+            service_name__icontains=test_name,
+            service_category='LAB_TEST',
+            is_active=True
+        ).first()
+        
+        if service:
+            return service.emergency_price if emergency and service.emergency_price else service.standard_price
+        
+        return None
+        
+    except Exception:
+        return None
+
+
+def get_consultation_price(consultation_type='GENERAL', doctor_specialty=None, emergency=False):
+    """
+    Get consultation price from centralized ServicePricing.
+    """
+    try:
+        # Try specialist consultation first if specialty provided
+        if doctor_specialty:
+            service = ServicePricing.objects.filter(
+                service_name__icontains=doctor_specialty,
+                service_category='CONSULTATION',
+                is_active=True
+            ).first()
+            if service:
+                return service.emergency_price if emergency and service.emergency_price else service.standard_price
+        
+        # Fall back to general consultation
+        service = ServicePricing.objects.filter(
+            service_code='CONSULT_GENERAL',
+            service_category='CONSULTATION',
+            is_active=True
+        ).first()
+        
+        if service:
+            return service.emergency_price if emergency and service.emergency_price else service.standard_price
+        
+        # Default fallback price
+        return Decimal('50000.00')  # 50k TZS default
+        
+    except Exception:
+        return Decimal('50000.00')
+
+
+def get_nursing_service_price(service_name, service_code=None):
+    """
+    Get nursing service price from centralized ServicePricing.
+    """
+    try:
+        # First try by service code
+        if service_code:
+            service = ServicePricing.objects.filter(
+                service_code=service_code,
+                service_category='NURSING',
+                is_active=True
+            ).first()
+            if service:
+                return service.standard_price
+        
+        # Then try by service name
+        service = ServicePricing.objects.filter(
+            service_name__icontains=service_name,
+            service_category='NURSING',
+            is_active=True
+        ).first()
+        
+        if service:
+            return service.standard_price
+        
+        return None
+        
+    except Exception:
+        return None
+
+
+def get_service_price(service_code):
+    """
+    Get any service price by service code.
+    Universal function for all service types.
+    """
+    try:
+        service = ServicePricing.objects.filter(
+            service_code=service_code,
+            is_active=True
+        ).first()
+        
+        if service:
+            return service.standard_price
+        
+        return None
+        
+    except Exception:
+        return None
+
+
+def create_bill_for_prescription(prescription_queue, staff_user):
+    """
+    Create a patient bill for a completed prescription.
+    Called from pharmacy when prescription is completed.
+    """
+    from .models import PatientBill, BillLineItem
+    from django.utils import timezone
+    
+    try:
+        # Create the main bill
+        bill = PatientBill.objects.create(
+            patient_id=prescription_queue.patient_id,
+            patient_name=prescription_queue.patient_name,
+            service_date=prescription_queue.created_at.date(),
+            due_date=timezone.now().date(),
+            created_by=staff_user
+        )
+        
+        # Add line items for each dispensed medication
+        total_amount = Decimal('0.00')
+        for dispense_record in prescription_queue.dispense_records.all():
+            line_item = BillLineItem.objects.create(
+                patient_bill=bill,
+                service_name=dispense_record.medication.name,
+                service_code=f"MED_{dispense_record.medication.barcode}",
+                service_category='MEDICATION',
+                quantity=dispense_record.quantity_scanned,
+                unit_price=dispense_record.unit_price,
+                source_department='PHARMACY',
+                source_reference=prescription_queue.id,
+                service_date=dispense_record.scanned_at,
+                provided_by=dispense_record.scanned_by
+            )
+            total_amount += line_item.line_total
+        
+        # Update bill totals
+        bill.subtotal = total_amount
+        bill.save()
+        
+        return bill
+        
+    except Exception as e:
+        raise Exception(f"Failed to create prescription bill: {str(e)}")
+
+
+def create_bill_for_lab_tests(lab_test_request, staff_user):
+    """
+    Create a patient bill for completed lab tests.
+    Called from lab when tests are completed.
+    """
+    from .models import PatientBill, BillLineItem
+    from django.utils import timezone
+    
+    try:
+        # Create the main bill
+        bill = PatientBill.objects.create(
+            patient_id=lab_test_request.patient_id,
+            patient_name=lab_test_request.patient_name,
+            service_date=lab_test_request.requested_at.date(),
+            due_date=timezone.now().date(),
+            created_by=staff_user
+        )
+        
+        # Add line item for lab tests
+        # Use estimated_cost or lookup from ServicePricing
+        test_price = get_lab_test_price(lab_test_request.test_type)
+        if not test_price and lab_test_request.estimated_cost:
+            test_price = lab_test_request.estimated_cost
+        if not test_price:
+            test_price = Decimal('25000.00')  # Default lab test price
+        
+        line_item = BillLineItem.objects.create(
+            patient_bill=bill,
+            service_name=f"Lab Test: {lab_test_request.test_type}",
+            service_code=f"LAB_{lab_test_request.test_type.upper()}",
+            service_category='LAB_TEST',
+            quantity=1,
+            unit_price=test_price,
+            source_department='LAB',
+            source_reference=lab_test_request.id,
+            service_date=lab_test_request.requested_at,
+            provided_by=staff_user
+        )
+        
+        # Update bill totals
+        bill.subtotal = line_item.line_total
+        bill.save()
+        
+        return bill
+        
+    except Exception as e:
+        raise Exception(f"Failed to create lab test bill: {str(e)}")
+
+
+def create_bill_for_consultation(consultation, staff_user):
+    """
+    Create a patient bill for doctor consultation.
+    Called from doctor app when consultation is completed.
+    """
+    from .models import PatientBill, BillLineItem
+    from django.utils import timezone
+    
+    try:
+        # Get consultation price
+        consultation_price = get_consultation_price(
+            consultation_type='GENERAL',
+            doctor_specialty=getattr(consultation.doctor, 'specialty', None)
+        )
+        
+        # Create the main bill
+        bill = PatientBill.objects.create(
+            patient_id=consultation.patient_id,
+            patient_name=consultation.patient_name,
+            service_date=consultation.consultation_date,
+            due_date=timezone.now().date(),
+            created_by=staff_user
+        )
+        
+        # Add line item for consultation
+        line_item = BillLineItem.objects.create(
+            patient_bill=bill,
+            service_name=f"Doctor Consultation - {consultation.consultation_type}",
+            service_code='CONSULT_GENERAL',
+            service_category='CONSULTATION',
+            quantity=1,
+            unit_price=consultation_price,
+            source_department='DOCTOR',
+            source_reference=consultation.id,
+            service_date=consultation.created_at,
+            provided_by=consultation.doctor
+        )
+        
+        # Update bill totals
+        bill.subtotal = line_item.line_total
+        bill.save()
+        
+        return bill
+        
+    except Exception as e:
+        raise Exception(f"Failed to create consultation bill: {str(e)}")

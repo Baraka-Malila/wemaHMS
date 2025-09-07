@@ -11,6 +11,7 @@ from .serializers import (
     MedicationSerializer, MedicationListSerializer, PrescriptionQueueSerializer,
     ScanRequestSerializer, RestockSerializer
 )
+from .utils import get_medication_pricing, calculate_prescription_total, update_medication_stock, check_low_stock_alerts
 from core.permissions import IsPharmacyStaff, IsDoctorStaff, IsStaffMember
 
 
@@ -97,18 +98,22 @@ def scan_medication(request):
             prescription.processed_by = request.user
             prescription.save()
         
+        # Get medication price from centralized pricing system
+        unit_price = get_medication_pricing(medication)
+        
         # Create dispense record
         dispense_record = DispenseRecord.objects.create(
             prescription_queue=prescription,
             medication=medication,
             scanned_code=scanned_code,
             quantity_scanned=quantity,
-            unit_price=medication.unit_price,
+            unit_price=unit_price,
             scanned_by=request.user
         )
         
         # Update running total
-        prescription.total_amount = F('total_amount') + (medication.unit_price * quantity)
+        line_total = unit_price * quantity
+        prescription.total_amount = F('total_amount') + line_total
         prescription.save()
         prescription.refresh_from_db()
         
@@ -131,8 +136,8 @@ def scan_medication(request):
             'success': True,
             'item': medication.name,
             'quantity': quantity,
-            'unit_price': float(medication.unit_price),
-            'line_total': float(medication.unit_price * quantity),
+            'unit_price': float(unit_price),
+            'line_total': float(unit_price * quantity),
             'running_total': float(prescription.total_amount),
             'remaining_stock': medication.current_stock
         })
@@ -436,8 +441,11 @@ def scan_medication(request):
                 'error': f'Insufficient stock. Available: {medication.current_stock}, Requested: {data["quantity"]}'
             }, status=status.HTTP_400_BAD_REQUEST)
         
+        # Get medication price from centralized pricing system
+        unit_price = get_medication_pricing(medication)
+        
         # Calculate totals
-        line_total = data['quantity'] * medication.unit_price
+        line_total = data['quantity'] * unit_price
         
         # Get current running total
         current_total = DispenseRecord.objects.filter(
@@ -452,7 +460,7 @@ def scan_medication(request):
             medication=medication,
             scanned_code=data['scanned_code'],
             quantity_scanned=data['quantity'],
-            unit_price=medication.unit_price,
+            unit_price=unit_price,
             line_total=line_total,
             running_total=new_running_total,
             scanned_by=request.user
@@ -488,7 +496,7 @@ def scan_medication(request):
             'item_found': True,
             'medication_id': str(medication.id),
             'medication_name': medication.name,
-            'unit_price': medication.unit_price,
+            'unit_price': unit_price,
             'quantity': data['quantity'],
             'line_total': line_total,
             'running_total': new_running_total,

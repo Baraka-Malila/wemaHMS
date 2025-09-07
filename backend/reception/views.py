@@ -10,6 +10,7 @@ from drf_yasg import openapi
 from patients.models import Patient, PatientStatusHistory, PatientNote
 from patients.serializers import PatientSearchSerializer
 from .serializers import PatientRegistrationSerializer, PatientUpdateSerializer
+from finance.utils import get_service_price
 
 
 @swagger_auto_schema(
@@ -252,11 +253,14 @@ def process_file_fee_payment(request, patient_id):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Get current file fee from centralized pricing
+        current_file_fee = get_service_price('RECEPTION_FILE') or patient.file_fee_amount
+        
         # Validate payment amount
         amount = request.data.get('amount')
-        if not amount or float(amount) != float(patient.file_fee_amount):
+        if not amount or float(amount) != float(current_file_fee):
             return Response(
-                {'error': f'Invalid payment amount. Expected: {patient.file_fee_amount} TZS'},
+                {'error': f'Invalid payment amount. Expected: {current_file_fee} TZS'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -349,13 +353,16 @@ def reception_dashboard(request):
         # Patients currently registered (waiting for next service)
         patients_registered = Patient.objects.filter(current_status='REGISTERED').count()
         
+        # Get current file fee from centralized pricing
+        file_fee_amount = get_service_price('RECEPTION_FILE') or 2000.0
+        
         return Response({
             'today_registrations': today_registrations,
             'pending_file_fees': pending_file_fees,
             'total_patients': total_patients,
             'patients_waiting': patients_registered,
             'recent_registrations': recent_data,
-            'file_fee_amount': 2000.0,
+            'file_fee_amount': float(file_fee_amount),
             'dashboard_generated_at': timezone.now().isoformat(),
             'generated_by': request.user.full_name
         })

@@ -38,6 +38,8 @@ urlpatterns = [
     path('api/lab/', include('lab.urls')),
     path('api/pharmacy/', include('pharmacy.urls')),
     path('api/reception/', include('reception.urls')),
+    path('api/nursing/', include('nursing.urls')),
+    path('api/finance/', include('finance.urls')),
 ]
 
 if settings.DEBUG:
