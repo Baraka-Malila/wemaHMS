@@ -323,9 +323,9 @@ export default function PatientQueue() {
                 </button>
                 <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-50 text-blue-600 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors">
                   <Eye className="h-4 w-4" />
-                  <span>View Details</span>
+                  <span>View</span>
                 </button>
-                <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-50 text-gray-600 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors">
+                <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-purple-50 text-purple-600 text-sm font-medium rounded-md hover:bg-purple-100 transition-colors">
                   <FileText className="h-4 w-4" />
                   <span>History</span>
                 </button>

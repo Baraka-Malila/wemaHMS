@@ -3,19 +3,17 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { 
-  Stethoscope, 
-  Users, 
-  FileText, 
   TestTube, 
-  Pill, 
-  History, 
+  Activity, 
+  ClipboardList, 
+  ShoppingCart, 
   LogOut, 
   Menu, 
   X,
-  Activity
+  Microscope
 } from 'lucide-react';
 
-export default function DoctorLayout({
+export default function LabLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -36,7 +34,7 @@ export default function DoctorLayout({
 
     try {
       const parsedUser = JSON.parse(userData);
-      if (parsedUser.role !== 'DOCTOR') {
+      if (parsedUser.role !== 'LAB') {
         router.push('/login');
         return;
       }
@@ -95,14 +93,14 @@ export default function DoctorLayout({
             </svg>
           </button>
           
-          {/* Doctor Branding */}
+          {/* Lab Branding */}
           <span style={{
             fontFamily: 'Inter, sans-serif',
             fontSize: '20px',
             lineHeight: '25px',
             fontWeight: '700',
             color: '#1E40AF'
-          }}>DOCTOR</span>
+          }}>LABORATORY</span>
         </div>
         
         {/* Remove center heading - now empty */}
@@ -132,7 +130,7 @@ export default function DoctorLayout({
       </header>
 
       <div className="flex pt-[50px]">
-        {/* Sidebar - Doctor specific navigation */}
+        {/* Sidebar - Lab specific navigation */}
         <aside 
           className={`${sidebarCollapsed ? 'w-[70px]' : 'w-[280px]'} border-r border-gray-200 h-screen sticky top-[50px] flex flex-col transition-all duration-300`}
           style={{ background: '#F8F9FA' }}
@@ -141,85 +139,43 @@ export default function DoctorLayout({
             {/* Dashboard */}
             <div 
               className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-3 rounded-lg font-medium cursor-pointer ${
-                isActive('/doctor/dashboard') 
+                isActive('/lab/dashboard') 
                   ? 'text-white' 
                   : 'text-gray-600 hover:bg-gray-100'
               }`} 
-              style={isActive('/doctor/dashboard') ? { background: '#16A34A' } : {}}
-              onClick={() => router.push('/doctor/dashboard')}
+              style={isActive('/lab/dashboard') ? { background: '#1E40AF' } : {}}
+              onClick={() => router.push('/lab/dashboard')}
             >
               <Activity className="h-5 w-5" />
               {!sidebarCollapsed && <span>Dashboard</span>}
             </div>
 
-            {/* Patient Queue */}
+            {/* Test Results */}
             <div 
               className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-3 rounded-lg font-medium cursor-pointer ${
-                isActive('/doctor/queue') 
+                isActive('/lab/test-results') 
                   ? 'text-white' 
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
-              style={isActive('/doctor/queue') ? { background: '#16A34A' } : {}}
-              onClick={() => router.push('/doctor/queue')}
+              style={isActive('/lab/test-results') ? { background: '#1E40AF' } : {}}
+              onClick={() => router.push('/lab/test-results')}
             >
-              <Users className="h-5 w-5" />
-              {!sidebarCollapsed && <span>Patient Queue</span>}
+              <ClipboardList className="h-5 w-5" />
+              {!sidebarCollapsed && <span>Test Results</span>}
             </div>
 
-            {/* Diagnoses */}
+            {/* Supply Orders */}
             <div 
               className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-3 rounded-lg font-medium cursor-pointer ${
-                isActive('/doctor/diagnoses') 
+                isActive('/lab/supply-orders') 
                   ? 'text-white' 
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
-              style={isActive('/doctor/diagnoses') ? { background: '#16A34A' } : {}}
-              onClick={() => router.push('/doctor/diagnoses')}
+              style={isActive('/lab/supply-orders') ? { background: '#1E40AF' } : {}}
+              onClick={() => router.push('/lab/supply-orders')}
             >
-              <FileText className="h-5 w-5" />
-              {!sidebarCollapsed && <span>Diagnoses</span>}
-            </div>
-
-            {/* Lab Requests */}
-            <div 
-              className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-3 rounded-lg font-medium cursor-pointer ${
-                isActive('/doctor/lab-requests') 
-                  ? 'text-white' 
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-              style={isActive('/doctor/lab-requests') ? { background: '#16A34A' } : {}}
-              onClick={() => router.push('/doctor/lab-requests')}
-            >
-              <TestTube className="h-5 w-5" />
-              {!sidebarCollapsed && <span>Lab Requests</span>}
-            </div>
-
-            {/* Prescriptions */}
-            <div 
-              className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-3 rounded-lg font-medium cursor-pointer ${
-                isActive('/doctor/prescriptions') 
-                  ? 'text-white' 
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-              style={isActive('/doctor/prescriptions') ? { background: '#16A34A' } : {}}
-              onClick={() => router.push('/doctor/prescriptions')}
-            >
-              <Pill className="h-5 w-5" />
-              {!sidebarCollapsed && <span>Prescriptions</span>}
-            </div>
-
-            {/* Patient History */}
-            <div 
-              className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-3 rounded-lg font-medium cursor-pointer ${
-                isActive('/doctor/history') 
-                  ? 'text-white' 
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-              style={isActive('/doctor/history') ? { background: '#16A34A' } : {}}
-              onClick={() => router.push('/doctor/history')}
-            >
-              <History className="h-5 w-5" />
-              {!sidebarCollapsed && <span>Patient History</span>}
+              <ShoppingCart className="h-5 w-5" />
+              {!sidebarCollapsed && <span>Supply Orders</span>}
             </div>
           </nav>
         </aside>

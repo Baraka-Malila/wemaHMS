@@ -255,7 +255,7 @@ export default function PatientHistory() {
           {filteredPatients.map((patient) => (
             <div
               key={patient.id}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
+              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-green-300 transition-all cursor-pointer transform hover:-translate-y-1"
               onClick={() => setSelectedPatient(patient.id)}
             >
               <div className="flex items-center space-x-4 mb-4">
@@ -291,6 +291,12 @@ export default function PatientHistory() {
                   <span className="text-sm font-medium text-gray-900">
                     {new Date(patient.visits[0]?.date || '').toLocaleDateString()}
                   </span>
+                </div>
+                <div className="mt-2 flex items-center justify-center">
+                  <button className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-green-50 text-green-600 text-sm font-medium rounded-md hover:bg-green-100 transition-colors">
+                    <FileText className="h-4 w-4" />
+                    <span>Open Patient File</span>
+                  </button>
                 </div>
               </div>
 

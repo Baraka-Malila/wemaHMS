@@ -13,12 +13,35 @@ import {
   Filter,
   Eye,
   Edit,
-  UserCheck
+  UserCheck,
+  History
 } from 'lucide-react';
 
 export default function DoctorDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  useEffect(() => {
+    // Get current user data
+    const userData = localStorage.getItem('user_data');
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        setCurrentUser(user);
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+      }
+    }
+  }, []);
+
+  // Dynamic greeting based on time
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  };
 
   // Mock data - replace with API calls
   const stats = [
@@ -138,16 +161,18 @@ export default function DoctorDashboard() {
   return (
     <div className="space-y-8">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-xl p-6 text-white">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold mb-2">Good Morning, Doctor!</h1>
-            <p className="text-green-100">You have 5 patients waiting and 3 urgent cases requiring attention.</p>
+            <h1 className="text-2xl font-bold mb-2">
+              {getGreeting()}, {currentUser?.first_name || 'Doctor'}!
+            </h1>
+            <p className="text-blue-100">You have 5 patients waiting and 3 urgent cases requiring attention.</p>
           </div>
           <div className="hidden md:block">
             <div className="bg-white/10 rounded-lg p-4">
               <Clock className="h-8 w-8 text-white mb-2" />
-              <p className="text-sm text-green-100">Current Time</p>
+              <p className="text-sm text-blue-100">Current Time</p>
               <p className="text-xl font-semibold">{new Date().toLocaleTimeString('en-US', { 
                 hour: '2-digit', 
                 minute: '2-digit' 
@@ -288,6 +313,10 @@ export default function DoctorDashboard() {
                       <button className="text-blue-600 hover:text-blue-900 flex items-center space-x-1">
                         <Eye className="h-4 w-4" />
                         <span>View</span>
+                      </button>
+                      <button className="text-purple-600 hover:text-purple-900 flex items-center space-x-1">
+                        <History className="h-4 w-4" />
+                        <span>History</span>
                       </button>
                     </div>
                   </td>
