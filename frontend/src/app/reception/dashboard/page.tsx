@@ -7,6 +7,7 @@ import Image from 'next/image';
 interface Patient {
   id: string;
   name: string;
+  phone: string;
   arrival_time: string;
   status: 'Waiting' | 'In Progress' | 'Completed' | 'Cancelled';
   doctor: string;
@@ -16,6 +17,7 @@ export default function ReceptionDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
@@ -37,6 +39,7 @@ export default function ReceptionDashboard() {
         {
           id: 'P001',
           name: 'Alice Johnson',
+          phone: '+255123456789',
           arrival_time: '09:00 AM',
           status: 'Waiting',
           doctor: 'Dr. Evelyn Reed'
@@ -44,6 +47,7 @@ export default function ReceptionDashboard() {
         {
           id: 'P002',
           name: 'Robert Davis',
+          phone: '+255123456790',
           arrival_time: '09:15 AM',
           status: 'In Progress',
           doctor: 'Dr. Michael Chen'
@@ -51,6 +55,7 @@ export default function ReceptionDashboard() {
         {
           id: 'P003',
           name: 'Sophia Lee',
+          phone: '+255123456791',
           arrival_time: '09:30 AM',
           status: 'Waiting',
           doctor: 'Dr. Evelyn Reed'
@@ -58,6 +63,7 @@ export default function ReceptionDashboard() {
         {
           id: 'P004',
           name: 'David Kim',
+          phone: '+255123456792',
           arrival_time: '09:45 AM',
           status: 'Completed',
           doctor: 'Dr. Sophia Miller'
@@ -65,6 +71,7 @@ export default function ReceptionDashboard() {
         {
           id: 'P005',
           name: 'Maria Garcia',
+          phone: '+255123456793',
           arrival_time: '10:00 AM',
           status: 'Cancelled',
           doctor: 'Dr. Michael Chen'
@@ -72,6 +79,7 @@ export default function ReceptionDashboard() {
         {
           id: 'P006',
           name: 'James Wilson',
+          phone: '+255123456794',
           arrival_time: '10:15 AM',
           status: 'Waiting',
           doctor: 'Dr. Evelyn Reed'
@@ -79,6 +87,7 @@ export default function ReceptionDashboard() {
         {
           id: 'P007',
           name: 'Olivia Brown',
+          phone: '+255123456795',
           arrival_time: '10:30 AM',
           status: 'In Progress',
           doctor: 'Dr. Evelyn Reed'
@@ -86,6 +95,7 @@ export default function ReceptionDashboard() {
         {
           id: 'P008',
           name: 'Daniel White',
+          phone: '+255123456796',
           arrival_time: '10:45 AM',
           status: 'Waiting',
           doctor: 'Dr. Sophia Miller'
@@ -154,18 +164,24 @@ export default function ReceptionDashboard() {
     }
   };
 
-  const filteredPatients = patients.filter(patient =>
-    patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    patient.id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPatients = patients.filter(patient => {
+    const matchesSearch = patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         patient.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         patient.phone.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesStatus = statusFilter === '' || patient.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <>
-      {/* Welcome Container - Exact CSS from Visily */}
+      {/* Welcome Container - Responsive to sidebar */}
       <div 
-        className="relative mb-8"
+        className="relative mb-8 transition-all duration-300"
         style={{
-          width: '1152px',
+          width: '100%',
+          maxWidth: '1152px',
           height: '198px',
           background: '#F1F8FEFF',
           borderRadius: '16px',
@@ -229,32 +245,55 @@ export default function ReceptionDashboard() {
 
       {/* Search and Action Buttons */}
       <div className="flex items-center justify-between mb-8 gap-4">
-        {/* Search Bar */}
-        <div className="flex-1 relative">
-          <svg 
-            className="absolute left-3 top-1/2 transform -translate-y-1/2" 
-            width="20" 
-            height="20" 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="#9CA3AF" 
-            strokeWidth="2"
-          >
-            <circle cx="11" cy="11" r="8"/>
-            <path d="M21 21l-4.35-4.35"/>
-          </svg>
-          <input
-            type="text"
-            placeholder="Search by name, phone, or ID number"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            style={{
-              fontFamily: 'Inter, sans-serif',
-              fontSize: '14px',
-              background: '#FFFFFF'
-            }}
-          />
+        {/* Search and Filter Container */}
+        <div className="flex items-center gap-4" style={{ flex: '0 0 50%' }}>
+          {/* Search Bar - Truncated */}
+          <div className="relative flex-1">
+            <svg 
+              className="absolute left-3 top-1/2 transform -translate-y-1/2" 
+              width="20" 
+              height="20" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="#9CA3AF" 
+              strokeWidth="2"
+            >
+              <circle cx="11" cy="11" r="8"/>
+              <path d="M21 21l-4.35-4.35"/>
+            </svg>
+            <input
+              type="text"
+              placeholder="Search by name, phone, or ID"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              style={{
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '14px',
+                background: '#FFFFFF'
+              }}
+            />
+          </div>
+
+          {/* Status Filter */}
+          <div className="min-w-[180px]">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              style={{
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '14px',
+                background: '#FFFFFF'
+              }}
+            >
+              <option value="">All Statuses</option>
+              <option value="Waiting">Waiting</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Completed">Completed</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
         </div>
 
         {/* Action Buttons - Exact CSS from Visily */}
@@ -263,15 +302,15 @@ export default function ReceptionDashboard() {
           <button 
             className="transition-colors"
             style={{
-              width: '186.46875px',
-              height: '64px',
+              width: '170px',
+              height: '56px',
               padding: '0 12px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontFamily: 'Inter, sans-serif',
-              fontSize: '18px',
-              lineHeight: '28px',
+              fontSize: '16px',
+              lineHeight: '24px',
               fontWeight: '600',
               color: '#FFFFFFFF',
               background: '#47A72FFF',
@@ -301,15 +340,15 @@ export default function ReceptionDashboard() {
           <button 
             className="transition-colors"
             style={{
-              width: '229.984375px',
-              height: '64px',
+              width: '210px',
+              height: '56px',
               padding: '0 12px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontFamily: 'Inter, sans-serif',
-              fontSize: '18px',
-              lineHeight: '28px',
+              fontSize: '16px',
+              lineHeight: '24px',
               fontWeight: '600',
               color: '#0F74C7FF',
               background: '#FFFFFFFF',
@@ -374,6 +413,15 @@ export default function ReceptionDashboard() {
                     color: '#9CA3AF',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em'
+                  }}>PHONE</th>
+                  <th className="text-left p-4" style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '12px',
+                    lineHeight: '16px',
+                    fontWeight: '600',
+                    color: '#9CA3AF',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
                   }}>ARRIVAL TIME</th>
                   <th className="text-left p-4" style={{
                     fontFamily: 'Inter, sans-serif',
@@ -421,6 +469,13 @@ export default function ReceptionDashboard() {
                       fontWeight: '500',
                       color: '#171A1F'
                     }}>{patient.name}</td>
+                    <td className="p-4" style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '14px',
+                      lineHeight: '20px',
+                      fontWeight: '400',
+                      color: '#565D6D'
+                    }}>{patient.phone}</td>
                     <td className="p-4" style={{
                       fontFamily: 'Inter, sans-serif',
                       fontSize: '14px',
