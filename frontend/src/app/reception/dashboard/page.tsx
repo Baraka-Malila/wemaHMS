@@ -3,14 +3,26 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import NewPatientModal from '@/components/NewPatientModal';
+import ExistingPatientModal from '@/components/ExistingPatientModal';
 
 interface Patient {
   id: string;
-  name: string;
-  phone?: string; // Optional since some patients might not have phone numbers
-  arrival_time: string;
-  status: 'Waiting' | 'In Progress' | 'Completed' | 'Cancelled';
-  doctor: string;
+  patient_id: string;
+  full_name: string;
+  phone_number?: string;
+  age: number;
+  gender: string;
+  current_status: string;
+  current_location: string;
+  created_at: string;
+}
+
+interface DashboardStats {
+  total_patients_today: number;
+  patients_waiting: number;
+  total_revenue_today: number;
+  pending_payments: number;
 }
 
 export default function ReceptionDashboard() {
@@ -20,6 +32,103 @@ export default function ReceptionDashboard() {
   const [statusFilter, setStatusFilter] = useState('');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
+    total_patients_today: 0,
+    patients_waiting: 0,
+    total_revenue_today: 0,
+    pending_payments: 0
+  });
+  
+  // Modal states
+  const [showNewPatientModal, setShowNewPatientModal] = useState(false);
+  const [showExistingPatientModal, setShowExistingPatientModal] = useState(false);
+
+  // Fetch dashboard data
+  const fetchDashboardData = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/reception/dashboard/`, {
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Dashboard API response:', data);
+        
+        // Update dashboard stats
+        setDashboardStats({
+          total_patients_today: data.today_registrations || 0,
+          patients_waiting: data.patients_waiting || 0,
+          total_revenue_today: 0,
+          pending_payments: data.pending_file_fees || 0
+        });
+        
+        // Use recent_registrations as initial patient list
+        if (data.recent_registrations) {
+          const transformedPatients = data.recent_registrations.map((patient: any) => ({
+            id: patient.id,
+            patient_id: patient.patient_id,
+            full_name: patient.full_name,
+            phone_number: patient.phone_number,
+            age: patient.age,
+            gender: patient.gender,
+            current_status: patient.current_status,
+            current_location: patient.current_location,
+            created_at: patient.created_at
+          }));
+          setPatients(transformedPatients);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    }
+  };
+
+  // Search patients (only when user searches)
+  const searchPatients = async (query: string = '') => {
+    if (!query.trim()) {
+      // If no query, reload dashboard data to show recent patients
+      await fetchDashboardData();
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/search/?q=${encodeURIComponent(query)}`;
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Search API response:', data);
+        if (data.results) {
+          // Transform API data to match our interface
+          const transformedPatients = data.results.map((patient: any) => ({
+            id: patient.id,
+            patient_id: patient.patient_id,
+            full_name: patient.full_name,
+            phone_number: patient.phone_number,
+            age: patient.age,
+            gender: patient.gender,
+            current_status: patient.current_status,
+            current_location: patient.current_location,
+            created_at: patient.created_at
+          }));
+          setPatients(transformedPatients);
+        }
+      }
+    } catch (error) {
+      console.error('Error searching patients:', error);
+      // Keep existing data on error
+    }
+  };
 
   useEffect(() => {
     // Get current user data
@@ -33,77 +142,20 @@ export default function ReceptionDashboard() {
       }
     }
 
-    // Simulate loading data
-    setTimeout(() => {
-      setPatients([
-        {
-          id: 'P001',
-          name: 'Alice Johnson',
-          phone: '+255123456789',
-          arrival_time: '09:00 AM',
-          status: 'Waiting',
-          doctor: 'Dr. Evelyn Reed'
-        },
-        {
-          id: 'P002',
-          name: 'Robert Davis',
-          phone: '+255123456790',
-          arrival_time: '09:15 AM',
-          status: 'In Progress',
-          doctor: 'Dr. Michael Chen'
-        },
-        {
-          id: 'P003',
-          name: 'Sophia Lee',
-          phone: '+255123456791',
-          arrival_time: '09:30 AM',
-          status: 'Waiting',
-          doctor: 'Dr. Evelyn Reed'
-        },
-        {
-          id: 'P004',
-          name: 'David Kim',
-          phone: '+255123456792',
-          arrival_time: '09:45 AM',
-          status: 'Completed',
-          doctor: 'Dr. Sophia Miller'
-        },
-        {
-          id: 'P005',
-          name: 'Maria Garcia',
-          phone: '+255123456793',
-          arrival_time: '10:00 AM',
-          status: 'Cancelled',
-          doctor: 'Dr. Michael Chen'
-        },
-        {
-          id: 'P006',
-          name: 'James Wilson',
-          phone: '+255123456794',
-          arrival_time: '10:15 AM',
-          status: 'Waiting',
-          doctor: 'Dr. Evelyn Reed'
-        },
-        {
-          id: 'P007',
-          name: 'Olivia Brown',
-          phone: '+255123456795',
-          arrival_time: '10:30 AM',
-          status: 'In Progress',
-          doctor: 'Dr. Evelyn Reed'
-        },
-        {
-          id: 'P008',
-          name: 'Daniel White',
-          phone: '+255123456796',
-          arrival_time: '10:45 AM',
-          status: 'Waiting',
-          doctor: 'Dr. Sophia Miller'
-        }
-      ]);
+    // Load API data
+    const loadData = async () => {
+      await fetchDashboardData(); // This will load both stats and recent patients
       setLoading(false);
-    }, 1000);
+    };
+
+    loadData();
   }, []);
+
+  // Handle search
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+    await searchPatients(query);
+  };
 
   const getStatusBadge = (status: string) => {
     const baseStyle = {
@@ -111,22 +163,11 @@ export default function ReceptionDashboard() {
       borderRadius: '12px',
       fontSize: '12px',
       fontWeight: '500',
-      fontFamily: 'Roboto, sans-serif'
+      fontFamily: 'Inter, sans-serif'
     };
 
     switch (status) {
-      case 'Waiting':
-        return (
-          <span style={{
-            ...baseStyle,
-            backgroundColor: '#F0F9FF',
-            color: '#0369A1',
-            border: '1px solid #BAE6FD'
-          }}>
-            Waiting
-          </span>
-        );
-      case 'In Progress':
+      case 'REGISTERED':
         return (
           <span style={{
             ...baseStyle,
@@ -134,10 +175,65 @@ export default function ReceptionDashboard() {
             color: '#1D4ED8',
             border: '1px solid #BFDBFE'
           }}>
-            In Progress
+            Registered
           </span>
         );
-      case 'Completed':
+      case 'WAITING_DOCTOR':
+        return (
+          <span style={{
+            ...baseStyle,
+            backgroundColor: '#F0F9FF',
+            color: '#0369A1',
+            border: '1px solid #BAE6FD'
+          }}>
+            Waiting Doctor
+          </span>
+        );
+      case 'WITH_DOCTOR':
+        return (
+          <span style={{
+            ...baseStyle,
+            backgroundColor: '#FEF3C7',
+            color: '#D97706',
+            border: '1px solid #FDE68A'
+          }}>
+            With Doctor
+          </span>
+        );
+      case 'WAITING_LAB':
+        return (
+          <span style={{
+            ...baseStyle,
+            backgroundColor: '#F3E8FF',
+            color: '#7C3AED',
+            border: '1px solid #DDD6FE'
+          }}>
+            Waiting Lab
+          </span>
+        );
+      case 'IN_LAB':
+        return (
+          <span style={{
+            ...baseStyle,
+            backgroundColor: '#ECFDF5',
+            color: '#059669',
+            border: '1px solid #A7F3D0'
+          }}>
+            In Lab
+          </span>
+        );
+      case 'WAITING_PHARMACY':
+        return (
+          <span style={{
+            ...baseStyle,
+            backgroundColor: '#FEF2E2',
+            color: '#EA580C',
+            border: '1px solid #FED7AA'
+          }}>
+            Waiting Pharmacy
+          </span>
+        );
+      case 'COMPLETED':
         return (
           <span style={{
             ...baseStyle,
@@ -148,7 +244,7 @@ export default function ReceptionDashboard() {
             Completed
           </span>
         );
-      case 'Cancelled':
+      case 'PAYMENT_PENDING':
         return (
           <span style={{
             ...baseStyle,
@@ -156,23 +252,39 @@ export default function ReceptionDashboard() {
             color: '#DC2626',
             border: '1px solid #FECACA'
           }}>
-            Cancelled
+            Payment Pending
           </span>
         );
       default:
-        return status;
+        return (
+          <span style={{
+            ...baseStyle,
+            backgroundColor: '#F3F4F6',
+            color: '#374151',
+            border: '1px solid #D1D5DB'
+          }}>
+            {status}
+          </span>
+        );
     }
   };
 
   const filteredPatients = patients.filter(patient => {
-    const matchesSearch = patient.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         patient.id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         patient.phone?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = patient.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         patient.patient_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         patient.phone_number?.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesStatus = statusFilter === '' || patient.status === statusFilter;
+    const matchesStatus = statusFilter === '' || patient.current_status === statusFilter;
     
     return matchesSearch && matchesStatus;
   });
+
+  const handleSelectExistingPatient = (patient: Patient) => {
+    // Update the patient's status to indicate they've arrived for today's visit
+    // This could also open a modal to update their status or check them in
+    console.log('Selected patient:', patient);
+    // You can add logic here to check them in or update their status
+  };
 
   return (
     <>
@@ -182,7 +294,7 @@ export default function ReceptionDashboard() {
         style={{
           width: '100%',
           height: '198px',
-          background: '#F1F8FEFF',
+          background: '#EBF4FF',
           borderRadius: '16px',
           boxShadow: '0px 0px 1px rgba(23, 26, 31, 0.05), 0px 0px 2px rgba(23, 26, 31, 0.08)'
         }}
@@ -264,7 +376,7 @@ export default function ReceptionDashboard() {
               type="text"
               placeholder="Search by name, phone, or ID"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => handleSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               style={{
                 fontFamily: 'Inter, sans-serif',
@@ -287,10 +399,14 @@ export default function ReceptionDashboard() {
               }}
             >
               <option value="">All Statuses</option>
-              <option value="Waiting">Waiting</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Completed">Completed</option>
-              <option value="Cancelled">Cancelled</option>
+              <option value="REGISTERED">Registered</option>
+              <option value="WAITING_DOCTOR">Waiting Doctor</option>
+              <option value="WITH_DOCTOR">With Doctor</option>
+              <option value="WAITING_LAB">Waiting Lab</option>
+              <option value="IN_LAB">In Lab</option>
+              <option value="WAITING_PHARMACY">Waiting Pharmacy</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="PAYMENT_PENDING">Payment Pending</option>
             </select>
           </div>
         </div>
@@ -330,7 +446,7 @@ export default function ReceptionDashboard() {
             onMouseUp={(e) => {
               e.currentTarget.style.background = '#3A8826FF';
             }}
-            onClick={() => router.push('/reception/new-patient')}
+            onClick={() => setShowNewPatientModal(true)}
           >
             NEW PATIENT
           </button>
@@ -358,7 +474,7 @@ export default function ReceptionDashboard() {
               borderStyle: 'solid',
               boxShadow: '0px 0px 1px rgba(23, 26, 31, 0.05), 0px 0px 2px rgba(23, 26, 31, 0.08)'
             }}
-            onClick={() => router.push('/reception/existing-patient')}
+            onClick={() => setShowExistingPatientModal(true)}
           >
             EXISTING PATIENT
           </button>
@@ -394,7 +510,7 @@ export default function ReceptionDashboard() {
                     color: '#9CA3AF',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em'
-                  }}>ID</th>
+                  }}>PATIENT ID</th>
                   <th className="text-left p-4" style={{
                     fontFamily: 'Inter, sans-serif',
                     fontSize: '12px',
@@ -421,7 +537,7 @@ export default function ReceptionDashboard() {
                     color: '#9CA3AF',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em'
-                  }}>ARRIVAL TIME</th>
+                  }}>AGE/GENDER</th>
                   <th className="text-left p-4" style={{
                     fontFamily: 'Inter, sans-serif',
                     fontSize: '12px',
@@ -439,7 +555,7 @@ export default function ReceptionDashboard() {
                     color: '#9CA3AF',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em'
-                  }}>DOCTOR</th>
+                  }}>LOCATION</th>
                   <th className="text-right p-4" style={{
                     fontFamily: 'Inter, sans-serif',
                     fontSize: '12px',
@@ -459,31 +575,31 @@ export default function ReceptionDashboard() {
                       fontSize: '14px',
                       lineHeight: '20px',
                       fontWeight: '500',
-                      color: '#171A1F'
-                    }}>{patient.id}</td>
+                      color: '#0F74C7'
+                    }}>{patient.patient_id}</td>
                     <td className="p-4" style={{
                       fontFamily: 'Inter, sans-serif',
                       fontSize: '14px',
                       lineHeight: '20px',
                       fontWeight: '500',
                       color: '#171A1F'
-                    }}>{patient.name}</td>
+                    }}>{patient.full_name}</td>
                     <td className="p-4" style={{
                       fontFamily: 'Inter, sans-serif',
                       fontSize: '14px',
                       lineHeight: '20px',
                       fontWeight: '400',
                       color: '#565D6D'
-                    }}>{patient.phone || 'N/A'}</td>
+                    }}>{patient.phone_number || 'N/A'}</td>
                     <td className="p-4" style={{
                       fontFamily: 'Inter, sans-serif',
                       fontSize: '14px',
                       lineHeight: '20px',
                       fontWeight: '400',
                       color: '#565D6D'
-                    }}>{patient.arrival_time}</td>
+                    }}>{patient.age} / {patient.gender}</td>
                     <td className="p-4">
-                      {getStatusBadge(patient.status)}
+                      {getStatusBadge(patient.current_status)}
                     </td>
                     <td className="p-4" style={{
                       fontFamily: 'Inter, sans-serif',
@@ -491,7 +607,7 @@ export default function ReceptionDashboard() {
                       lineHeight: '20px',
                       fontWeight: '400',
                       color: '#565D6D'
-                    }}>{patient.doctor}</td>
+                    }}>{patient.current_location || 'N/A'}</td>
                     <td className="p-4">
                       <div className="flex justify-end gap-2">
                         {/* View Button */}
@@ -522,7 +638,7 @@ export default function ReceptionDashboard() {
                         <button 
                           className="p-2 hover:bg-red-100 rounded-lg transition-colors"
                           onClick={() => {
-                            if (confirm(`Are you sure you want to delete ${patient.name}?`)) {
+                            if (confirm(`Are you sure you want to delete ${patient.full_name}?`)) {
                               setPatients(patients.filter(p => p.id !== patient.id));
                             }
                           }}
@@ -544,6 +660,22 @@ export default function ReceptionDashboard() {
           </div>
         )}
       </div>
+
+      {/* Modals */}
+      <NewPatientModal
+        isOpen={showNewPatientModal}
+        onClose={() => setShowNewPatientModal(false)}
+        onSuccess={() => {
+          // Refresh the dashboard data after successful registration
+          fetchDashboardData();
+        }}
+      />
+
+      <ExistingPatientModal
+        isOpen={showExistingPatientModal}
+        onClose={() => setShowExistingPatientModal(false)}
+        onSelectPatient={handleSelectExistingPatient}
+      />
     </>
   );
 }

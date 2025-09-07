@@ -93,14 +93,12 @@ export default function ReceptionLayout({
               <line x1="3" y1="18" x2="21" y2="18"></line>
             </svg>
           </button>
-          <span className="text-lg">❄️</span>
-          {/* Portal name on top-left instead of center */}
-          <span className="font-bold" style={{ 
-            fontFamily: 'Open Sans, sans-serif',
+          <span style={{ 
+            fontFamily: 'Inter, sans-serif',
             fontSize: '20px',
             lineHeight: '25px',
             fontWeight: '700',
-            color: '#0F74C7FF'
+            color: '#1E40AF'
           }}>RECEPTION</span>
         </div>
         
