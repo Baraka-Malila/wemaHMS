@@ -97,6 +97,91 @@ class StaffSalarySerializer(serializers.ModelSerializer):
         return value
 
 
+class PatientBillSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source='created_by.full_name', read_only=True)
+    line_items_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = PatientBill
+        fields = [
+            'id', 'bill_number', 'patient_id', 'patient_name',
+            'subtotal', 'insurance_covered', 'patient_amount', 'total_paid',
+            'balance_due', 'bill_status', 'service_date', 'bill_date', 'due_date',
+            'insurance_provider', 'insurance_number', 'created_by', 'created_by_name',
+            'line_items_count'
+        ]
+        read_only_fields = [
+            'id', 'bill_number', 'subtotal', 'patient_amount', 'balance_due',
+            'created_by_name', 'line_items_count'
+        ]
+    
+    def get_line_items_count(self, obj):
+        return obj.line_items.count()
+
+
+class BillLineItemSerializer(serializers.ModelSerializer):
+    service_name = serializers.CharField(source='service_pricing.service_name', read_only=True)
+    service_category_display = serializers.CharField(source='service_pricing.service_category', read_only=True)
+    provided_by_name = serializers.CharField(source='provided_by.full_name', read_only=True)
+    bill_number = serializers.CharField(source='patient_bill.bill_number', read_only=True)
+    
+    class Meta:
+        model = BillLineItem
+        fields = [
+            'id', 'patient_bill', 'bill_number', 'service_pricing',
+            'service_name', 'service_code', 'service_category', 'service_category_display',
+            'quantity', 'unit_price', 'line_total', 'source_department',
+            'source_reference', 'service_date', 'provided_by', 'provided_by_name'
+        ]
+        read_only_fields = [
+            'id', 'line_total', 'service_name', 'service_category_display',
+            'bill_number', 'provided_by_name'
+        ]
+    
+    def validate_quantity(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Quantity must be greater than zero.")
+        return value
+    
+    def validate_unit_price(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Unit price cannot be negative.")
+        return value
+
+
+class DailyBalanceSerializer(serializers.ModelSerializer):
+    closed_by_name = serializers.CharField(source='closed_by.full_name', read_only=True)
+    approved_by_name = serializers.CharField(source='approved_by.full_name', read_only=True)
+    
+    class Meta:
+        model = DailyBalance
+        fields = [
+            'id', 'balance_date', 'consultation_revenue', 'pharmacy_revenue',
+            'lab_revenue', 'nursing_revenue', 'other_revenue', 'total_revenue',
+            'cash_collected', 'card_payments', 'mobile_payments', 'insurance_payments',
+            'total_collected', 'bills_created_today', 'outstanding_start', 'outstanding_end',
+            'is_balanced', 'variance_amount', 'variance_notes',
+            'closed_by', 'closed_by_name', 'closed_at', 'approved_by', 'approved_by_name'
+        ]
+        read_only_fields = [
+            'id', 'closed_by_name', 'approved_by_name'
+        ]
+    
+    def validate_balance_date(self, value):
+        # Ensure no duplicate daily balances
+        if self.instance:
+            # If updating, exclude current instance
+            existing = DailyBalance.objects.filter(balance_date=value).exclude(id=self.instance.id)
+        else:
+            # If creating, check for any existing
+            existing = DailyBalance.objects.filter(balance_date=value)
+        
+        if existing.exists():
+            raise serializers.ValidationError("Daily balance for this date already exists.")
+        
+        return value
+
+
 # Summary serializers for reports
 
 class ExpenseSummarySerializer(serializers.Serializer):

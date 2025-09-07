@@ -1,24 +1,13 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from django.urls import path
 from . import views
 
-# ==================== FINANCE ENDPOINTS (GROUPED & CLEAN) ====================
-# Real workflow: Admin Pricing → Expense Tracking → Payroll Management
-
-# Create router for ViewSets
-router = DefaultRouter()
-
-# === ADMIN & PRICING SECTION ===
-router.register(r'admin/service-pricing', views.ServicePricingViewSet, basename='service-pricing')
-
-# === EXPENSES SECTION ===
-router.register(r'expenses/categories', views.ExpenseCategoryViewSet, basename='expense-categories')
-router.register(r'expenses/records', views.ExpenseRecordViewSet, basename='expense-records')
-
-# === PAYROLL SECTION ===
-router.register(r'payroll/staff-salaries', views.StaffSalaryViewSet, basename='staff-salaries')
+app_name = 'finance'
 
 urlpatterns = [
-    # Include all grouped ViewSet routes
-    path('api/', include(router.urls)),
+    # ==================== ADMIN PRICING ====================
+    # Service pricing management - Admin controls hospital service rates
+    path('pricing/', views.ServicePricingViewSet.as_view({'get': 'list', 'post': 'create'}), name='pricing-list'),
+    path('pricing/<int:pk>/', views.ServicePricingViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}), name='pricing-detail'),
+    path('pricing/active/', views.ServicePricingViewSet.as_view({'get': 'active_services'}), name='pricing-active'),
+    path('pricing/by-category/', views.ServicePricingViewSet.as_view({'get': 'by_category'}), name='pricing-by-category'),
 ]

@@ -1,197 +1,153 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Q, Sum, Count
+from django.db.models import Sum, Count, Q
 from django.utils import timezone
 from datetime import datetime, timedelta
-from core.permissions import IsStaffMember, IsAdminUser
+from django_filters.rest_framework import DjangoFilterBackend
+from django_filters import rest_framework as filters_drf
+
+from core.permissions import IsAdminUser, IsStaffMember
 from .models import ServicePricing, ExpenseCategory, ExpenseRecord, StaffSalary
 from .serializers import (
-    ServicePricingSerializer, ExpenseCategorySerializer, ExpenseRecordSerializer,
-    StaffSalarySerializer
+    ServicePricingSerializer, ExpenseCategorySerializer,
+    ExpenseRecordSerializer, StaffSalarySerializer,
+    ExpenseSummarySerializer, PayrollSummarySerializer,
+    PaymentStatusBreakdownSerializer
 )
+
+
+# Service Pricing Views (Admin Only)
+
+class ServicePricingFilter(filters_drf.FilterSet):
+    service_category = filters_drf.CharFilter(lookup_expr='icontains')
+    department = filters_drf.CharFilter(lookup_expr='icontains')
+    min_price = filters_drf.NumberFilter(field_name='standard_price', lookup_expr='gte')
+    max_price = filters_drf.NumberFilter(field_name='standard_price', lookup_expr='lte')
+    
+    class Meta:
+        model = ServicePricing
+        fields = ['service_category', 'department', 'is_active', 'requires_approval']
 
 
 class ServicePricingViewSet(viewsets.ModelViewSet):
     """
-    Admin manages all service pricing.
-    Staff can only view pricing for billing.
+    ADMIN & SERVICE PRICING
+    
+    Service Pricing Management - Complete CRUD for hospital service rates.
+    Only admin users can manage service pricing that affects all departments.
     """
     queryset = ServicePricing.objects.all()
     serializer_class = ServicePricingSerializer
-    permission_classes = [IsAuthenticated, IsStaffMember]
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = ServicePricingFilter
+    search_fields = ['service_name', 'service_code', 'description', 'department']
+    ordering_fields = ['service_name', 'standard_price', 'created_at']
+    ordering = ['service_name']
     
-    def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAuthenticated(), IsAdminUser()]
-        return [IsAuthenticated(), IsStaffMember()]
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+    
+    @action(detail=False, methods=['get'])
+    def active_services(self, request):
+        """Get all active services for frontend selection"""
+        active_services = self.get_queryset().filter(is_active=True)
+        serializer = self.get_serializer(active_services, many=True)
+        return Response(serializer.data)
     
     @action(detail=False, methods=['get'])
     def by_category(self, request):
-        """Get services grouped by category."""
-        category = request.query_params.get('category')
-        queryset = self.get_queryset()
-        
-        if category:
-            queryset = queryset.filter(service_category=category)
-        
-        queryset = queryset.filter(is_active=True)
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
-    
-    @action(detail=False, methods=['get'])
-    def lookup_price(self, request):
-        """Quick price lookup for billing."""
-        service_code = request.query_params.get('service_code')
-        is_emergency = request.query_params.get('emergency', 'false').lower() == 'true'
-        
-        if not service_code:
-            return Response(
-                {'error': 'service_code parameter required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            service = ServicePricing.objects.get(
-                service_code=service_code,
-                is_active=True
-            )
-            
-            price = service.emergency_price if is_emergency and service.emergency_price else service.standard_price
-            
-            return Response({
-                'service_name': service.service_name,
-                'service_code': service.service_code,
-                'price': price,
-                'emergency_price': service.emergency_price,
-                'standard_price': service.standard_price,
-                'department': service.department
-            })
-        
-        except ServicePricing.DoesNotExist:
-            return Response(
-                {'error': 'Service not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        """Get services grouped by category"""
+        categories = self.get_queryset().values_list('service_category', flat=True).distinct()
+        result = {}
+        for category in categories:
+            services = self.get_queryset().filter(service_category=category, is_active=True)
+            result[category] = self.get_serializer(services, many=True).data
+        return Response(result)
 
+
+# Expense Management Views
 
 class ExpenseCategoryViewSet(viewsets.ModelViewSet):
     """
-    Manage expense categories.
-    Admin can create/edit categories.
-    Staff can view for expense entry.
+    EXPENSE CATEGORIES
+    
+    Expense Category Management - Define and organize expense types.
+    Staff members can view categories, admins can manage them.
     """
-    queryset = ExpenseCategory.objects.filter(is_active=True)
+    queryset = ExpenseCategory.objects.all()
     serializer_class = ExpenseCategorySerializer
     permission_classes = [IsAuthenticated, IsStaffMember]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['category_type', 'is_active']
+    search_fields = ['name', 'description']
+    ordering_fields = ['name', 'category_type', 'monthly_budget', 'created_at']
+    ordering = ['category_type', 'name']
     
-    def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAuthenticated(), IsAdminUser()]
-        return [IsAuthenticated(), IsStaffMember()]
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+    
+    @action(detail=False, methods=['get'])
+    def active_categories(self, request):
+        """Get all active expense categories"""
+        active_categories = self.get_queryset().filter(is_active=True)
+        serializer = self.get_serializer(active_categories, many=True)
+        return Response(serializer.data)
     
     @action(detail=False, methods=['get'])
     def by_type(self, request):
-        """Get categories grouped by type."""
-        category_type = request.query_params.get('type')
-        queryset = self.get_queryset()
-        
-        if category_type:
-            queryset = queryset.filter(category_type=category_type)
-        
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+        """Get categories grouped by type"""
+        categories_by_type = {}
+        for category_type, _ in ExpenseCategory.CATEGORY_TYPES:
+            categories = self.get_queryset().filter(category_type=category_type, is_active=True)
+            categories_by_type[category_type] = self.get_serializer(categories, many=True).data
+        return Response(categories_by_type)
+
+
+class ExpenseRecordFilter(filters_drf.FilterSet):
+    expense_date_from = filters_drf.DateFilter(field_name='expense_date', lookup_expr='gte')
+    expense_date_to = filters_drf.DateFilter(field_name='expense_date', lookup_expr='lte')
+    amount_min = filters_drf.NumberFilter(field_name='amount', lookup_expr='gte')
+    amount_max = filters_drf.NumberFilter(field_name='amount', lookup_expr='lte')
+    category_type = filters_drf.CharFilter(field_name='category__category_type')
+    
+    class Meta:
+        model = ExpenseRecord
+        fields = ['category', 'expense_status', 'payment_method', 'requested_by']
 
 
 class ExpenseRecordViewSet(viewsets.ModelViewSet):
     """
-    Expense tracking and management.
-    Staff can create/view expenses.
-    Admin can approve/reject expenses.
+    EXPENSE RECORDS
+    
+    Expense Record Management - Complete expense tracking with approval workflow.
+    Staff can create expenses, admins approve and mark as paid.
     """
-    queryset = ExpenseRecord.objects.all()
+    queryset = ExpenseRecord.objects.select_related('category', 'requested_by', 'approved_by', 'paid_by')
     serializer_class = ExpenseRecordSerializer
     permission_classes = [IsAuthenticated, IsStaffMember]
-    
-    def get_queryset(self):
-        queryset = ExpenseRecord.objects.all()
-        
-        # Filter by status
-        status_filter = self.request.query_params.get('status')
-        if status_filter:
-            queryset = queryset.filter(expense_status=status_filter)
-        
-        # Filter by date range
-        start_date = self.request.query_params.get('start_date')
-        end_date = self.request.query_params.get('end_date')
-        
-        if start_date:
-            try:
-                start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-                queryset = queryset.filter(expense_date__gte=start_date)
-            except ValueError:
-                pass
-        
-        if end_date:
-            try:
-                end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
-                queryset = queryset.filter(expense_date__lte=end_date)
-            except ValueError:
-                pass
-        
-        # Filter by category
-        category = self.request.query_params.get('category')
-        if category:
-            queryset = queryset.filter(category__id=category)
-        
-        return queryset.order_by('-expense_date', '-created_at')
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = ExpenseRecordFilter
+    search_fields = ['expense_number', 'description', 'vendor_name', 'payment_reference']
+    ordering_fields = ['expense_date', 'amount', 'expense_status', 'created_at']
+    ordering = ['-expense_date', '-created_at']
     
     def perform_create(self, serializer):
         serializer.save(requested_by=self.request.user)
     
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
-        """Admin approves an expense."""
-        if not request.user.is_admin:
-            return Response(
-                {'error': 'Only admins can approve expenses'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
+        """Approve an expense record"""
         expense = self.get_object()
-        
-        if expense.expense_status != 'PENDING':
+        if expense.expense_status != 'pending':
             return Response(
                 {'error': 'Only pending expenses can be approved'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        expense.expense_status = 'APPROVED'
-        expense.approved_by = request.user
-        expense.save()
-        
-        serializer = self.get_serializer(expense)
-        return Response(serializer.data)
-    
-    @action(detail=True, methods=['post'])
-    def reject(self, request, pk=None):
-        """Admin rejects an expense."""
-        if not request.user.is_admin:
-            return Response(
-                {'error': 'Only admins can reject expenses'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        expense = self.get_object()
-        
-        if expense.expense_status != 'PENDING':
-            return Response(
-                {'error': 'Only pending expenses can be rejected'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        expense.expense_status = 'REJECTED'
+        expense.expense_status = 'approved'
         expense.approved_by = request.user
         expense.save()
         
@@ -200,29 +156,25 @@ class ExpenseRecordViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def mark_paid(self, request, pk=None):
-        """Mark expense as paid."""
+        """Mark an expense as paid"""
         expense = self.get_object()
-        
-        if expense.expense_status != 'APPROVED':
+        if expense.expense_status != 'approved':
             return Response(
                 {'error': 'Only approved expenses can be marked as paid'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
         payment_date = request.data.get('payment_date')
-        payment_reference = request.data.get('payment_reference', '')
+        payment_method = request.data.get('payment_method')
+        payment_reference = request.data.get('payment_reference')
         
-        if payment_date:
-            try:
-                payment_date = datetime.strptime(payment_date, '%Y-%m-%d').date()
-            except ValueError:
-                payment_date = timezone.now().date()
-        else:
+        if not payment_date:
             payment_date = timezone.now().date()
         
-        expense.expense_status = 'PAID'
+        expense.expense_status = 'paid'
         expense.payment_date = payment_date
-        expense.payment_reference = payment_reference
+        expense.payment_method = payment_method or expense.payment_method
+        expense.payment_reference = payment_reference or expense.payment_reference
         expense.paid_by = request.user
         expense.save()
         
@@ -231,119 +183,108 @@ class ExpenseRecordViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def pending_approval(self, request):
-        """Get expenses pending approval."""
-        expenses = self.get_queryset().filter(expense_status='PENDING')
-        serializer = self.get_serializer(expenses, many=True)
+        """Get expenses pending approval"""
+        pending_expenses = self.get_queryset().filter(expense_status='pending')
+        serializer = self.get_serializer(pending_expenses, many=True)
         return Response(serializer.data)
     
     @action(detail=False, methods=['get'])
-    def monthly_summary(self, request):
-        """Get monthly expense summary."""
-        month = request.query_params.get('month')
-        year = request.query_params.get('year')
+    def approved_unpaid(self, request):
+        """Get approved but unpaid expenses"""
+        approved_expenses = self.get_queryset().filter(expense_status='approved')
+        serializer = self.get_serializer(approved_expenses, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def summary(self, request):
+        """Get expense summary by category"""
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
         
-        if not month or not year:
-            today = timezone.now().date()
-            month = today.month
-            year = today.year
-        else:
-            month = int(month)
-            year = int(year)
+        queryset = self.get_queryset().filter(expense_status='paid')
         
-        # Calculate date range for the month
-        start_date = datetime(year, month, 1).date()
-        if month == 12:
-            end_date = datetime(year + 1, 1, 1).date() - timedelta(days=1)
-        else:
-            end_date = datetime(year, month + 1, 1).date() - timedelta(days=1)
+        if date_from:
+            queryset = queryset.filter(expense_date__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(expense_date__lte=date_to)
         
-        # Get expenses for the month
-        expenses = ExpenseRecord.objects.filter(
-            expense_date__gte=start_date,
-            expense_date__lte=end_date,
-            expense_status='PAID'
-        )
-        
-        # Summary by category
-        category_summary = expenses.values(
+        summary = queryset.values(
             'category__name',
             'category__category_type'
         ).annotate(
             total_amount=Sum('amount'),
             expense_count=Count('id')
-        ).order_by('-total_amount')
+        ).order_by('category__category_type', 'category__name')
         
-        # Overall totals
-        total_expenses = expenses.aggregate(Sum('amount'))['amount__sum'] or 0
+        summary_data = [
+            {
+                'category_name': item['category__name'],
+                'category_type': item['category__category_type'],
+                'total_amount': item['total_amount'],
+                'expense_count': item['expense_count']
+            }
+            for item in summary
+        ]
         
-        return Response({
-            'month': month,
-            'year': year,
-            'total_expenses': total_expenses,
-            'category_breakdown': category_summary,
-            'expense_count': expenses.count()
-        })
+        serializer = ExpenseSummarySerializer(summary_data, many=True)
+        return Response(serializer.data)
+
+
+# Payroll Views
+
+class StaffSalaryFilter(filters_drf.FilterSet):
+    salary_month_from = filters_drf.DateFilter(field_name='salary_month', lookup_expr='gte')
+    salary_month_to = filters_drf.DateFilter(field_name='salary_month', lookup_expr='lte')
+    basic_salary_min = filters_drf.NumberFilter(field_name='basic_salary', lookup_expr='gte')
+    basic_salary_max = filters_drf.NumberFilter(field_name='basic_salary', lookup_expr='lte')
+    
+    class Meta:
+        model = StaffSalary
+        fields = ['staff_member', 'payment_status', 'payment_method']
 
 
 class StaffSalaryViewSet(viewsets.ModelViewSet):
     """
-    Staff salary and payroll management.
-    Admin can manage all salaries.
-    Staff can view their own salaries.
+    PAYROLL MANAGEMENT
+    
+    Staff Salary Management - Monthly payroll processing and payments.
+    Only admin users can manage staff salaries and process payments.
     """
-    queryset = StaffSalary.objects.all()
+    queryset = StaffSalary.objects.select_related('staff_member', 'processed_by')
     serializer_class = StaffSalarySerializer
-    permission_classes = [IsAuthenticated, IsStaffMember]
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = StaffSalaryFilter
+    search_fields = ['staff_member__full_name', 'staff_member__email', 'payment_reference']
+    ordering_fields = ['salary_month', 'basic_salary', 'net_salary', 'payment_status']
+    ordering = ['-salary_month', 'staff_member__full_name']
     
-    def get_queryset(self):
-        queryset = StaffSalary.objects.all()
-        
-        # Non-admin users can only see their own salaries
-        if not self.request.user.is_admin:
-            queryset = queryset.filter(staff_member=self.request.user)
-        
-        # Filter by month/year
-        month = self.request.query_params.get('month')
-        year = self.request.query_params.get('year')
-        
-        if month and year:
-            try:
-                filter_date = datetime(int(year), int(month), 1).date()
-                queryset = queryset.filter(salary_month=filter_date)
-            except ValueError:
-                pass
-        
-        return queryset.order_by('-salary_month', 'staff_member__full_name')
+    def perform_create(self, serializer):
+        serializer.save(processed_by=self.request.user)
     
-    def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAuthenticated(), IsAdminUser()]
-        return [IsAuthenticated(), IsStaffMember()]
+    def perform_update(self, serializer):
+        serializer.save(processed_by=self.request.user)
     
     @action(detail=True, methods=['post'])
     def mark_paid(self, request, pk=None):
-        """Mark salary as paid."""
-        if not request.user.is_admin:
+        """Mark salary as paid"""
+        salary = self.get_object()
+        if salary.payment_status == 'paid':
             return Response(
-                {'error': 'Only admins can mark salaries as paid'},
-                status=status.HTTP_403_FORBIDDEN
+                {'error': 'Salary is already marked as paid'},
+                status=status.HTTP_400_BAD_REQUEST
             )
         
-        salary = self.get_object()
-        
         payment_date = request.data.get('payment_date')
-        payment_reference = request.data.get('payment_reference', '')
+        payment_method = request.data.get('payment_method')
+        payment_reference = request.data.get('payment_reference')
         
-        if payment_date:
-            try:
-                payment_date = datetime.strptime(payment_date, '%Y-%m-%d').date()
-            except ValueError:
-                payment_date = timezone.now().date()
-        else:
+        if not payment_date:
             payment_date = timezone.now().date()
         
-        salary.payment_status = 'PAID'
+        salary.payment_status = 'paid'
         salary.payment_date = payment_date
+        salary.payment_method = payment_method or salary.payment_method
         salary.payment_reference = payment_reference
         salary.save()
         
@@ -351,25 +292,27 @@ class StaffSalaryViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
     
     @action(detail=False, methods=['get'])
+    def pending_payment(self, request):
+        """Get salaries pending payment"""
+        pending_salaries = self.get_queryset().filter(payment_status='pending')
+        serializer = self.get_serializer(pending_salaries, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
     def payroll_summary(self, request):
-        """Get payroll summary for a month."""
-        month = request.query_params.get('month')
-        year = request.query_params.get('year')
+        """Get payroll summary for a given month"""
+        salary_month = request.query_params.get('salary_month')
         
-        if not month or not year:
-            today = timezone.now().date()
-            month = today.month
-            year = today.year
+        if not salary_month:
+            # Default to current month
+            now = timezone.now()
+            salary_month = now.replace(day=1).date()
         else:
-            month = int(month)
-            year = int(year)
+            salary_month = datetime.strptime(salary_month, '%Y-%m-%d').date()
         
-        filter_date = datetime(year, month, 1).date()
+        queryset = self.get_queryset().filter(salary_month=salary_month)
         
-        salaries = StaffSalary.objects.filter(salary_month=filter_date)
-        
-        # Summary calculations
-        summary = salaries.aggregate(
+        summary = queryset.aggregate(
             total_basic=Sum('basic_salary'),
             total_allowances=Sum('allowances'),
             total_overtime=Sum('overtime_amount'),
@@ -377,16 +320,37 @@ class StaffSalaryViewSet(viewsets.ModelViewSet):
             total_net=Sum('net_salary')
         )
         
-        # Payment status breakdown
-        status_breakdown = salaries.values('payment_status').annotate(
+        # Ensure no None values
+        for key, value in summary.items():
+            if value is None:
+                summary[key] = 0
+        
+        serializer = PayrollSummarySerializer(summary)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def payment_status_breakdown(self, request):
+        """Get breakdown of salaries by payment status"""
+        salary_month = request.query_params.get('salary_month')
+        
+        queryset = self.get_queryset()
+        if salary_month:
+            salary_month = datetime.strptime(salary_month, '%Y-%m-%d').date()
+            queryset = queryset.filter(salary_month=salary_month)
+        
+        breakdown = queryset.values('payment_status').annotate(
             count=Count('id'),
             total_amount=Sum('net_salary')
-        )
+        ).order_by('payment_status')
         
-        return Response({
-            'month': month,
-            'year': year,
-            'staff_count': salaries.count(),
-            'summary': summary,
-            'payment_status': status_breakdown
-        })
+        breakdown_data = [
+            {
+                'payment_status': item['payment_status'],
+                'count': item['count'],
+                'total_amount': item['total_amount'] or 0
+            }
+            for item in breakdown
+        ]
+        
+        serializer = PaymentStatusBreakdownSerializer(breakdown_data, many=True)
+        return Response(serializer.data)

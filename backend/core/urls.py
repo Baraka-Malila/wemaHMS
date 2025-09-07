@@ -39,7 +39,9 @@ urlpatterns = [
     path('api/pharmacy/', include('pharmacy.urls')),
     path('api/reception/', include('reception.urls')),
     path('api/nursing/', include('nursing.urls')),
-    path('api/finance/', include('finance.urls')),
+    path('api/pricing/', include('finance.urls')),
+    path('api/expenses/', include('finance.expense_urls')),
+    path('api/payroll/', include('finance.payroll_urls')),
 ]
 
 if settings.DEBUG:
