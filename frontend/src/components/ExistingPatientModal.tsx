@@ -26,6 +26,8 @@ export default function ExistingPatientModal({ isOpen, onClose, onSelectPatient,
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Patient[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
@@ -208,7 +210,198 @@ export default function ExistingPatientModal({ isOpen, onClose, onSelectPatient,
 
         {/* Results Section */}
         <div className="p-6">
-          {loading ? (
+          {showDetails && selectedPatient ? (
+            /* Patient Details View */
+            <div className="space-y-4">
+              {/* Back Button */}
+              <div className="flex items-center gap-3 mb-4">
+                <button
+                  onClick={() => {
+                    setShowDetails(false);
+                    setSelectedPatient(null);
+                  }}
+                  className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors"
+                  style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="15,18 9,12 15,6"></polyline>
+                  </svg>
+                  Back to Search
+                </button>
+              </div>
+
+              {/* Patient Information */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 style={{
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  color: '#171A1F',
+                  marginBottom: '16px'
+                }}>
+                  Patient Details
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#9CA3AF',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em'
+                    }}>Patient ID</label>
+                    <p style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      color: '#0F74C7',
+                      marginTop: '4px'
+                    }}>{selectedPatient.patient_id}</p>
+                  </div>
+                  
+                  <div>
+                    <label style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#9CA3AF',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em'
+                    }}>Full Name</label>
+                    <p style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      color: '#171A1F',
+                      marginTop: '4px'
+                    }}>{selectedPatient.full_name}</p>
+                  </div>
+                  
+                  <div>
+                    <label style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#9CA3AF',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em'
+                    }}>Phone</label>
+                    <p style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '14px',
+                      fontWeight: '400',
+                      color: '#565D6D',
+                      marginTop: '4px'
+                    }}>{selectedPatient.phone_number || 'N/A'}</p>
+                  </div>
+                  
+                  <div>
+                    <label style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#9CA3AF',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em'
+                    }}>Age / Gender</label>
+                    <p style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '14px',
+                      fontWeight: '400',
+                      color: '#565D6D',
+                      marginTop: '4px'
+                    }}>{selectedPatient.age} / {selectedPatient.gender}</p>
+                  </div>
+                  
+                  <div>
+                    <label style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#9CA3AF',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em'
+                    }}>Current Status</label>
+                    <p style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '14px',
+                      fontWeight: '400',
+                      color: '#565D6D',
+                      marginTop: '4px'
+                    }}>{selectedPatient.current_status}</p>
+                  </div>
+                  
+                  <div>
+                    <label style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#9CA3AF',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em'
+                    }}>Location</label>
+                    <p style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '14px',
+                      fontWeight: '400',
+                      color: '#565D6D',
+                      marginTop: '4px'
+                    }}>{selectedPatient.current_location || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                {/* Check In Button - show for completed patients */}
+                {(selectedPatient.current_status === 'COMPLETED' || selectedPatient.current_status === 'DISCHARGED') && onCheckInPatient && (
+                  <button
+                    onClick={() => {
+                      onCheckInPatient(selectedPatient);
+                      setShowDetails(false);
+                      setSelectedPatient(null);
+                      onClose();
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '14px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="20,6 9,17 4,12"></polyline>
+                    </svg>
+                    Check In
+                  </button>
+                )}
+                
+                <button
+                  onClick={() => {
+                    onSelectPatient(selectedPatient);
+                    onClose();
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  Select Patient
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Search Results View - Keep existing code */
+            <>
+              {loading ? (
             <div className="text-center py-8">
               <div className="text-gray-500">Searching patients...</div>
             </div>
@@ -230,8 +423,8 @@ export default function ExistingPatientModal({ isOpen, onClose, onSelectPatient,
                       key={patient.id}
                       className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
                       onClick={() => {
-                        onSelectPatient(patient);
-                        onClose();
+                        setSelectedPatient(patient);
+                        setShowDetails(true);
                       }}
                     >
                       <div className="flex justify-between items-start">
@@ -377,6 +570,8 @@ export default function ExistingPatientModal({ isOpen, onClose, onSelectPatient,
                 Enter patient ID (PAT123), full name, or phone number above
               </div>
             </div>
+          )}
+            </>
           )}
         </div>
       </div>
