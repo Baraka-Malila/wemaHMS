@@ -16,13 +16,14 @@ import {
   UserCheck,
   History
 } from 'lucide-react';
+import PatientDetailsModal from '@/components/PatientDetailsModal';
 
 export default function DoctorDashboard() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [showPatientDetails, setShowPatientDetails] = useState(false);
+  const [selectedPatientId, setSelectedPatientId] = useState('');
 
   // Fetch dashboard data from API
   const fetchDashboardData = async () => {
@@ -46,6 +47,12 @@ export default function DoctorDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // View patient details
+  const handleViewPatient = (patientId: string) => {
+    setSelectedPatientId(patientId);
+    setShowPatientDetails(true);
   };
 
   useEffect(() => {
@@ -148,13 +155,8 @@ export default function DoctorDashboard() {
 
   // Filter recent consultations and urgent cases
   const allPatients = [...recentConsultations, ...urgentCases];
-  const filteredPatients = allPatients.filter(patient => {
-    const matchesSearch = patient.patient_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         patient.patient_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         patient.chief_complaint?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || patient.status === filterStatus;
-    return matchesSearch && matchesFilter;
-  });  if (loading) {
+  
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -217,42 +219,23 @@ export default function DoctorDashboard() {
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Patient Queue</h2>
-              <p className="text-sm text-gray-600">Manage your patient appointments and consultations</p>
+              <h2 className="text-lg font-semibold text-gray-900">Queue Overview</h2>
+              <p className="text-sm text-gray-600">Monitor waiting patients - Go to Queue page to start consultations</p>
             </div>
-            <div className="flex items-center space-x-2">
-              <AlertCircle className="h-5 w-5 text-red-500" />
-              <span className="text-sm text-red-600 font-medium">
-                {urgentCases.length} Urgent Case{urgentCases.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-          </div>
-          
-          {/* Search and Filter */}
-          <div className="mt-4 flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search patients by name, ID, or complaint..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Filter className="h-4 w-4 text-gray-400" />
-              <select
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="h-5 w-5 text-red-500" />
+                <span className="text-sm text-red-600 font-medium">
+                  {urgentCases.length} Urgent Case{urgentCases.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <a
+                href="/doctor/queue"
+                className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
               >
-                <option value="all">All Patients</option>
-                <option value="waiting">Waiting</option>
-                <option value="in_consultation">In Consultation</option>
-                <option value="completed">Completed</option>
-                <option value="follow_up">Follow Up</option>
-              </select>
+                <UserCheck className="h-4 w-4 mr-2" />
+                Go to Queue
+              </a>
             </div>
           </div>
         </div>
@@ -275,12 +258,12 @@ export default function DoctorDashboard() {
                   Check-in Time
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+                  Quick View
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredPatients.map((patient) => (
+              {allPatients.slice(0, 10).map((patient) => (
                 <tr key={patient.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -318,18 +301,16 @@ export default function DoctorDashboard() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
-                      <button className="text-green-600 hover:text-green-900 flex items-center space-x-1">
-                        <UserCheck className="h-4 w-4" />
-                        <span>Consult</span>
-                      </button>
-                      <button className="text-blue-600 hover:text-blue-900 flex items-center space-x-1">
+                      <button 
+                        onClick={() => handleViewPatient(patient.patient_id || patient.id)}
+                        className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
+                      >
                         <Eye className="h-4 w-4" />
-                        <span>View</span>
+                        <span>View Details</span>
                       </button>
-                      <button className="text-purple-600 hover:text-purple-900 flex items-center space-x-1">
-                        <History className="h-4 w-4" />
-                        <span>History</span>
-                      </button>
+                      <span className="text-gray-400 text-xs">
+                        (Go to Queue to start consultation)
+                      </span>
                     </div>
                   </td>
                 </tr>
@@ -338,18 +319,28 @@ export default function DoctorDashboard() {
           </table>
         </div>
 
-        {filteredPatients.length === 0 && (
+        {allPatients.length === 0 && (
           <div className="text-center py-12">
             <Users className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No patients found</h3>
             <p className="mt-1 text-sm text-gray-500">
-              {searchTerm || filterStatus !== 'all' 
-                ? 'Try adjusting your search criteria.' 
-                : 'No patients in queue at the moment.'}
+              No patients in queue at the moment.
             </p>
           </div>
         )}
       </div>
+
+      {/* Patient Details Modal */}
+      {showPatientDetails && selectedPatientId && (
+        <PatientDetailsModal
+          patientId={selectedPatientId}
+          isOpen={showPatientDetails}
+          onClose={() => {
+            setShowPatientDetails(false);
+            setSelectedPatientId('');
+          }}
+        />
+      )}
     </div>
   );
 }
