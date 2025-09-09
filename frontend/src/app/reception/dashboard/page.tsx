@@ -767,6 +767,7 @@ export default function ReceptionDashboard() {
         isOpen={showExistingPatientModal}
         onClose={() => setShowExistingPatientModal(false)}
         onSelectPatient={handleSelectExistingPatient}
+        onCheckInPatient={handleCheckInPatient}
       />
 
       <PatientDetailsModal
@@ -779,6 +780,14 @@ export default function ReceptionDashboard() {
         onEdit={() => {
           setShowPatientDetailsModal(false);
           setShowEditPatientModal(true);
+        }}
+        onCheckIn={() => {
+          // Find the patient and call check-in
+          const patient = patients.find(p => p.patient_id === selectedPatientId);
+          if (patient) {
+            setShowPatientDetailsModal(false);
+            handleCheckInPatient(patient);
+          }
         }}
         onDelete={() => {
           // Find the patient and call delete

@@ -511,6 +511,25 @@ export default function PatientDetailsModal({ isOpen, onClose, patientId, onEdit
             </button>
           )}
           
+          {/* Check In Button - only show if patient is registered and file fee is paid */}
+          {patient && patient.current_status === 'REGISTERED' && patient.file_fee_paid && onCheckIn && (
+            <button
+              onClick={onCheckIn}
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+              style={{
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="9,11 12,14 22,4"></polyline>
+                <path d="M21,12v7a2,2 0 0,1 -2,2H5a2,2 0 0,1 -2,-2V5a2,2 0 0,1 2,-2h11"></path>
+              </svg>
+              Check In
+            </button>
+          )}
+          
           {onDelete && (
             <button
               onClick={onDelete}

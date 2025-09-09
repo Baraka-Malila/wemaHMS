@@ -18,9 +18,10 @@ interface ExistingPatientModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectPatient: (patient: Patient) => void;
+  onCheckInPatient?: (patient: Patient) => void;
 }
 
-export default function ExistingPatientModal({ isOpen, onClose, onSelectPatient }: ExistingPatientModalProps) {
+export default function ExistingPatientModal({ isOpen, onClose, onSelectPatient, onCheckInPatient }: ExistingPatientModalProps) {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Patient[]>([]);
@@ -325,7 +326,26 @@ export default function ExistingPatientModal({ isOpen, onClose, onSelectPatient 
                           </div>
                         </div>
                         
-                        <div className="ml-4">
+                        <div className="ml-4 flex gap-2">
+                          {/* Check In Button - only for completed patients */}
+                          {patient.current_status === 'COMPLETED' && onCheckInPatient && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onCheckInPatient(patient);
+                              }}
+                              className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                              style={{
+                                fontFamily: 'Inter, sans-serif',
+                                fontSize: '12px',
+                                fontWeight: '500'
+                              }}
+                              title="Check In for New Visit"
+                            >
+                              ✓ Check In
+                            </button>
+                          )}
+                          
                           <button
                             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                             style={{
