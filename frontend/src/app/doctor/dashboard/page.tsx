@@ -174,7 +174,9 @@ export default function DoctorDashboard() {
             <h1 className="text-2xl font-bold mb-2">
               {getGreeting()}, {currentUser?.first_name || 'Doctor'}!
             </h1>
-            <p className="text-blue-100">You have 5 patients waiting and 3 urgent cases requiring attention.</p>
+            <p className="text-blue-100">
+              You have {dashboardData?.patients_waiting || 0} patients waiting and {dashboardData?.urgent_cases?.length || 0} urgent cases requiring attention.
+            </p>
           </div>
           <div className="hidden md:block">
             <div className="bg-white/10 rounded-lg p-4">
