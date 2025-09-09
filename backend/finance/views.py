@@ -6,6 +6,7 @@ from django.db.models import Sum, Count, Q
 from django.utils import timezone
 from datetime import datetime, timedelta
 from django_filters.rest_framework import DjangoFilterBackend
+from django_filters import rest_framework as django_filters
 import django_filters
 
 from core.permissions import IsAdminUser, IsStaffMember
