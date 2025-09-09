@@ -21,6 +21,32 @@ export default function DoctorDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch dashboard data from API
+  const fetchDashboardData = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/dashboard/`, {
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setDashboardData(data);
+      } else {
+        console.error('Failed to fetch dashboard data');
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     // Get current user data
@@ -33,6 +59,9 @@ export default function DoctorDashboard() {
         console.error('Error parsing user data:', error);
       }
     }
+    
+    // Fetch dashboard data
+    fetchDashboardData();
   }, []);
 
   // Dynamic greeting based on time
@@ -43,120 +72,98 @@ export default function DoctorDashboard() {
     return 'Good Evening';
   };
 
-  // Mock data - replace with API calls
-  const stats = [
+  // Dynamic stats from API
+  const stats = dashboardData ? [
     {
       title: 'Patients Today',
-      value: '12',
-      change: '+3 from yesterday',
+      value: dashboardData.today_consultations || '0',
+      change: `${dashboardData.patients_waiting || 0} waiting`,
       icon: Users,
       color: 'text-green-600',
       bgColor: 'bg-green-50'
     },
     {
-      title: 'Pending Diagnoses',
-      value: '5',
-      change: '2 urgent cases',
+      title: 'Pending Consultations',
+      value: dashboardData.pending_consultations || '0',
+      change: `${dashboardData.urgent_cases?.length || 0} urgent cases`,
       icon: FileText,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50'
     },
     {
       title: 'Lab Requests',
-      value: '8',
-      change: '3 results pending',
+      value: dashboardData.lab_requests_pending || '0',
+      change: 'Pending results',
       icon: TestTube,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50'
     },
     {
       title: 'Prescriptions',
-      value: '15',
+      value: dashboardData.prescriptions_today || '0',
       change: 'Today\'s total',
       icon: Pill,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50'
     }
-  ];
+  ] : [];
 
-  const patientQueue = [
-    {
-      id: 'PAT001',
-      name: 'John Doe',
-      age: 35,
-      gender: 'Male',
-      status: 'WAITING',
-      priority: 'Normal',
-      checkInTime: '09:30 AM',
-      complaint: 'Chest pain and shortness of breath',
-      lastVisit: '2 months ago'
-    },
-    {
-      id: 'PAT002',
-      name: 'Mary Johnson',
-      age: 28,
-      gender: 'Female',
-      status: 'URGENT',
-      priority: 'High',
-      checkInTime: '10:15 AM',
-      complaint: 'Severe headache with nausea',
-      lastVisit: 'First visit'
-    },
-    {
-      id: 'PAT003',
-      name: 'David Smith',
-      age: 42,
-      gender: 'Male',
-      status: 'IN_PROGRESS',
-      priority: 'Normal',
-      checkInTime: '08:45 AM',
-      complaint: 'Follow-up hypertension check',
-      lastVisit: '1 week ago'
-    },
-    {
-      id: 'PAT004',
-      name: 'Sarah Wilson',
-      age: 55,
-      gender: 'Female',
-      status: 'WAITING',
-      priority: 'Normal',
-      checkInTime: '11:00 AM',
-      complaint: 'Diabetes consultation',
-      lastVisit: '3 weeks ago'
-    }
-  ];
+  // Recent consultations from API
+  const recentConsultations = dashboardData?.recent_consultations || [];
+  
+  // Urgent cases from API
+  const urgentCases = dashboardData?.urgent_cases || [];
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'URGENT':
-        return 'bg-red-100 text-red-800';
-      case 'IN_PROGRESS':
-        return 'bg-blue-100 text-blue-800';
-      case 'WAITING':
+    switch (status?.toLowerCase()) {
+      case 'waiting':
         return 'bg-yellow-100 text-yellow-800';
+      case 'in_consultation':
+        return 'bg-blue-100 text-blue-800';
+      case 'completed':
+        return 'bg-green-100 text-green-800';
+      case 'follow_up':
+        return 'bg-purple-100 text-purple-800';
+      case 'urgent':
+        return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'High':
+    switch (priority?.toLowerCase()) {
+      case 'high':
+      case 'urgent':
         return 'text-red-600';
-      case 'Normal':
+      case 'normal':
+      case 'medium':
         return 'text-green-600';
+      case 'low':
+        return 'text-blue-600';
       default:
         return 'text-gray-600';
     }
   };
 
-  const filteredPatients = patientQueue.filter(patient => {
-    const matchesSearch = patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         patient.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         patient.complaint.toLowerCase().includes(searchTerm.toLowerCase());
+  // Filter recent consultations and urgent cases
+  const allPatients = [...recentConsultations, ...urgentCases];
+  const filteredPatients = allPatients.filter(patient => {
+    const matchesSearch = patient.patient_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                         patient.patient_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         patient.chief_complaint?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterStatus === 'all' || patient.status === filterStatus;
     return matchesSearch && matchesFilter;
-  });
+  });  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -213,7 +220,9 @@ export default function DoctorDashboard() {
             </div>
             <div className="flex items-center space-x-2">
               <AlertCircle className="h-5 w-5 text-red-500" />
-              <span className="text-sm text-red-600 font-medium">2 Urgent Cases</span>
+              <span className="text-sm text-red-600 font-medium">
+                {urgentCases.length} Urgent Case{urgentCases.length !== 1 ? 's' : ''}
+              </span>
             </div>
           </div>
           
@@ -237,9 +246,10 @@ export default function DoctorDashboard() {
                 onChange={(e) => setFilterStatus(e.target.value)}
               >
                 <option value="all">All Patients</option>
-                <option value="URGENT">Urgent Cases</option>
-                <option value="WAITING">Waiting</option>
-                <option value="IN_PROGRESS">In Progress</option>
+                <option value="waiting">Waiting</option>
+                <option value="in_consultation">In Consultation</option>
+                <option value="completed">Completed</option>
+                <option value="follow_up">Follow Up</option>
               </select>
             </div>
           </div>
@@ -274,35 +284,35 @@ export default function DoctorDashboard() {
                     <div className="flex items-center">
                       <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
                         <span className="text-sm font-medium text-green-600">
-                          {patient.name.split(' ').map(n => n[0]).join('')}
+                          {(patient.patient_name || 'N A').split(' ').map((n: string) => n[0]).join('')}
                         </span>
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{patient.name}</div>
+                        <div className="text-sm font-medium text-gray-900">{patient.patient_name || 'Unknown'}</div>
                         <div className="text-sm text-gray-500">
-                          {patient.id} • {patient.age}y {patient.gender}
+                          {patient.patient_id || patient.id} • Age: {patient.age || 'N/A'}
                         </div>
-                        <div className="text-xs text-gray-400">Last visit: {patient.lastVisit}</div>
+                        <div className="text-xs text-gray-400">Department: {patient.department || 'General'}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col space-y-1">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(patient.status)}`}>
-                        {patient.status.replace('_', ' ')}
+                        {patient.status?.replace('_', ' ') || 'Unknown'}
                       </span>
-                      <span className={`text-xs font-medium ${getPriorityColor(patient.priority)}`}>
-                        {patient.priority} Priority
+                      <span className={`text-xs font-medium ${getPriorityColor(patient.priority || 'normal')}`}>
+                        {patient.priority || 'Normal'} Priority
                       </span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900 max-w-xs">
-                      {patient.complaint}
+                      {patient.chief_complaint || patient.complaint || 'No complaint recorded'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {patient.checkInTime}
+                    {patient.created_at ? new Date(patient.created_at).toLocaleTimeString() : 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
