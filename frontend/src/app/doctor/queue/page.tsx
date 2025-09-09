@@ -13,6 +13,7 @@ import {
   Phone,
   MapPin
 } from 'lucide-react';
+import PatientDetailsModal from '@/components/PatientDetailsModal';
 
 interface WaitingPatient {
   id: string;
@@ -38,6 +39,8 @@ export default function PatientQueue() {
   const [patients, setPatients] = useState<WaitingPatient[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPatient, setSelectedPatient] = useState<WaitingPatient | null>(null);
+  const [showPatientDetails, setShowPatientDetails] = useState(false);
+  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
 
   
   const fetchWaitingPatients = async () => {
@@ -96,6 +99,12 @@ export default function PatientQueue() {
       console.error('Error starting consultation:', error);
       alert('Error starting consultation. Please try again.');
     }
+  };
+
+  // View patient details
+  const handleViewPatient = (patientId: string) => {
+    setSelectedPatientId(patientId);
+    setShowPatientDetails(true);
   };
 
   useEffect(() => {
@@ -289,7 +298,7 @@ export default function PatientQueue() {
                   <span>Start Consultation</span>
                 </button>
                 <button 
-                  onClick={() => setSelectedPatient(patient)}
+                  onClick={() => handleViewPatient(patient.patient_id)}
                   className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-50 text-blue-600 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors">
                   <Eye className="h-4 w-4" />
                   <span>View Details</span>
@@ -310,6 +319,18 @@ export default function PatientQueue() {
               : 'No patients in queue at the moment.'}
           </p>
         </div>
+      )}
+
+      {/* Patient Details Modal */}
+      {showPatientDetails && selectedPatientId && (
+        <PatientDetailsModal
+          patientId={selectedPatientId}
+          isOpen={showPatientDetails}
+          onClose={() => {
+            setShowPatientDetails(false);
+            setSelectedPatientId('');
+          }}
+        />
       )}
     </div>
   );
