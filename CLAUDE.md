@@ -1,4 +1,225 @@
-# WEMA Hospital Management System - Project Overview
+# CLAUDE.md - Development Context & Rules
+
+## 🎯 **Project Overview**
+
+**WEMA Hospital Management System** - A comprehensive, role-based hospital management platform built with modern technologies and real-world workflow implementation.
+
+**Tech Stack**: Django REST + Next.js 15 + PostgreSQL + Redis + Docker
+**Architecture**: Containerized microservices with role-based authentication
+**Current Status**: 70% complete - Core patient workflow functional, expanding to all departments
+
+---
+
+## 🚨 **CRITICAL DEVELOPMENT RULES** (The "Songs" You Keep Singing)
+
+### **1. API Integration First, Always!**
+- **"We use REAL APIs, not mock data!"** - Always integrate with backend endpoints
+- Replace mock data immediately with actual API calls
+- Test API integration before considering a feature "complete"
+- If backend API doesn't exist, create it first, then integrate
+
+### **2. Reuse Components, Don't Duplicate**
+- **"We already have modals - REUSE them!"** - Use existing `PatientDetailsModal`, `NewPatientModal`, `ExistingPatientModal`
+- Check `/components/` before creating new components
+- Maintain design consistency across all portals
+- Share UI components between similar workflows
+
+### **3. Real Hospital Workflow Logic**
+- **"Hospitals work FIFO, not random!"** - Implement proper patient queue logic
+- Separate monitoring (Dashboard) from workspace (Queue/Operations)
+- Follow actual medical workflow: Registration → Check-in → Queue → Consultation → Services
+- Patient status flow: `REGISTERED` → `FILE_FEE_PAID` → `WAITING_DOCTOR` → `WITH_DOCTOR` → `COMPLETED`
+
+### **4. Fix Errors Immediately**
+- **"TypeScript errors? Fix them NOW!"** - Never ignore compilation errors
+- Use `git checkout HEAD -- file.tsx` to restore when in doubt
+- Check error logs before adding new features
+- Test changes before moving to next task
+
+### **5. Docker & Backend Dependencies**
+- **"Check the package name!"** - It's `django-filter`, not `django_filters`
+- Always check if packages are installed correctly
+- Use Docker logs to debug backend issues
+- Keep containers running during development
+
+---
+
+## 💻 **Development Standards**
+
+### **Code Quality**
+- Follow clean, modular coding practices with clear separation of concerns
+- Write descriptive variable names (no single letters except loops)
+- Use TypeScript properly - define interfaces for all data structures
+- Implement proper error handling with user-friendly messages
+- Add loading states for all async operations
+
+### **Component Structure**
+```tsx
+// Always follow this pattern:
+const [loading, setLoading] = useState(false);
+const [data, setData] = useState<DataType[]>([]);
+const [error, setError] = useState('');
+
+const fetchData = async () => {
+  try {
+    setLoading(true);
+    const response = await fetch(`${API_URL}/endpoint/`);
+    if (response.ok) {
+      const result = await response.json();
+      setData(result);
+    }
+  } catch (error) {
+    setError('Failed to load data');
+  } finally {
+    setLoading(false);
+  }
+};
+```
+
+### **API Integration Standards**
+- Always use `localStorage.getItem('auth_token')` for authentication
+- Include proper headers: `Authorization: Token ${token}`, `Content-Type: application/json`
+- Handle 401 (unauthorized), 403 (forbidden), 404 (not found) responses
+- Use consistent error messaging across components
+- Implement proper loading and error states
+
+### **File Organization**
+- Keep related functionality in same directory
+- Use descriptive file names (`PatientDetailsModal.tsx`, not `Modal.tsx`)
+- Place shared types in `/types/index.ts`
+- Keep API calls in component files (don't over-abstract)
+
+---
+
+## 🤝 **Collaboration Guidelines**
+
+### **Before Making Changes**
+- **Read CLAUDE.md first** - Always reference this file for context
+- Check existing implementations before creating new solutions
+- Review recent git commits to understand current work
+- Ask for clarification if workflow or requirements are unclear
+
+### **When Editing Files**
+- Provide clear context about what you're changing and why
+- Use `replace_string_in_file` with 3-5 lines of context before/after
+- Test changes immediately after implementation
+- Explain any complex logic or architectural decisions
+
+### **Error Resolution Process**
+1. Check terminal/browser errors first
+2. Review recent changes that might have caused the issue
+3. Use git to revert problematic changes if needed
+4. Fix root cause, not just symptoms
+5. Test fix thoroughly before proceeding
+
+### **Communication Style**
+- Be concise but complete in explanations
+- Show what was changed, not just what will be changed
+- Suggest improvements before applying large refactors
+- Always explain reasoning for significant architectural decisions
+
+---
+
+## 🐳 **Docker & Deployment**
+
+### **Container Management**
+- Keep Dockerfiles minimal and focused
+- Use multi-stage builds for production
+- Ensure all containers start successfully with `docker-compose up`
+- Monitor container logs for errors: `docker-compose logs backend --tail=10`
+
+### **Development Environment**
+- Frontend runs on `http://localhost:3000`
+- Backend API on `http://localhost:8000`
+- Database: PostgreSQL on port 5434
+- Redis cache on port 6379
+
+### **Environment Variables**
+```bash
+# Backend (.env)
+DEBUG=1
+DB_HOST=db
+ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,192.168.180.*
+
+# Frontend (.env.local)
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+---
+
+## 📊 **Current Implementation Status**
+
+### **✅ Completed & Tested**
+- **Reception Portal**: Full patient workflow with real API integration
+- **Doctor Portal**: Dashboard (monitoring) + Queue (workspace) with proper FIFO logic
+- **Authentication**: Role-based login with employee ID auto-generation
+- **Patient Management**: Auto-ID (PAT1, PAT2...), status tracking, cross-portal sharing
+- **Modals**: Reusable patient components across all portals
+
+### **🔄 Next Priorities**
+1. **Doctor Workflow**: Complete prescription/lab request pages with API integration
+2. **Pharmacy Portal**: Connect existing backend APIs to frontend interface
+3. **Lab Portal**: Test results and supply order management
+4. **Finance Portal**: Daily operations and billing dashboard
+
+### **⚠️ Common Issues & Solutions**
+- **TypeScript errors**: Use proper typing, check for null values
+- **API connection issues**: Verify Docker containers are running
+- **Component duplication**: Always check existing components first
+- **State management**: Use proper loading/error states for all async operations
+
+---
+
+## 🏥 **Hospital Workflow Context**
+
+### **Patient Flow Implementation**
+```
+Registration (Reception) → File Fee → Check-in → Queue (Doctor) 
+    ↓                       ↓           ↓           ↓
+   PAT{ID}            Payment Record  WAITING    WITH_DOCTOR
+                                      
+Consultation (Doctor) → Prescription → Lab Tests → Completion
+        ↓                    ↓            ↓          ↓
+   Medical Record      Pharmacy Queue  Lab Queue  COMPLETED
+```
+
+### **Role-Based Portal Access**
+- **Reception**: Patient registration, check-in, file fee processing
+- **Doctor**: Patient queue (FIFO), consultations, prescriptions, lab orders
+- **Pharmacy**: Medication dispensing, inventory management
+- **Lab**: Test processing, results entry, supply orders
+- **Admin**: User management, system monitoring, approvals
+- **Finance**: Billing, expenses, payroll, reporting
+
+---
+
+## 📝 **Special Notes & Reminders**
+
+### **The Golden Rules**
+- **"Always check if it exists first!"** - Components, APIs, functions
+- **"Real hospitals use FIFO!"** - Patient processing order matters
+- **"Integration over isolation!"** - Connect systems, don't build silos
+- **"Test immediately!"** - Don't stack untested changes
+- **"Backend first, frontend second!"** - Ensure API exists before frontend
+
+### **When in Doubt**
+1. Check this CLAUDE.md file for guidance
+2. Look at existing working implementations (Reception portal)
+3. Review backend API documentation in `*_API_DOCS.md` files
+4. Ask for clarification rather than guessing
+5. Use git to revert when things break
+
+### **Success Metrics**
+- All features use real API integration (no mock data)
+- Patient workflow follows real hospital logic
+- Components are reused across portals
+- No TypeScript compilation errors
+- Docker containers run without issues
+- User experience matches actual medical workflows
+
+---
+
+**Remember: We're building a real hospital system, not a demo. Every decision should reflect actual medical practice and real-world workflows.**
 
 ## 🏗️ **Project Structure (3 Levels Deep)**
 
