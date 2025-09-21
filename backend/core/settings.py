@@ -17,7 +17,9 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-!v0k*2xfpmwg#c9z89f#q
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,0.0.0.0', cast=lambda v: [s.strip() for s in v.split(',')])
+ALLOWED_HOSTS = ["*"]
+#ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,0.0.0.0', cast=lambda v: [s.strip() for s in v.split(',')])
+#print("ALLOWED_HOSTS:", ALLOWED_HOSTS)
 
 # Application definition
 DJANGO_APPS = [
@@ -122,6 +124,7 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://192.168.180.112:3000",
 ]
 
 CORS_ALLOW_CREDENTIALS = True

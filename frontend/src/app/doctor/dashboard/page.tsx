@@ -16,44 +16,11 @@ import {
   UserCheck,
   History
 } from 'lucide-react';
-import PatientDetailsModal from '@/components/PatientDetailsModal';
 
 export default function DoctorDashboard() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [dashboardData, setDashboardData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [showPatientDetails, setShowPatientDetails] = useState(false);
-  const [selectedPatientId, setSelectedPatientId] = useState('');
-
-  // Fetch dashboard data from API
-  const fetchDashboardData = async () => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/dashboard/`, {
-        headers: {
-          'Authorization': `Token ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setDashboardData(data);
-      } else {
-        console.error('Failed to fetch dashboard data');
-      }
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // View patient details
-  const handleViewPatient = (patientId: string) => {
-    setSelectedPatientId(patientId);
-    setShowPatientDetails(true);
-  };
 
   useEffect(() => {
     // Get current user data
@@ -66,9 +33,6 @@ export default function DoctorDashboard() {
         console.error('Error parsing user data:', error);
       }
     }
-    
-    // Fetch dashboard data
-    fetchDashboardData();
   }, []);
 
   // Dynamic greeting based on time
@@ -79,93 +43,120 @@ export default function DoctorDashboard() {
     return 'Good Evening';
   };
 
-  // Dynamic stats from API
-  const stats = dashboardData ? [
+  // Mock data - replace with API calls
+  const stats = [
     {
       title: 'Patients Today',
-      value: dashboardData.today_consultations || '0',
-      change: `${dashboardData.patients_waiting || 0} waiting`,
+      value: '12',
+      change: '+3 from yesterday',
       icon: Users,
       color: 'text-green-600',
       bgColor: 'bg-green-50'
     },
     {
-      title: 'Pending Consultations',
-      value: dashboardData.pending_consultations || '0',
-      change: `${dashboardData.urgent_cases?.length || 0} urgent cases`,
+      title: 'Pending Diagnoses',
+      value: '5',
+      change: '2 urgent cases',
       icon: FileText,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50'
     },
     {
       title: 'Lab Requests',
-      value: dashboardData.lab_requests_pending || '0',
-      change: 'Pending results',
+      value: '8',
+      change: '3 results pending',
       icon: TestTube,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50'
     },
     {
       title: 'Prescriptions',
-      value: dashboardData.prescriptions_today || '0',
+      value: '15',
       change: 'Today\'s total',
       icon: Pill,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50'
     }
-  ] : [];
+  ];
 
-  // Recent consultations from API
-  const recentConsultations = dashboardData?.recent_consultations || [];
-  
-  // Urgent cases from API
-  const urgentCases = dashboardData?.urgent_cases || [];
+  const patientQueue = [
+    {
+      id: 'PAT001',
+      name: 'John Doe',
+      age: 35,
+      gender: 'Male',
+      status: 'WAITING',
+      priority: 'Normal',
+      checkInTime: '09:30 AM',
+      complaint: 'Chest pain and shortness of breath',
+      lastVisit: '2 months ago'
+    },
+    {
+      id: 'PAT002',
+      name: 'Mary Johnson',
+      age: 28,
+      gender: 'Female',
+      status: 'URGENT',
+      priority: 'High',
+      checkInTime: '10:15 AM',
+      complaint: 'Severe headache with nausea',
+      lastVisit: 'First visit'
+    },
+    {
+      id: 'PAT003',
+      name: 'David Smith',
+      age: 42,
+      gender: 'Male',
+      status: 'IN_PROGRESS',
+      priority: 'Normal',
+      checkInTime: '08:45 AM',
+      complaint: 'Follow-up hypertension check',
+      lastVisit: '1 week ago'
+    },
+    {
+      id: 'PAT004',
+      name: 'Sarah Wilson',
+      age: 55,
+      gender: 'Female',
+      status: 'WAITING',
+      priority: 'Normal',
+      checkInTime: '11:00 AM',
+      complaint: 'Diabetes consultation',
+      lastVisit: '3 weeks ago'
+    }
+  ];
 
   const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'waiting':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'in_consultation':
-        return 'bg-blue-100 text-blue-800';
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'follow_up':
-        return 'bg-purple-100 text-purple-800';
-      case 'urgent':
+    switch (status) {
+      case 'URGENT':
         return 'bg-red-100 text-red-800';
+      case 'IN_PROGRESS':
+        return 'bg-blue-100 text-blue-800';
+      case 'WAITING':
+        return 'bg-yellow-100 text-yellow-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getPriorityColor = (priority: string) => {
-    switch (priority?.toLowerCase()) {
-      case 'high':
-      case 'urgent':
+    switch (priority) {
+      case 'High':
         return 'text-red-600';
-      case 'normal':
-      case 'medium':
+      case 'Normal':
         return 'text-green-600';
-      case 'low':
-        return 'text-blue-600';
       default:
         return 'text-gray-600';
     }
   };
 
-  // Filter recent consultations and urgent cases
-  const allPatients = [...recentConsultations, ...urgentCases];
-  
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  const filteredPatients = patientQueue.filter(patient => {
+    const matchesSearch = patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         patient.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         patient.complaint.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filterStatus === 'all' || patient.status === filterStatus;
+    return matchesSearch && matchesFilter;
+  });
 
   return (
     <div className="space-y-8">
@@ -176,9 +167,7 @@ export default function DoctorDashboard() {
             <h1 className="text-2xl font-bold mb-2">
               {getGreeting()}, {currentUser?.first_name || 'Doctor'}!
             </h1>
-            <p className="text-blue-100">
-              You have {dashboardData?.patients_waiting || 0} patients waiting and {dashboardData?.urgent_cases?.length || 0} urgent cases requiring attention.
-            </p>
+            <p className="text-blue-100">You have 5 patients waiting and 3 urgent cases requiring attention.</p>
           </div>
           <div className="hidden md:block">
             <div className="bg-white/10 rounded-lg p-4">
@@ -219,23 +208,39 @@ export default function DoctorDashboard() {
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Queue Overview</h2>
-              <p className="text-sm text-gray-600">Monitor waiting patients - Go to Queue page to start consultations</p>
+              <h2 className="text-lg font-semibold text-gray-900">Patient Queue</h2>
+              <p className="text-sm text-gray-600">Manage your patient appointments and consultations</p>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <AlertCircle className="h-5 w-5 text-red-500" />
-                <span className="text-sm text-red-600 font-medium">
-                  {urgentCases.length} Urgent Case{urgentCases.length !== 1 ? 's' : ''}
-                </span>
-              </div>
-              <a
-                href="/doctor/queue"
-                className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+              <span className="text-sm text-red-600 font-medium">2 Urgent Cases</span>
+            </div>
+          </div>
+          
+          {/* Search and Filter */}
+          <div className="mt-4 flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search patients by name, ID, or complaint..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Filter className="h-4 w-4 text-gray-400" />
+              <select
+                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
               >
-                <UserCheck className="h-4 w-4 mr-2" />
-                Go to Queue
-              </a>
+                <option value="all">All Patients</option>
+                <option value="URGENT">Urgent Cases</option>
+                <option value="WAITING">Waiting</option>
+                <option value="IN_PROGRESS">In Progress</option>
+              </select>
             </div>
           </div>
         </div>
@@ -258,59 +263,61 @@ export default function DoctorDashboard() {
                   Check-in Time
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Quick View
+                  Actions
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {allPatients.slice(0, 10).map((patient) => (
+              {filteredPatients.map((patient) => (
                 <tr key={patient.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
                         <span className="text-sm font-medium text-green-600">
-                          {(patient.patient_name || 'N A').split(' ').map((n: string) => n[0]).join('')}
+                          {patient.name.split(' ').map(n => n[0]).join('')}
                         </span>
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{patient.patient_name || 'Unknown'}</div>
+                        <div className="text-sm font-medium text-gray-900">{patient.name}</div>
                         <div className="text-sm text-gray-500">
-                          {patient.patient_id || patient.id} • Age: {patient.age || 'N/A'}
+                          {patient.id} • {patient.age}y {patient.gender}
                         </div>
-                        <div className="text-xs text-gray-400">Department: {patient.department || 'General'}</div>
+                        <div className="text-xs text-gray-400">Last visit: {patient.lastVisit}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col space-y-1">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(patient.status)}`}>
-                        {patient.status?.replace('_', ' ') || 'Unknown'}
+                        {patient.status.replace('_', ' ')}
                       </span>
-                      <span className={`text-xs font-medium ${getPriorityColor(patient.priority || 'normal')}`}>
-                        {patient.priority || 'Normal'} Priority
+                      <span className={`text-xs font-medium ${getPriorityColor(patient.priority)}`}>
+                        {patient.priority} Priority
                       </span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900 max-w-xs">
-                      {patient.chief_complaint || patient.complaint || 'No complaint recorded'}
+                      {patient.complaint}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {patient.created_at ? new Date(patient.created_at).toLocaleTimeString() : 'N/A'}
+                    {patient.checkInTime}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
-                      <button 
-                        onClick={() => handleViewPatient(patient.patient_id || patient.id)}
-                        className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
-                      >
-                        <Eye className="h-4 w-4" />
-                        <span>View Details</span>
+                      <button className="text-green-600 hover:text-green-900 flex items-center space-x-1">
+                        <UserCheck className="h-4 w-4" />
+                        <span>Consult</span>
                       </button>
-                      <span className="text-gray-400 text-xs">
-                        (Go to Queue to start consultation)
-                      </span>
+                      <button className="text-blue-600 hover:text-blue-900 flex items-center space-x-1">
+                        <Eye className="h-4 w-4" />
+                        <span>View</span>
+                      </button>
+                      <button className="text-purple-600 hover:text-purple-900 flex items-center space-x-1">
+                        <History className="h-4 w-4" />
+                        <span>History</span>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -319,28 +326,18 @@ export default function DoctorDashboard() {
           </table>
         </div>
 
-        {allPatients.length === 0 && (
+        {filteredPatients.length === 0 && (
           <div className="text-center py-12">
             <Users className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No patients found</h3>
             <p className="mt-1 text-sm text-gray-500">
-              No patients in queue at the moment.
+              {searchTerm || filterStatus !== 'all' 
+                ? 'Try adjusting your search criteria.' 
+                : 'No patients in queue at the moment.'}
             </p>
           </div>
         )}
       </div>
-
-      {/* Patient Details Modal */}
-      {showPatientDetails && selectedPatientId && (
-        <PatientDetailsModal
-          patientId={selectedPatientId}
-          isOpen={showPatientDetails}
-          onClose={() => {
-            setShowPatientDetails(false);
-            setSelectedPatientId('');
-          }}
-        />
-      )}
     </div>
   );
 }

@@ -38,7 +38,7 @@ services:
       - DB_USER=wema_user
       - DB_PASSWORD=wema_password
       - REDIS_URL=redis://redis:6379/0
-      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,*
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,192.168.180.*
     depends_on:
       - db
       - redis
@@ -56,7 +56,8 @@ services:
       - /app/node_modules
       - /app/.next
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    #  - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_URL=http://192.168.180.112:8000
     depends_on:
       - backend
     networks:
