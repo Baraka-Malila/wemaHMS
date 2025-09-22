@@ -1,3 +1,7 @@
+# Large Dirs
+DESIGNS/*
+
+
 # Dependencies
 node_modules/
 __pycache__/
