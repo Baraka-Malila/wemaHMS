@@ -38,39 +38,36 @@ export default function AdminLayout({
 
   return (
     <div className="min-h-screen" style={{ background: '#F8F9FA' }}>
-      {/* Top Header - Same height as auth page */}
+      {/* Top Header - Same as finance/pharmacy */}
       <header 
-        className="border-b border-gray-200 h-[50px] flex items-center justify-between px-6 fixed top-0 left-0 right-0 z-50"
-        style={{ background: '#F8F9FA' }}
+        className="bg-white border-b border-gray-200 px-6 py-3 fixed top-0 left-0 right-0 z-50 flex items-center justify-between h-[50px]"
       >
-        <div className="flex items-center gap-3">
+        {/* Left side - Toggle and Branding */}
+        <div className="flex items-center gap-4">
           <button
             onClick={toggleSidebar}
-            className="p-2 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors"
+            className="p-1.5 hover:bg-gray-100 rounded-lg"
+            aria-label="Toggle Sidebar"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.5">
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
           </button>
-          <span className="text-lg">❄️</span>
-          <span className="text-lg font-bold" style={{ 
-            fontFamily: 'Open Sans, sans-serif',
-            fontSize: '25px',
+          
+          {/* Admin Branding */}
+          <span style={{
+            fontFamily: 'Inter, sans-serif',
+            fontSize: '20px',
             lineHeight: '25px',
             fontWeight: '700',
-            color: '#4A90E2FF'
-          }}>WemaHMS</span>
+            color: '#1E40AF'
+          }}>ADMIN</span>
         </div>
         
-        <div className="absolute left-1/2 transform -translate-x-1/2 text-lg font-semibold" style={{
-          fontFamily: 'Open Sans, sans-serif',
-          fontSize: '25px',
-          lineHeight: '25px',
-          fontWeight: '700',
-          color: '#4A90E2FF'
-        }}>ADMIN</div>
+        {/* Remove center heading - now empty */}
+        <div></div>
         
         <div className="flex items-center space-x-4">
           <button className="p-1.5 hover:bg-gray-100 rounded-lg" aria-label="Notifications">
