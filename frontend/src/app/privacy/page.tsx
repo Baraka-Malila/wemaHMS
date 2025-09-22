@@ -28,7 +28,7 @@ export default function PrivacyPolicyPage() {
               color: '#4A90E2FF'
             }}
           >
-            ❄️ WEMA HMS 🏥
+            WEMA HMS
           </span>
         </div>
         

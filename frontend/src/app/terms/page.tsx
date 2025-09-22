@@ -28,7 +28,7 @@ export default function TermsOfUsePage() {
               color: '#4A90E2FF'
             }}
           >
-            ❄️ WEMA HMS 🏥
+            WEMA HMS
           </span>
         </div>
         
