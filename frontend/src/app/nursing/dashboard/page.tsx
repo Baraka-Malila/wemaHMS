@@ -110,7 +110,7 @@ export default function NursingDashboard() {
       <div 
         className="rounded-lg p-6 mb-8"
         style={{
-          background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
+          background: 'linear-gradient(135deg, #1E40AF 0%, #1E3A8A 100%)',
           border: '1px solid rgba(229, 231, 235, 0.6)',
           boxShadow: '0px 0px 1px rgba(23, 26, 31, 0.05), 0px 0px 2px rgba(23, 26, 31, 0.08)'
         }}

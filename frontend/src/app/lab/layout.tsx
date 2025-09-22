@@ -143,7 +143,7 @@ export default function LabLayout({
                   ? 'text-white' 
                   : 'text-gray-600 hover:bg-gray-100'
               }`} 
-              style={isActive('/lab/dashboard') ? { background: '#1E40AF' } : {}}
+              style={isActive('/lab/dashboard') ? { background: '#9CA3AF' } : {}}
               onClick={() => router.push('/lab/dashboard')}
             >
               <Activity className="h-5 w-5" />
@@ -157,7 +157,7 @@ export default function LabLayout({
                   ? 'text-white' 
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
-              style={isActive('/lab/test-results') ? { background: '#1E40AF' } : {}}
+              style={isActive('/lab/test-results') ? { background: '#9CA3AF' } : {}}
               onClick={() => router.push('/lab/test-results')}
             >
               <ClipboardList className="h-5 w-5" />
@@ -171,7 +171,7 @@ export default function LabLayout({
                   ? 'text-white' 
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
-              style={isActive('/lab/supply-orders') ? { background: '#1E40AF' } : {}}
+              style={isActive('/lab/supply-orders') ? { background: '#9CA3AF' } : {}}
               onClick={() => router.push('/lab/supply-orders')}
             >
               <ShoppingCart className="h-5 w-5" />
