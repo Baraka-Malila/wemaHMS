@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import auth from '@/lib/auth';
 
 interface EditPatientModalProps {
   isOpen: boolean;
@@ -53,7 +54,7 @@ export default function EditPatientModal({ isOpen, onClose, patientId, onSuccess
   const fetchPatientData = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = auth.getToken();
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/${patientId}/`,
         {
@@ -105,7 +106,7 @@ export default function EditPatientModal({ isOpen, onClose, patientId, onSuccess
     setSaving(true);
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = auth.getToken();
       
       // Prepare data - only send non-empty values
       const updateData: any = {};

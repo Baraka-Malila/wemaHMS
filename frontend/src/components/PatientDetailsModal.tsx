@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import auth from '@/lib/auth';
 
 interface PatientDetailsModalProps {
   isOpen: boolean;
@@ -50,7 +51,7 @@ export default function PatientDetailsModal({ isOpen, onClose, patientId, onEdit
   const fetchPatientDetails = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = auth.getToken();
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/${patientId}/`,
         {

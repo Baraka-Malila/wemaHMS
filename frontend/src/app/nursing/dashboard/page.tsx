@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import auth from '@/lib/auth';
 
 interface Patient {
   id: string;
@@ -20,15 +21,10 @@ export default function NursingDashboard() {
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
-    // Get current user data
-    const userData = localStorage.getItem('user_data');
-    if (userData) {
-      try {
-        const user = JSON.parse(userData);
-        setCurrentUser(user);
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-      }
+    // Get current user data using auth manager
+    const user = auth.getUser();
+    if (user) {
+      setCurrentUser(user);
     }
 
     // Simulate loading patients data

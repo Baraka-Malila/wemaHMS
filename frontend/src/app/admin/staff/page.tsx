@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Edit, Trash2, Key, Check, X, Copy } from 'lucide-react';
+import auth from '@/lib/auth';
 
 interface Staff {
   id: string;
@@ -56,7 +57,7 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ isOpen, onClose
     setError('');
 
     try {
-      const authToken = localStorage.getItem('auth_token');
+      const authToken = auth.getToken();
       
       // Debug logging
       console.log('Password Reset Debug:', {
@@ -305,7 +306,7 @@ export default function StaffManagement() {
 
   const fetchStaffData = async () => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = auth.getToken();
       if (!token) {
         window.location.href = '/login';
         return;
@@ -387,7 +388,7 @@ export default function StaffManagement() {
 
   const handleApproveReject = async (userId: string, action: 'approve' | 'reject') => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = auth.getToken();
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/auth/admin/approve-user/`, {
         method: 'POST',
         headers: {
@@ -423,7 +424,7 @@ export default function StaffManagement() {
     if (!confirm(`Are you sure you want to delete ${staffName}?`)) return;
     
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = auth.getToken();
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/auth/admin/delete-user/${staffId}/`, {
         method: 'DELETE',
         headers: {
@@ -454,7 +455,7 @@ export default function StaffManagement() {
     if (!editingStaff) return;
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = auth.getToken();
       
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/auth/admin/update-user/${editingStaff?.id}/`, {
         method: 'PUT',

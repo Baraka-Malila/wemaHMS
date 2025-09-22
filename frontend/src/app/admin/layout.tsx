@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import auth from '@/lib/auth';
 
 export default function AdminLayout({
   children,
@@ -27,8 +28,7 @@ export default function AdminLayout({
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user_data');
+    auth.clearAuth();
     router.push('/login');
   };
 

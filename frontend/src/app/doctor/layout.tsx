@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import auth from '@/lib/auth';
 import { 
   Stethoscope, 
   Users, 
@@ -26,17 +27,17 @@ export default function DoctorLayout({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    const userData = localStorage.getItem('user_data');
+    const token = auth.getToken();
+    const user = auth.getUser();
     
-    if (!token || !userData) {
+    if (!token || !user) {
       router.push('/login');
       return;
     }
 
     try {
-      const parsedUser = JSON.parse(userData);
-      if (parsedUser.role !== 'DOCTOR') {
+      // User data already parsed by auth manager
+      if (user.role !== 'DOCTOR') {
         router.push('/login');
         return;
       }
@@ -59,8 +60,7 @@ export default function DoctorLayout({
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user_data');
+    auth.clearAuth();
     router.push('/login');
   };
 

@@ -6,6 +6,7 @@ import NewPatientModal from '@/components/NewPatientModal';
 import ExistingPatientModal from '@/components/ExistingPatientModal';
 import PatientDetailsModal from '@/components/PatientDetailsModal';
 import EditPatientModal from '@/components/EditPatientModal';
+import auth from '@/lib/auth';
 
 interface Patient {
   id: string;
@@ -50,7 +51,7 @@ export default function ReceptionDashboard() {
   // Fetch dashboard data
   const fetchDashboardData = async () => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = auth.getToken();
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/reception/dashboard/`, {
         headers: {
           'Authorization': `Token ${token}`,
@@ -100,7 +101,7 @@ export default function ReceptionDashboard() {
     }
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = auth.getToken();
       const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/search/?q=${encodeURIComponent(query)}`;
       
       const response = await fetch(url, {
@@ -137,14 +138,9 @@ export default function ReceptionDashboard() {
 
   useEffect(() => {
     // Get current user data
-    const userData = localStorage.getItem('user_data');
-    if (userData) {
-      try {
-        const user = JSON.parse(userData);
-        setCurrentUser(user);
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-      }
+    const user = auth.getUser();
+    if (user) {
+      setCurrentUser(user);
     }
 
     // Load API data
@@ -306,7 +302,7 @@ export default function ReceptionDashboard() {
     }
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = auth.getToken();
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/${patient.patient_id}/delete/`,
         {
@@ -334,7 +330,7 @@ export default function ReceptionDashboard() {
 
   const handleCheckInPatient = async (patient: Patient) => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = auth.getToken();
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/${patient.patient_id}/status/`,
         {

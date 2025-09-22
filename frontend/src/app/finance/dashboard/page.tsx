@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  DollarSign, 
-  TrendingUp, 
-  TrendingDown, 
-  Eye, 
+import {
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  Eye,
   AlertTriangle,
   CheckCircle,
   Clock,
@@ -16,21 +16,18 @@ import {
   Banknote,
   PieChart
 } from 'lucide-react';
+import RealTimeClock from '@/components/ui/RealTimeClock';
+import auth from '@/lib/auth';
 
 export default function FinanceDashboard() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
-    // Get current user data
-    const userData = localStorage.getItem('user_data');
-    if (userData) {
-      try {
-        const user = JSON.parse(userData);
-        setCurrentUser(user);
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-      }
+    // Get current user data using auth manager
+    const user = auth.getUser();
+    if (user) {
+      setCurrentUser(user);
     }
   }, []);
 
@@ -159,10 +156,7 @@ export default function FinanceDashboard() {
             <div className="bg-white/10 rounded-lg p-4">
               <Calculator className="h-8 w-8 text-white mb-2" />
               <p className="text-sm text-amber-100">Current Time</p>
-              <p className="text-xl font-semibold">{new Date().toLocaleTimeString('en-US', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-              })}</p>
+              <RealTimeClock className="text-white" />
             </div>
           </div>
         </div>

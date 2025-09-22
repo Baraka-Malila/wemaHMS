@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import auth from '@/lib/auth';
 
 interface PatientData {
   full_name: string;
@@ -47,7 +48,7 @@ export default function RegisterPatient() {
     setLoading(true);
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = auth.getToken();
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/reception/register-patient/`, {
         method: 'POST',
         headers: {

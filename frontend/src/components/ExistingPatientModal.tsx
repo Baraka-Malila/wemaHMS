@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import auth from '@/lib/auth';
 
 interface Patient {
   id: string;
@@ -36,7 +37,7 @@ export default function ExistingPatientModal({ isOpen, onClose, onSelectPatient 
     setHasSearched(true);
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = auth.getToken();
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/search/?q=${encodeURIComponent(searchQuery)}`,
         {

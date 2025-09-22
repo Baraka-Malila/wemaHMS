@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import auth from '@/lib/auth';
 
 export default function NursingLayout({
   children,
@@ -15,16 +16,16 @@ export default function NursingLayout({
 
   useEffect(() => {
     // Check authentication
-    const token = localStorage.getItem('auth_token');
-    const userData = localStorage.getItem('user_data');
+    const token = auth.getToken();
+    const user = auth.getUser();
     
-    if (!token || !userData) {
+    if (!token || !user) {
       router.push('/login');
       return;
     }
 
     try {
-      const user = JSON.parse(userData);
+      // User data already parsed by auth manager
       setCurrentUser(user);
       
       // Check if user has nursing access
@@ -39,8 +40,7 @@ export default function NursingLayout({
   }, [router]);
 
   const handleLogout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user_data');
+    auth.clearAuth();
     router.push('/login');
   };
 

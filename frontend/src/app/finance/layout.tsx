@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import auth from '@/lib/auth';
 import { 
   DollarSign, 
   Activity, 
@@ -24,22 +25,22 @@ export default function FinanceLayout({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    const userData = localStorage.getItem('user_data');
+    const token = auth.getToken();
+    const authUser = auth.getUser();
     
-    if (!token || !userData) {
+    if (!token || !authUser) {
       router.push('/login');
       return;
     }
 
     try {
-      const parsedUser = JSON.parse(userData);
+      // User data already parsed by auth manager
       // Allow FINANCE, RECEPTION (as they handle finance too), and ADMIN
-      if (!['FINANCE', 'RECEPTION', 'ADMIN'].includes(parsedUser.role)) {
+      if (!['FINANCE', 'RECEPTION', 'ADMIN'].includes(authUser.role)) {
         router.push('/login');
         return;
       }
-      setUser(parsedUser);
+      setUser(authUser);
     } catch (error) {
       router.push('/login');
     }
@@ -58,8 +59,7 @@ export default function FinanceLayout({
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user_data');
+    auth.clearAuth();
     router.push('/login');
   };
 

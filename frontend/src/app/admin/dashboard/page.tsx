@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import auth from '@/lib/auth';
 
 interface DashboardStats {
   patients_today: number;
@@ -57,7 +58,7 @@ export default function AdminDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = auth.getToken();
       if (!token) {
         router.push('/login');
         return;

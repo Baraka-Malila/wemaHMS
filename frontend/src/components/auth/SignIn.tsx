@@ -3,6 +3,7 @@
 import React, { useState, FormEvent, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import auth from '@/lib/auth';
 
 interface LoginResponse {
   success: boolean;
@@ -97,13 +98,8 @@ const SignIn: React.FC = () => {
       }
 
       if (data.success && data.token && data.user) {
-        // Store authentication data
-        localStorage.setItem('auth_token', data.token);
-        localStorage.setItem('user_data', JSON.stringify(data.user));
-        
-        if (rememberMe) {
-          localStorage.setItem('remember_me', 'true');
-        }
+        // Store authentication data using auth manager
+        auth.setAuth(data.token, data.user, rememberMe);
 
         // Redirect based on user role/portal access
         const portalRoutes: { [key: string]: string } = {

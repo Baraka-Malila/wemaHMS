@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import auth from '@/lib/auth';
 
 export default function ReceptionLayout({
   children,
@@ -16,16 +17,15 @@ export default function ReceptionLayout({
 
   useEffect(() => {
     // Check authentication
-    const token = localStorage.getItem('auth_token');
-    const userData = localStorage.getItem('user_data');
-    
-    if (!token || !userData) {
+    const token = auth.getToken();
+    const user = auth.getUser();
+
+    if (!token || !user) {
       router.push('/login');
       return;
     }
 
     try {
-      const user = JSON.parse(userData);
       // Check if user has reception access
       if (user.role !== 'RECEPTION' && user.role !== 'ADMIN') {
         router.push('/login');
@@ -54,8 +54,7 @@ export default function ReceptionLayout({
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user_data');
+    auth.clearAuth();
     router.push('/login');
   };
 
