@@ -276,7 +276,7 @@ export default function Prescriptions() {
         </div>
         <button
           onClick={() => setShowNewPrescription(true)}
-          className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          className="flex items-center space-x-2 px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors"
         >
           <Plus className="h-4 w-4" />
           <span>New Prescription</span>
@@ -488,15 +488,15 @@ export default function Prescriptions() {
             <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
               <div className="flex justify-between items-center">
                 <div className="flex space-x-2">
-                  <button className="flex items-center space-x-1 px-3 py-1 bg-blue-50 text-blue-600 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors">
+                  <button className="flex items-center space-x-1 px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors">
                     <Eye className="h-3 w-3" />
                     <span>View Full</span>
                   </button>
-                  <button className="flex items-center space-x-1 px-3 py-1 bg-green-50 text-green-600 text-sm font-medium rounded-md hover:bg-green-100 transition-colors">
+                  <button className="flex items-center space-x-1 px-3 py-1 bg-green-50 text-green-700 text-sm font-medium rounded-md hover:bg-green-100 transition-colors">
                     <Edit className="h-3 w-3" />
                     <span>Edit</span>
                   </button>
-                  <button className="flex items-center space-x-1 px-3 py-1 bg-purple-50 text-purple-600 text-sm font-medium rounded-md hover:bg-purple-100 transition-colors">
+                  <button className="flex items-center space-x-1 px-3 py-1 bg-gray-50 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors">
                     <FileText className="h-3 w-3" />
                     <span>Print</span>
                   </button>
@@ -535,7 +535,7 @@ export default function Prescriptions() {
               >
                 Cancel
               </button>
-              <button className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+              <button className="px-4 py-2 bg-green-700 text-white rounded-md hover:bg-green-800">
                 Create Prescription
               </button>
             </div>

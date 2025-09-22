@@ -140,7 +140,7 @@ export default function Diagnoses() {
         </div>
         <button
           onClick={() => setShowNewDiagnosis(true)}
-          className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          className="flex items-center space-x-2 px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors"
         >
           <Plus className="h-4 w-4" />
           <span>New Diagnosis</span>
@@ -278,11 +278,11 @@ export default function Diagnoses() {
             <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
               <div className="flex justify-between">
                 <div className="flex space-x-2">
-                  <button className="flex items-center space-x-1 px-3 py-1 bg-green-50 text-green-600 text-sm font-medium rounded-md hover:bg-green-100 transition-colors">
+                  <button className="flex items-center space-x-1 px-3 py-1 bg-green-50 text-green-700 text-sm font-medium rounded-md hover:bg-green-100 transition-colors">
                     <Edit className="h-3 w-3" />
                     <span>Edit</span>
                   </button>
-                  <button className="flex items-center space-x-1 px-3 py-1 bg-blue-50 text-blue-600 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors">
+                  <button className="flex items-center space-x-1 px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors">
                     <Eye className="h-3 w-3" />
                     <span>View Full</span>
                   </button>
