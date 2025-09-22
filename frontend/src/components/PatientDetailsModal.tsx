@@ -33,6 +33,8 @@ interface PatientDetails {
   current_location?: string;
   file_fee_paid: boolean;
   file_fee_amount: number;
+  patient_type?: string;
+  nhif_card_number?: string;
   tribe?: string;
   created_at: string;
   updated_at: string;

@@ -65,13 +65,16 @@ def register_patient(request):
             **patient_data
         )
         
-        # Handle file fee payment (required for all new patients)
-        if file_fee_paid:
+        # Handle file fee payment logic
+        if patient.patient_type == 'NHIF':
+            # NHIF patients don't pay file fees - automatically handled in model save()
+            note_text = f"NHIF patient registered with card number: {patient.nhif_card_number}"
+        elif file_fee_paid:
             patient.file_fee_paid = True
             patient.file_fee_payment_date = timezone.now()
             patient.file_fee_amount = 2000.00  # Fixed amount
             patient.save()
-            
+
             # Create revenue record for finance tracking
             from finance.models import RevenueRecord
             RevenueRecord.objects.create(
@@ -83,24 +86,26 @@ def register_patient(request):
                 collected_by=request.user,
                 revenue_date=timezone.now().date()
             )
+            note_text = f"Normal patient registered with file fee paid by {request.user.full_name}"
         else:
             return Response({
-                'error': 'File fee payment is required for patient registration'
+                'error': 'File fee payment is required for normal patient registration'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Set initial location
-        patient.current_location = f"Reception - {request.user.full_name}"
+        # NEW PATIENTS: Automatically add to doctor queue (WAITING_DOCTOR)
+        patient.current_status = 'WAITING_DOCTOR'
+        patient.current_location = f"Doctor Queue - Auto-registered by {request.user.full_name}"
         patient.save()
-        
+
         # Create initial status history
         PatientStatusHistory.objects.create(
             patient=patient,
             previous_status=None,
-            new_status='REGISTERED',
+            new_status='WAITING_DOCTOR',
             previous_location=None,
             new_location=patient.current_location,
             changed_by=request.user,
-            notes=f"Patient registered with file fee paid by {request.user.full_name}"
+            notes=f"New patient auto-queued for doctor. {note_text}"
         )
         
         return Response({
@@ -213,29 +218,140 @@ def update_patient_details(request, patient_id):
         )
 
 
+@swagger_auto_schema(
+    method='post',
+    operation_summary="Check in existing patient",
+    operation_description="Check in an existing patient for today's visit. Handles both normal and NHIF patients.",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'visit_reason': openapi.Schema(type=openapi.TYPE_STRING, description="Reason for today's visit"),
+            'requires_new_file': openapi.Schema(type=openapi.TYPE_BOOLEAN, description="Whether patient needs a new file (additional fee)", default=False)
+        }
+    ),
+    responses={
+        200: openapi.Response(
+            description="Patient checked in successfully",
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'message': openapi.Schema(type=openapi.TYPE_STRING),
+                    'patient_id': openapi.Schema(type=openapi.TYPE_STRING),
+                    'patient_name': openapi.Schema(type=openapi.TYPE_STRING),
+                    'patient_type': openapi.Schema(type=openapi.TYPE_STRING),
+                    'status': openapi.Schema(type=openapi.TYPE_STRING),
+                    'location': openapi.Schema(type=openapi.TYPE_STRING),
+                    'checked_in_at': openapi.Schema(type=openapi.TYPE_STRING)
+                }
+            )
+        ),
+        400: openapi.Response(description="Patient already checked in or invalid request"),
+        404: openapi.Response(description="Patient not found")
+    },
+    tags=['Reception Portal']
+)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def check_in_patient(request, patient_id):
-    """Check in an existing patient for today's visit"""
+    """
+    Check in an existing patient for today's visit.
+
+    Handles both normal and NHIF patients. Updates patient status to WAITING_DOCTOR
+    and adds them to the doctor's queue following FIFO logic.
+    """
     try:
-        patient = Patient.objects.get(id=patient_id)
-        
-        # Update patient status to indicate they're here for today's visit
-        patient.current_status = 'REGISTERED'
-        patient.current_location = 'RECEPTION'
+        # Find patient by UUID or patient_id
+        if len(patient_id) == 36:  # UUID format
+            patient = Patient.objects.get(id=patient_id)
+        else:
+            patient = Patient.objects.get(patient_id=patient_id.upper())
+
+        # Check if patient is already in an active status today
+        today = timezone.now().date()
+        active_statuses = ['WAITING_DOCTOR', 'WITH_DOCTOR', 'WAITING_LAB', 'IN_LAB', 'LAB_RESULTS_READY', 'WAITING_PHARMACY', 'IN_PHARMACY']
+
+        if (patient.updated_at.date() == today and
+            patient.current_status in active_statuses):
+            return Response({
+                'error': f'Patient is already checked in today with status: {patient.current_status}',
+                'current_status': patient.current_status,
+                'current_location': patient.current_location
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get visit details
+        visit_reason = request.data.get('visit_reason', 'Regular checkup')
+        requires_new_file = request.data.get('requires_new_file', False)
+
+        # Handle new file fee if required (for normal patients only)
+        if requires_new_file and patient.patient_type == 'NORMAL':
+            # Additional file fee required
+            from finance.models import RevenueRecord
+            RevenueRecord.objects.create(
+                patient=patient,
+                revenue_type='ADDITIONAL_FILE',
+                description=f'Additional file fee for {patient.patient_id} - {visit_reason}',
+                amount=2000.00,
+                payment_method='CASH',
+                collected_by=request.user,
+                revenue_date=today
+            )
+
+        # Update patient status - send to doctor queue (FIFO)
+        previous_status = patient.current_status
+        previous_location = patient.current_location
+
+        patient.current_status = 'WAITING_DOCTOR'
+        patient.current_location = f"Doctor Queue - Checked in by {request.user.full_name}"
         patient.updated_at = timezone.now()
+        patient.last_updated_by = request.user
         patient.save()
-        
+
+        # Create status history
+        PatientStatusHistory.objects.create(
+            patient=patient,
+            previous_status=previous_status,
+            new_status='WAITING_DOCTOR',
+            previous_location=previous_location,
+            new_location=patient.current_location,
+            changed_by=request.user,
+            notes=f"Patient checked in for: {visit_reason}. Patient type: {patient.patient_type}"
+        )
+
+        # Create check-in note
+        from patients.models import PatientNote
+        note_text = f"Checked in for: {visit_reason}"
+        if patient.patient_type == 'NHIF':
+            note_text += f" (NHIF Card: {patient.nhif_card_number})"
+        if requires_new_file:
+            note_text += " - Additional file created"
+
+        PatientNote.objects.create(
+            patient=patient,
+            note=note_text,
+            note_type='GENERAL',
+            created_by=request.user
+        )
+
         return Response({
             'message': 'Patient checked in successfully',
-            'patient_id': patient.id,
-            'status': patient.current_status
+            'patient_id': patient.patient_id,
+            'patient_name': patient.full_name,
+            'patient_type': patient.patient_type,
+            'status': patient.current_status,
+            'location': patient.current_location,
+            'visit_reason': visit_reason,
+            'checked_in_by': request.user.full_name,
+            'checked_in_at': patient.updated_at.isoformat()
         })
-        
+
     except Patient.DoesNotExist:
-        return Response({'error': 'Patient not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({
+            'error': 'Patient not found'
+        }, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({
+            'error': f'Failed to check in patient: {str(e)}'
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 
 @swagger_auto_schema(

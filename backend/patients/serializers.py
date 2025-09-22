@@ -11,6 +11,8 @@ class PatientSerializer(serializers.ModelSerializer):
     age = serializers.ReadOnlyField()
     bmi = serializers.ReadOnlyField()
     is_new_patient = serializers.ReadOnlyField()
+    requires_file_fee = serializers.ReadOnlyField()
+    is_nhif_patient = serializers.ReadOnlyField()
     created_by_name = serializers.CharField(source='created_by.full_name', read_only=True)
     last_updated_by_name = serializers.CharField(source='last_updated_by.full_name', read_only=True)
     
@@ -18,16 +20,18 @@ class PatientSerializer(serializers.ModelSerializer):
         model = Patient
         fields = [
             'id', 'patient_id', 'full_name', 'phone_number', 'gender', 'date_of_birth',
+            'patient_type', 'nhif_card_number',
             'emergency_contact_name', 'emergency_contact_phone', 'address', 'tribe',
             'weight', 'height', 'blood_group', 'allergies', 'chronic_conditions',
             'file_fee_paid', 'file_fee_amount', 'file_fee_payment_date',
             'current_status', 'current_location',
             'created_at', 'updated_at', 'created_by_name', 'last_updated_by_name',
-            'age', 'bmi', 'is_new_patient'
+            'age', 'bmi', 'is_new_patient', 'requires_file_fee', 'is_nhif_patient'
         ]
         read_only_fields = [
             'id', 'patient_id', 'created_at', 'updated_at', 'file_fee_payment_date',
-            'age', 'bmi', 'is_new_patient', 'created_by_name', 'last_updated_by_name'
+            'age', 'bmi', 'is_new_patient', 'requires_file_fee', 'is_nhif_patient',
+            'created_by_name', 'last_updated_by_name'
         ]
     
     def validate_date_of_birth(self, value):
@@ -43,6 +47,22 @@ class PatientSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Phone number must contain only digits, +, -, and spaces.")
         return value
 
+    def validate(self, data):
+        """Cross-field validation for NHIF patients"""
+        patient_type = data.get('patient_type', 'NORMAL')
+        nhif_card_number = data.get('nhif_card_number')
+
+        if patient_type == 'NHIF' and not nhif_card_number:
+            raise serializers.ValidationError({
+                'nhif_card_number': 'NHIF card number is required for NHIF patients.'
+            })
+
+        if patient_type == 'NORMAL' and nhif_card_number:
+            # Clear NHIF card number for normal patients
+            data['nhif_card_number'] = None
+
+        return data
+
 
 class PatientSearchSerializer(serializers.ModelSerializer):
     """Lightweight serializer for search results"""
@@ -53,6 +73,7 @@ class PatientSearchSerializer(serializers.ModelSerializer):
         model = Patient
         fields = [
             'id', 'patient_id', 'full_name', 'phone_number', 'gender',
+            'patient_type', 'nhif_card_number',
             'current_status', 'current_location', 'age', 'created_at'
         ]
 
@@ -63,6 +84,8 @@ class PatientDetailSerializer(serializers.ModelSerializer):
     age = serializers.ReadOnlyField()
     bmi = serializers.ReadOnlyField()
     is_new_patient = serializers.ReadOnlyField()
+    requires_file_fee = serializers.ReadOnlyField()
+    is_nhif_patient = serializers.ReadOnlyField()
     created_by_name = serializers.CharField(source='created_by.full_name', read_only=True)
     created_by_role = serializers.CharField(source='created_by.role', read_only=True)
     last_updated_by_name = serializers.CharField(source='last_updated_by.full_name', read_only=True)
@@ -74,12 +97,13 @@ class PatientDetailSerializer(serializers.ModelSerializer):
         model = Patient
         fields = [
             'id', 'patient_id', 'full_name', 'phone_number', 'gender', 'date_of_birth',
+            'patient_type', 'nhif_card_number',
             'emergency_contact_name', 'emergency_contact_phone', 'address', 'tribe',
             'weight', 'height', 'blood_group', 'allergies', 'chronic_conditions',
             'file_fee_paid', 'file_fee_amount', 'file_fee_payment_date',
             'current_status', 'current_location',
             'created_at', 'updated_at', 'created_by_name', 'created_by_role',
-            'last_updated_by_name', 'age', 'bmi', 'is_new_patient',
+            'last_updated_by_name', 'age', 'bmi', 'is_new_patient', 'requires_file_fee', 'is_nhif_patient',
             'recent_status_changes'
         ]
     
@@ -147,6 +171,7 @@ class PatientCreateSerializer(serializers.ModelSerializer):
         model = Patient
         fields = [
             'full_name', 'phone_number', 'gender', 'date_of_birth',
+            'patient_type', 'nhif_card_number',
             'emergency_contact_name', 'emergency_contact_phone', 'address', 'tribe',
             'weight', 'height', 'blood_group', 'allergies', 'chronic_conditions'
         ]

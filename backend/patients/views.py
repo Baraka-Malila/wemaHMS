@@ -285,11 +285,21 @@ def delete_patient(request, patient_id):
         return Response({
             'message': f'Patient {patient_name} deleted successfully',
             'patient_id': patient_identifier,
-            'deleted_by': request.user.full_name,
+            'deleted_by': getattr(request.user, 'full_name', request.user.username),
             'deleted_at': timezone.now().isoformat()
         })
     
+    except Patient.DoesNotExist:
+        return Response(
+            {'error': f'Patient with ID {patient_id} not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
     except Exception as e:
+        # Log the actual error for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Delete patient error for {patient_id}: {str(e)}')
+
         return Response(
             {'error': f'Failed to delete patient: {str(e)}'},
             status=status.HTTP_400_BAD_REQUEST

@@ -16,6 +16,8 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
     phone_number: '',
     gender: 'MALE',
     date_of_birth: '',
+    patient_type: 'NORMAL',
+    nhif_card_number: '',
     emergency_contact_name: '',
     emergency_contact_phone: '',
     address: '',
@@ -40,10 +42,21 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate file fee payment
-    if (!formData.file_fee_paid) {
-      alert('Please mark the file fee as paid before registering the patient.');
+    // Validate patient type and requirements
+    if (formData.patient_type === 'NHIF' && !formData.nhif_card_number.trim()) {
+      alert('NHIF card number is required for NHIF patients.');
       return;
+    }
+
+    // Validate file fee payment for normal patients
+    if (formData.patient_type === 'NORMAL' && !formData.file_fee_paid) {
+      alert('Please mark the file fee as paid before registering the normal patient.');
+      return;
+    }
+
+    // For NHIF patients, auto-mark file fee as paid (covered by insurance)
+    if (formData.patient_type === 'NHIF') {
+      formData.file_fee_paid = true;
     }
     
     setLoading(true);
@@ -132,7 +145,7 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
               <input
                 type="text"
                 name="full_name"
-                value={formData.full_name}
+                value={formData.full_name || ''}
                 onChange={handleInputChange}
                 required
                 className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -150,7 +163,7 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
               <input
                 type="tel"
                 name="phone_number"
-                value={formData.phone_number}
+                value={formData.phone_number || ''}
                 onChange={handleInputChange}
                 required
                 placeholder="+255..."
@@ -190,13 +203,54 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
               <input
                 type="date"
                 name="date_of_birth"
-                value={formData.date_of_birth}
+                value={formData.date_of_birth || ''}
                 onChange={handleInputChange}
                 required
                 className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
               />
             </div>
+
+            <div>
+              <label style={{
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '14px',
+                fontWeight: '500',
+                color: '#171A1F'
+              }}>Patient Type *</label>
+              <select
+                name="patient_type"
+                value={formData.patient_type}
+                onChange={handleInputChange}
+                required
+                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
+              >
+                <option value="NORMAL">Normal Patient (Pays fees)</option>
+                <option value="NHIF">NHIF Insurance Patient</option>
+              </select>
+            </div>
+
+            {formData.patient_type === 'NHIF' && (
+              <div>
+                <label style={{
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#171A1F'
+                }}>NHIF Card Number *</label>
+                <input
+                  type="text"
+                  name="nhif_card_number"
+                  value={formData.nhif_card_number || ''}
+                  onChange={handleInputChange}
+                  required={formData.patient_type === 'NHIF'}
+                  placeholder="Enter NHIF card number"
+                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
+                />
+              </div>
+            )}
 
             <div>
               <label style={{
@@ -254,7 +308,7 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
               <input
                 type="number"
                 name="weight"
-                value={formData.weight}
+                value={formData.weight || ''}
                 onChange={handleInputChange}
                 step="0.1"
                 min="0"
@@ -273,7 +327,7 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
               <input
                 type="number"
                 name="height"
-                value={formData.height}
+                value={formData.height || ''}
                 onChange={handleInputChange}
                 step="0.1"
                 min="0"
@@ -295,7 +349,7 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
               <input
                 type="text"
                 name="emergency_contact_name"
-                value={formData.emergency_contact_name}
+                value={formData.emergency_contact_name || ''}
                 onChange={handleInputChange}
                 className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
@@ -312,7 +366,7 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
               <input
                 type="tel"
                 name="emergency_contact_phone"
-                value={formData.emergency_contact_phone}
+                value={formData.emergency_contact_phone || ''}
                 onChange={handleInputChange}
                 placeholder="+255..."
                 className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -331,7 +385,7 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
             }}>Address</label>
             <textarea
               name="address"
-              value={formData.address}
+              value={formData.address || ''}
               onChange={handleInputChange}
               rows={2}
               className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -350,7 +404,7 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
               }}>Allergies</label>
               <textarea
                 name="allergies"
-                value={formData.allergies}
+                value={formData.allergies || ''}
                 onChange={handleInputChange}
                 rows={2}
                 placeholder="Known allergies (medications, foods, etc.)"
@@ -368,7 +422,7 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
               }}>Chronic Conditions</label>
               <textarea
                 name="chronic_conditions"
-                value={formData.chronic_conditions}
+                value={formData.chronic_conditions || ''}
                 onChange={handleInputChange}
                 rows={2}
                 placeholder="Diabetes, hypertension, etc."
@@ -388,47 +442,75 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
               marginBottom: '12px'
             }}>File Fee Payment</h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label style={{
+            {formData.patient_type === 'NHIF' ? (
+              // NHIF Patient - No fee required
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <p style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    color: '#1D4ED8'
+                  }}>
+                    NHIF Patient - File fee covered by insurance (0 TZS)
+                  </p>
+                </div>
+                <p style={{
                   fontFamily: 'Inter, sans-serif',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#171A1F'
-                }}>File Fee Amount (TZS)</label>
-                <input
-                  type="number"
-                  name="file_fee_amount"
-                  value={formData.file_fee_amount}
-                  onChange={handleInputChange}
-                  min="0"
-                  step="0.01"
-                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                  style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
-                  readOnly
-                />
+                  fontSize: '12px',
+                  color: '#6B7280',
+                  marginTop: '4px'
+                }}>
+                  NHIF Card: {formData.nhif_card_number || 'Enter card number above'}
+                </p>
               </div>
-
-              <div className="flex items-center">
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="file_fee_paid"
-                    checked={formData.file_fee_paid}
-                    onChange={handleInputChange}
-                    className="mr-3 h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                  />
-                  <span style={{
+            ) : (
+              // Normal Patient - Fee required
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label style={{
                     fontFamily: 'Inter, sans-serif',
                     fontSize: '14px',
                     fontWeight: '500',
                     color: '#171A1F'
-                  }}>
-                    Mark as Paid
-                  </span>
-                </label>
+                  }}>File Fee Amount (TZS)</label>
+                  <input
+                    type="number"
+                    name="file_fee_amount"
+                    value={formData.file_fee_amount}
+                    onChange={handleInputChange}
+                    min="0"
+                    step="0.01"
+                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                    style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
+                    readOnly
+                  />
+                </div>
+
+                <div className="flex items-center">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="file_fee_paid"
+                      checked={formData.file_fee_paid}
+                      onChange={handleInputChange}
+                      className="mr-3 h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                    />
+                    <span style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      color: '#171A1F'
+                    }}>
+                      Mark as Paid
+                    </span>
+                  </label>
+                </div>
               </div>
-            </div>
+            )}
 
             {formData.file_fee_paid && (
               <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
@@ -461,7 +543,7 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+              className="px-6 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-950 disabled:opacity-50 transition-colors"
               style={{
                 fontFamily: 'Inter, sans-serif',
                 fontSize: '14px',

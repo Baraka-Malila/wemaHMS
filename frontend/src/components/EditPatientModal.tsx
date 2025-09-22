@@ -15,6 +15,8 @@ interface PatientData {
   phone_number: string;
   gender: string;
   date_of_birth: string;
+  patient_type: string;
+  nhif_card_number: string;
   emergency_contact_name: string;
   emergency_contact_phone: string;
   address: string;
@@ -34,6 +36,8 @@ export default function EditPatientModal({ isOpen, onClose, patientId, onSuccess
     phone_number: '',
     gender: 'MALE',
     date_of_birth: '',
+    patient_type: 'NORMAL',
+    nhif_card_number: '',
     emergency_contact_name: '',
     emergency_contact_phone: '',
     address: '',
@@ -189,7 +193,7 @@ export default function EditPatientModal({ isOpen, onClose, patientId, onSuccess
                   <input
                     type="text"
                     name="full_name"
-                    value={formData.full_name}
+                    value={formData.full_name || ''}
                     onChange={handleInputChange}
                     required
                     className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -207,7 +211,7 @@ export default function EditPatientModal({ isOpen, onClose, patientId, onSuccess
                   <input
                     type="tel"
                     name="phone_number"
-                    value={formData.phone_number}
+                    value={formData.phone_number || ''}
                     onChange={handleInputChange}
                     required
                     className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -246,7 +250,7 @@ export default function EditPatientModal({ isOpen, onClose, patientId, onSuccess
                   <input
                     type="date"
                     name="date_of_birth"
-                    value={formData.date_of_birth}
+                    value={formData.date_of_birth || ''}
                     onChange={handleInputChange}
                     required
                     className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -310,7 +314,7 @@ export default function EditPatientModal({ isOpen, onClose, patientId, onSuccess
                   <input
                     type="number"
                     name="weight"
-                    value={formData.weight}
+                    value={formData.weight || ''}
                     onChange={handleInputChange}
                     step="0.1"
                     min="0"
@@ -329,7 +333,7 @@ export default function EditPatientModal({ isOpen, onClose, patientId, onSuccess
                   <input
                     type="number"
                     name="height"
-                    value={formData.height}
+                    value={formData.height || ''}
                     onChange={handleInputChange}
                     step="0.1"
                     min="0"
@@ -351,7 +355,7 @@ export default function EditPatientModal({ isOpen, onClose, patientId, onSuccess
                   <input
                     type="text"
                     name="emergency_contact_name"
-                    value={formData.emergency_contact_name}
+                    value={formData.emergency_contact_name || ''}
                     onChange={handleInputChange}
                     className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
@@ -368,7 +372,7 @@ export default function EditPatientModal({ isOpen, onClose, patientId, onSuccess
                   <input
                     type="tel"
                     name="emergency_contact_phone"
-                    value={formData.emergency_contact_phone}
+                    value={formData.emergency_contact_phone || ''}
                     onChange={handleInputChange}
                     className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
@@ -386,7 +390,7 @@ export default function EditPatientModal({ isOpen, onClose, patientId, onSuccess
                 }}>Address</label>
                 <textarea
                   name="address"
-                  value={formData.address}
+                  value={formData.address || ''}
                   onChange={handleInputChange}
                   rows={2}
                   className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -405,7 +409,7 @@ export default function EditPatientModal({ isOpen, onClose, patientId, onSuccess
                   }}>Allergies</label>
                   <textarea
                     name="allergies"
-                    value={formData.allergies}
+                    value={formData.allergies || ''}
                     onChange={handleInputChange}
                     rows={2}
                     placeholder="Known allergies (medications, foods, etc.)"
@@ -423,7 +427,7 @@ export default function EditPatientModal({ isOpen, onClose, patientId, onSuccess
                   }}>Chronic Conditions</label>
                   <textarea
                     name="chronic_conditions"
-                    value={formData.chronic_conditions}
+                    value={formData.chronic_conditions || ''}
                     onChange={handleInputChange}
                     rows={2}
                     placeholder="Diabetes, hypertension, etc."
@@ -451,7 +455,7 @@ export default function EditPatientModal({ isOpen, onClose, patientId, onSuccess
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="px-6 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-950 disabled:opacity-50 transition-colors"
                   style={{
                     fontFamily: 'Inter, sans-serif',
                     fontSize: '14px',

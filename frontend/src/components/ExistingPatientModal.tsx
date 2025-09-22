@@ -10,6 +10,8 @@ interface Patient {
   phone_number?: string;
   age: number;
   gender: string;
+  patient_type: string;
+  nhif_card_number?: string;
   current_status: string;
   current_location: string;
   created_at: string;
@@ -26,6 +28,7 @@ export default function ExistingPatientModal({ isOpen, onClose, onSelectPatient 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Patient[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [visitReason, setVisitReason] = useState('');
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
@@ -67,6 +70,43 @@ export default function ExistingPatientModal({ isOpen, onClose, onSelectPatient 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSearch();
+    }
+  };
+
+  const handleCheckIn = async (patient: Patient) => {
+    try {
+      const token = auth.getToken();
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/reception/patients/${patient.id}/check-in/`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            visit_reason: visitReason.trim() || 'General visit',
+            requires_new_file: false
+          })
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(`Patient ${patient.full_name} checked in successfully! Status: ${result.status}`);
+
+        // Reset form
+        setVisitReason('');
+
+        // Refresh search to show updated status
+        await handleSearch();
+      } else {
+        const errorData = await response.json();
+        alert(`Check-in failed: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error checking in patient:', error);
+      alert('Error checking in patient. Please try again.');
     }
   };
 
@@ -228,11 +268,7 @@ export default function ExistingPatientModal({ isOpen, onClose, onSelectPatient 
                   {searchResults.map((patient) => (
                     <div
                       key={patient.id}
-                      className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => {
-                        onSelectPatient(patient);
-                        onClose();
-                      }}
+                      className="border border-gray-200 rounded-lg p-4 transition-colors"
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
@@ -253,6 +289,19 @@ export default function ExistingPatientModal({ isOpen, onClose, onSelectPatient 
                             }}>
                               {patient.patient_id}
                             </span>
+                            {patient.patient_type === 'NHIF' && (
+                              <span style={{
+                                fontFamily: 'Inter, sans-serif',
+                                fontSize: '12px',
+                                fontWeight: '500',
+                                backgroundColor: '#3B82F6',
+                                color: 'white',
+                                padding: '2px 6px',
+                                borderRadius: '4px'
+                              }}>
+                                NHIF
+                              </span>
+                            )}
                           </div>
                           
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -313,30 +362,60 @@ export default function ExistingPatientModal({ isOpen, onClose, onSelectPatient 
                                 fontWeight: '500',
                                 color: '#9CA3AF'
                               }}>
-                                Location:
+                                {patient.patient_type === 'NHIF' ? 'NHIF Card:' : 'Location:'}
                               </span>
                               <div style={{
                                 fontFamily: 'Inter, sans-serif',
                                 fontSize: '14px',
                                 color: '#565D6D'
                               }}>
-                                {patient.current_location || 'N/A'}
+                                {patient.patient_type === 'NHIF'
+                                  ? (patient.nhif_card_number || 'N/A')
+                                  : (patient.current_location || 'N/A')
+                                }
                               </div>
                             </div>
                           </div>
                         </div>
                         
-                        <div className="ml-4">
-                          <button
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                            style={{
-                              fontFamily: 'Inter, sans-serif',
-                              fontSize: '12px',
-                              fontWeight: '500'
-                            }}
-                          >
-                            Select
-                          </button>
+                        <div className="ml-4 w-48">
+                          {/* Action Buttons Container */}
+                          <div className="flex flex-col gap-2">
+                            {/* View Details Button */}
+                            <button
+                              onClick={() => {
+                                onSelectPatient(patient);
+                                onClose();
+                              }}
+                              className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                              style={{
+                                fontFamily: 'Inter, sans-serif',
+                                fontSize: '12px',
+                                fontWeight: '500'
+                              }}
+                            >
+                              View Details
+                            </button>
+
+                            {/* Direct Check-in Button */}
+                            <button
+                              onClick={() => handleCheckIn(patient)}
+                              disabled={patient.current_status !== 'COMPLETED'}
+                              className="w-full px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-950 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              style={{
+                                fontFamily: 'Inter, sans-serif',
+                                fontSize: '12px',
+                                fontWeight: '500'
+                              }}
+                            >
+                              {patient.current_status === 'COMPLETED'
+                                ? 'Add to Queue'
+                                : patient.current_status === 'WAITING_DOCTOR' || patient.current_status === 'WITH_DOCTOR'
+                                ? 'Already in Queue'
+                                : 'Complete Previous Visit First'
+                              }
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>

@@ -15,6 +15,8 @@ interface Patient {
   phone_number?: string;
   age: number;
   gender: string;
+  patient_type: string;
+  nhif_card_number?: string;
   current_status: string;
   current_location: string;
   created_at: string;
@@ -47,6 +49,74 @@ export default function ReceptionDashboard() {
   const [showPatientDetailsModal, setShowPatientDetailsModal] = useState(false);
   const [showEditPatientModal, setShowEditPatientModal] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
+  const [modalStack, setModalStack] = useState<string[]>([]);
+
+  // Load ALL non-completed patients (FIFO queue)
+  const loadActiveQueuePatients = async () => {
+    try {
+      const token = auth.getToken();
+
+      // Make multiple calls to get all patients since search API has limits
+      // Try different prefixes to get all patients
+      const searchQueries = ['PAT', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+      let allPatients: any[] = [];
+
+      for (const query of searchQueries) {
+        try {
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/search/?q=${query}&limit=100`,
+            {
+              headers: {
+                'Authorization': `Token ${token}`,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.results) {
+              allPatients = [...allPatients, ...data.results];
+            }
+          }
+        } catch (error) {
+          console.log(`Error searching for ${query}:`, error);
+        }
+      }
+
+      // Remove duplicates based on patient_id
+      const uniquePatients = allPatients.filter((patient, index, self) =>
+        index === self.findIndex(p => p.patient_id === patient.patient_id)
+      );
+
+      // Filter to only non-completed patients
+      const queuePatients = uniquePatients.filter((patient: any) =>
+        patient.current_status !== 'COMPLETED'
+      );
+
+      // Sort by created_at for FIFO (First In, First Out)
+      queuePatients.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+      const transformedPatients = queuePatients.map((patient: any) => ({
+        id: patient.id,
+        patient_id: patient.patient_id,
+        full_name: patient.full_name,
+        phone_number: patient.phone_number,
+        age: patient.age,
+        gender: patient.gender,
+        patient_type: patient.patient_type || 'NORMAL',
+        nhif_card_number: patient.nhif_card_number,
+        current_status: patient.current_status,
+        current_location: patient.current_location,
+        created_at: patient.created_at
+      }));
+
+      setPatients(transformedPatients);
+      console.log(`Loaded ${transformedPatients.length} patients in queue (FIFO order)`);
+    } catch (error) {
+      console.error('Error loading active queue patients:', error);
+    }
+  };
 
   // Fetch dashboard data
   const fetchDashboardData = async () => {
@@ -70,40 +140,28 @@ export default function ReceptionDashboard() {
           pending_payments: data.pending_file_fees || 0
         });
         
-        // Use todays_active_queue as primary patient list, fallback to recent_registrations
-        const patientData = data.todays_active_queue || data.recent_registrations || [];
-        if (patientData.length > 0) {
-          const transformedPatients = patientData.map((patient: any) => ({
-            id: patient.id,
-            patient_id: patient.patient_id,
-            full_name: patient.full_name,
-            phone_number: patient.phone_number,
-            age: patient.age,
-            gender: patient.gender,
-            current_status: patient.current_status,
-            current_location: patient.current_location,
-            created_at: patient.created_at
-          }));
-          setPatients(transformedPatients);
-        }
+        // Load all active queue patients (not just today's)
+        await loadActiveQueuePatients();
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     }
   };
 
-  // Search patients (only when user searches)
+  // Search patients in TODAY'S QUEUE ONLY (not all database)
   const searchPatients = async (query: string = '') => {
     if (!query.trim()) {
-      // If no query, reload dashboard data to show recent patients
+      // If no query, reload dashboard data to show today's queue
       await fetchDashboardData();
       return;
     }
 
     try {
       const token = auth.getToken();
-      const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/search/?q=${encodeURIComponent(query)}`;
-      
+      const activeStatuses = ['REGISTERED', 'FILE_FEE_PAID', 'WAITING_DOCTOR', 'WITH_DOCTOR', 'WAITING_LAB', 'IN_LAB', 'LAB_RESULTS_READY', 'WAITING_PHARMACY', 'IN_PHARMACY'];
+
+      const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/search/?q=${encodeURIComponent(query)}&limit=100`;
+
       const response = await fetch(url, {
         headers: {
           'Authorization': `Token ${token}`,
@@ -113,16 +171,22 @@ export default function ReceptionDashboard() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Search API response:', data);
+        console.log('Queue Search API response:', data);
         if (data.results) {
-          // Transform API data to match our interface
-          const transformedPatients = data.results.map((patient: any) => ({
+          // Filter by active statuses on the frontend since backend doesn't support multiple statuses
+          const activePatients = data.results.filter((patient: any) =>
+            activeStatuses.includes(patient.current_status)
+          );
+
+          const transformedPatients = activePatients.map((patient: any) => ({
             id: patient.id,
             patient_id: patient.patient_id,
             full_name: patient.full_name,
             phone_number: patient.phone_number,
             age: patient.age,
             gender: patient.gender,
+            patient_type: patient.patient_type || 'NORMAL',
+            nhif_card_number: patient.nhif_card_number,
             current_status: patient.current_status,
             current_location: patient.current_location,
             created_at: patient.created_at
@@ -131,7 +195,7 @@ export default function ReceptionDashboard() {
         }
       }
     } catch (error) {
-      console.error('Error searching patients:', error);
+      console.error('Error searching queue patients:', error);
       // Keep existing data on error
     }
   };
@@ -283,12 +347,44 @@ export default function ReceptionDashboard() {
   const handleSelectExistingPatient = (patient: Patient) => {
     // Show patient details when selected from existing patient search
     setSelectedPatientId(patient.patient_id);
+    setModalStack(['existing']);
+    setShowExistingPatientModal(false);
     setShowPatientDetailsModal(true);
   };
 
   const handleViewPatient = (patientId: string) => {
     setSelectedPatientId(patientId);
+    setModalStack([]);
     setShowPatientDetailsModal(true);
+  };
+
+  const handleClosePatientDetails = () => {
+    if (modalStack.includes('existing')) {
+      setShowPatientDetailsModal(false);
+      setModalStack([]);
+      setShowExistingPatientModal(true);
+    } else {
+      setShowPatientDetailsModal(false);
+      setSelectedPatientId('');
+      setModalStack([]);
+    }
+  };
+
+  const handleEditFromDetails = () => {
+    setModalStack(modalStack.includes('existing') ? ['existing', 'details'] : ['details']);
+    setShowPatientDetailsModal(false);
+    setShowEditPatientModal(true);
+  };
+
+  const handleCloseEdit = () => {
+    setShowEditPatientModal(false);
+    if (modalStack.includes('details')) {
+      setModalStack(modalStack.filter(m => m !== 'edit'));
+      setShowPatientDetailsModal(true);
+    } else {
+      setSelectedPatientId('');
+      setModalStack([]);
+    }
   };
 
   const handleEditPatient = (patientId: string) => {
@@ -296,37 +392,6 @@ export default function ReceptionDashboard() {
     setShowEditPatientModal(true);
   };
 
-  const handleDeletePatient = async (patient: Patient) => {
-    if (!confirm(`Are you sure you want to delete ${patient.full_name}? This action cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      const token = auth.getToken();
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/${patient.patient_id}/delete/`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Token ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (response.ok) {
-        alert(`Patient ${patient.full_name} deleted successfully`);
-        // Refresh the patient list
-        fetchDashboardData();
-      } else {
-        const errorData = await response.json();
-        alert(`Error: ${errorData.message || 'Failed to delete patient'}`);
-      }
-    } catch (error) {
-      console.error('Error deleting patient:', error);
-      alert('Error deleting patient. Please try again.');
-    }
-  };
 
   const handleCheckInPatient = async (patient: Patient) => {
     try {
@@ -592,6 +657,15 @@ export default function ReceptionDashboard() {
                     color: '#9CA3AF',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em'
+                  }}>TYPE</th>
+                  <th className="text-left p-4" style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '12px',
+                    lineHeight: '16px',
+                    fontWeight: '600',
+                    color: '#9CA3AF',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
                   }}>STATUS</th>
                   <th className="text-left p-4" style={{
                     fontFamily: 'Inter, sans-serif',
@@ -645,6 +719,46 @@ export default function ReceptionDashboard() {
                       color: '#565D6D'
                     }}>{patient.age} / {patient.gender}</td>
                     <td className="p-4">
+                      {patient.patient_type === 'NHIF' ? (
+                        <div className="flex flex-col">
+                          <span style={{
+                            fontFamily: 'Inter, sans-serif',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            backgroundColor: '#3B82F6',
+                            color: 'white',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            display: 'inline-block',
+                            marginBottom: '2px'
+                          }}>
+                            NHIF
+                          </span>
+                          {patient.nhif_card_number && (
+                            <span style={{
+                              fontFamily: 'Inter, sans-serif',
+                              fontSize: '11px',
+                              color: '#9CA3AF'
+                            }}>
+                              {patient.nhif_card_number}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{
+                          fontFamily: 'Inter, sans-serif',
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          backgroundColor: '#10B981',
+                          color: 'white',
+                          padding: '2px 6px',
+                          borderRadius: '4px'
+                        }}>
+                          NORMAL
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-4">
                       {getStatusBadge(patient.current_status)}
                     </td>
                     <td className="p-4" style={{
@@ -659,7 +773,7 @@ export default function ReceptionDashboard() {
                         {/* Check In Button - only show for patients not already checked in or waiting */}
                         {patient.current_status === 'REGISTERED' && (
                           <button 
-                            className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                            className="px-3 py-1 bg-blue-900 text-white text-sm rounded-lg hover:bg-blue-950 transition-colors"
                             onClick={() => handleCheckInPatient(patient)}
                             title="Check In Patient"
                             style={{
@@ -695,20 +809,6 @@ export default function ReceptionDashboard() {
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                           </svg>
                         </button>
-                        
-                        {/* Delete Button */}
-                        <button 
-                          className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                          onClick={() => handleDeletePatient(patient)}
-                          title="Delete Patient"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="1.5">
-                            <polyline points="3,6 5,6 21,6"/>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                            <line x1="10" y1="11" x2="10" y2="17"/>
-                            <line x1="14" y1="11" x2="14" y2="17"/>
-                          </svg>
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -737,35 +837,18 @@ export default function ReceptionDashboard() {
 
       <PatientDetailsModal
         isOpen={showPatientDetailsModal}
-        onClose={() => {
-          setShowPatientDetailsModal(false);
-          setSelectedPatientId('');
-        }}
+        onClose={handleClosePatientDetails}
         patientId={selectedPatientId}
-        onEdit={() => {
-          setShowPatientDetailsModal(false);
-          setShowEditPatientModal(true);
-        }}
-        onDelete={() => {
-          // Find the patient and call delete
-          const patient = patients.find(p => p.patient_id === selectedPatientId);
-          if (patient) {
-            setShowPatientDetailsModal(false);
-            handleDeletePatient(patient);
-          }
-        }}
+        onEdit={handleEditFromDetails}
       />
 
       <EditPatientModal
         isOpen={showEditPatientModal}
-        onClose={() => {
-          setShowEditPatientModal(false);
-          setSelectedPatientId('');
-        }}
+        onClose={handleCloseEdit}
         patientId={selectedPatientId}
         onSuccess={() => {
-          // Refresh the patient list after successful update
           fetchDashboardData();
+          handleCloseEdit();
         }}
       />
     </>

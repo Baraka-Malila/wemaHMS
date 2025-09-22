@@ -66,6 +66,11 @@ class Patient(models.Model):
         ('FEMALE', 'Female'),
         ('OTHER', 'Other'),
     ]
+
+    PATIENT_TYPE_CHOICES = [
+        ('NORMAL', 'Normal Patient'),
+        ('NHIF', 'NHIF Insured Patient'),
+    ]
     
     BLOOD_GROUP_CHOICES = [
         ('A+', 'A Positive'),
@@ -122,6 +127,20 @@ class Patient(models.Model):
     )
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
     date_of_birth = models.DateField()
+
+    # Patient type and insurance
+    patient_type = models.CharField(
+        max_length=10,
+        choices=PATIENT_TYPE_CHOICES,
+        default='NORMAL',
+        help_text='Normal patient pays fees, NHIF patient has insurance coverage'
+    )
+    nhif_card_number = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        help_text='NHIF insurance card number (required for NHIF patients)'
+    )
     
     # Optional personal details
     emergency_contact_name = models.CharField(max_length=100, blank=True, null=True)
@@ -244,6 +263,16 @@ class Patient(models.Model):
     def is_new_patient(self):
         """Check if this is a new patient (registered today)"""
         return self.created_at.date() == timezone.now().date()
+
+    @property
+    def requires_file_fee(self):
+        """Check if this patient type requires file fee payment"""
+        return self.patient_type == 'NORMAL'
+
+    @property
+    def is_nhif_patient(self):
+        """Check if this is an NHIF insured patient"""
+        return self.patient_type == 'NHIF' and bool(self.nhif_card_number)
     
     def save(self, *args, **kwargs):
         # Auto-generate patient_id if not provided
@@ -252,6 +281,12 @@ class Patient(models.Model):
         
         # Set file fee payment date if fee is marked as paid
         if self.file_fee_paid and not self.file_fee_payment_date:
+            self.file_fee_payment_date = timezone.now()
+
+        # NHIF patients don't pay file fees - auto-mark as paid
+        if self.patient_type == 'NHIF' and not self.file_fee_paid:
+            self.file_fee_paid = True
+            self.file_fee_amount = 0.00  # NHIF covers file fee
             self.file_fee_payment_date = timezone.now()
         
         super().save(*args, **kwargs)
