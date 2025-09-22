@@ -192,7 +192,7 @@ export default function SupplyOrders() {
           </div>
           <button 
             onClick={() => setShowNewOrderModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-800 text-white font-medium rounded-lg hover:bg-blue-900 transition-colors"
           >
             <Plus className="h-4 w-4" />
             <span>New Order</span>

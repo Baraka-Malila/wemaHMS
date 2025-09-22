@@ -306,15 +306,15 @@ export default function DoctorDashboard() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
-                      <button className="text-green-600 hover:text-green-900 flex items-center space-x-1">
+                      <button className="text-green-700 hover:text-green-900 flex items-center space-x-1">
                         <UserCheck className="h-4 w-4" />
                         <span>Consult</span>
                       </button>
-                      <button className="text-blue-600 hover:text-blue-900 flex items-center space-x-1">
+                      <button className="text-blue-700 hover:text-blue-900 flex items-center space-x-1">
                         <Eye className="h-4 w-4" />
                         <span>View</span>
                       </button>
-                      <button className="text-purple-600 hover:text-purple-900 flex items-center space-x-1">
+                      <button className="text-gray-700 hover:text-gray-900 flex items-center space-x-1">
                         <History className="h-4 w-4" />
                         <span>History</span>
                       </button>
