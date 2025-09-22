@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import NewPatientModal from '@/components/NewPatientModal';
 import ExistingPatientModal from '@/components/ExistingPatientModal';
 import PatientDetailsModal from '@/components/PatientDetailsModal';
@@ -368,70 +367,41 @@ export default function ReceptionDashboard() {
 
   return (
     <>
-      {/* Welcome Container - Fully responsive to sidebar */}
+      {/* Welcome Section */}
       <div 
-        className="relative mb-8 transition-all duration-300"
+        className="rounded-lg p-6 mb-8"
         style={{
-          width: '100%',
-          height: '198px',
-          background: '#EBF4FF',
-          borderRadius: '16px',
+          background: 'linear-gradient(135deg, #1E40AF 0%, #1E3A8A 100%)',
+          border: '1px solid rgba(229, 231, 235, 0.6)',
           boxShadow: '0px 0px 1px rgba(23, 26, 31, 0.05), 0px 0px 2px rgba(23, 26, 31, 0.08)'
         }}
       >
         {/* Welcome Text */}
         <h1 
           style={{
-            position: 'absolute',
-            top: '66px',
-            left: '24px',
             fontFamily: 'Inter, sans-serif',
             fontSize: '24px',
             lineHeight: '32px',
             fontWeight: '700',
-            color: '#19191FFF',
+            color: '#FFFFFF',
             margin: 0
           }}
         >
-          Welcome, {currentUser?.full_name || 'Dr. Emekal'}
+          Welcome, {currentUser?.full_name || 'Reception Staff'}
         </h1>
         
         <p 
           style={{
-            position: 'absolute',
-            top: '110px',
-            left: '24px',
             fontFamily: 'Inter, sans-serif',
             fontSize: '16px',
             lineHeight: '24px',
             fontWeight: '400',
-            color: '#565D6D',
-            margin: 0
+            color: 'rgba(255, 255, 255, 0.8)',
+            margin: '8px 0 0 0'
           }}
         >
           Your reception dashboard for seamless patient management.
         </p>
-        
-        {/* Welcome Image - Responsive positioning */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '24px',
-            right: '24px',
-            width: '200px',
-            height: '150px'
-          }}
-        >
-          <Image
-            src="/assets/welcome.png"
-            alt="Welcome"
-            width={200}
-            height={150}
-            style={{
-              borderRadius: '0px'
-            }}
-          />
-        </div>
       </div>
 
       {/* Search and Action Buttons */}

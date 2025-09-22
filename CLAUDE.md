@@ -1,4 +1,4 @@
-# CLAUDE.md - Critical Development Context & Rules
+# CLAUDE.md - Development Context & Rules
 
 ## 🎯 **Project Overview**
 
@@ -6,18 +6,7 @@
 
 **Tech Stack**: Django REST + Next.js 15 + PostgreSQL + Redis + Docker
 **Architecture**: Containerized microservices with role-based authentication
-**Current Status**: 70% complete - Core patient workflow functional, ready for intensive development
-
----
-
-## 🚨 **CRITICAL STATUS UPDATE - September 22, 2025**
-
-### **⚠️ KNOWN CRITICAL BUGS (Documented in CRITICAL_BUGS.md)**
-1. **Multi-Tab Authentication Confusion** - When multiple tabs open, user context gets mixed between roles
-2. **Static Time Display** - Dashboard clocks don't update in real-time
-
-**🔒 RESOLUTION STATUS**: Bugs documented and deferred. DO NOT ATTEMPT TO FIX during heavy development phase.
-**🎯 PRIORITY**: Complete core functionality first, address bugs in dedicated bug-fix session.
+**Current Status**: 70% complete - Core patient workflow functional, expanding to all departments
 
 ---
 
@@ -52,34 +41,6 @@
 - Always check if packages are installed correctly
 - Use Docker logs to debug backend issues
 - Keep containers running during development
-
-### **🔒 6. Bug Avoidance Rules (Critical)**
-- **DO NOT** modify authentication/session management during heavy development
-- **DO NOT** attempt to fix multi-tab authentication issues yet
-- **IGNORE** time display bugs unless specifically requested  
-- **FOCUS** on core patient workflow completion
-
----
-
-## 🎯 **IMMEDIATE DEVELOPMENT PRIORITIES**
-
-### **Phase 1: Complete Patient Workflow (Current Focus)**
-1. **Reception Portal** - Patient registration, appointment scheduling
-2. **Doctor Portal** - Consultation management, diagnosis, prescriptions
-3. **Lab Portal** - Test processing, results management
-4. **Pharmacy Portal** - Prescription dispensing, inventory
-5. **Nursing Portal** - Patient monitoring, ward management
-
-### **Phase 2: Financial & Administrative**
-1. **Finance Portal** - Billing, payments, reports
-2. **Admin Portal** - User management, system settings
-3. **Reports & Analytics** - Cross-portal reporting
-
-### **Phase 3: Bug Resolution & Polish**
-1. Fix multi-tab authentication issues
-2. Implement real-time clock components
-3. Performance optimization
-4. Security enhancements
 
 ---
 
