@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import NewPatientModal from '@/components/NewPatientModal';
 import ExistingPatientModal from '@/components/ExistingPatientModal';
 import PatientDetailsModal from '@/components/PatientDetailsModal';
@@ -20,6 +19,8 @@ interface Patient {
   current_status: string;
   current_location: string;
   created_at: string;
+  checked_in_at?: string;
+  updated_at?: string;
 }
 
 interface DashboardStats {
@@ -30,7 +31,6 @@ interface DashboardStats {
 }
 
 export default function ReceptionDashboard() {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -42,6 +42,11 @@ export default function ReceptionDashboard() {
     total_revenue_today: 0,
     pending_payments: 0
   });
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showViewMore, setShowViewMore] = useState(false);
+  const PATIENTS_PER_PAGE = 20;
   
   // Modal states
   const [showNewPatientModal, setShowNewPatientModal] = useState(false);
@@ -94,8 +99,19 @@ export default function ReceptionDashboard() {
         patient.current_status !== 'COMPLETED'
       );
 
-      // Sort by created_at for FIFO (First In, First Out)
-      queuePatients.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      // Sort by check-in time (FIFO) - patients with checked_in_at first, then by created_at
+      queuePatients.sort((a: any, b: any) => {
+        // If both have check-in times, sort by check-in time
+        if (a.checked_in_at && b.checked_in_at) {
+          return new Date(a.checked_in_at).getTime() - new Date(b.checked_in_at).getTime();
+        }
+        // If only one has check-in time, prioritize checked-in patients
+        if (a.checked_in_at && !b.checked_in_at) return -1;
+        if (!a.checked_in_at && b.checked_in_at) return 1;
+
+        // For patients without check-in time, sort by registration time
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      });
 
       const transformedPatients = queuePatients.map((patient: any) => ({
         id: patient.id,
@@ -108,7 +124,9 @@ export default function ReceptionDashboard() {
         nhif_card_number: patient.nhif_card_number,
         current_status: patient.current_status,
         current_location: patient.current_location,
-        created_at: patient.created_at
+        created_at: patient.created_at,
+        checked_in_at: patient.checked_in_at,
+        updated_at: patient.updated_at
       }));
 
       setPatients(transformedPatients);
@@ -189,7 +207,9 @@ export default function ReceptionDashboard() {
             nhif_card_number: patient.nhif_card_number,
             current_status: patient.current_status,
             current_location: patient.current_location,
-            created_at: patient.created_at
+            created_at: patient.created_at,
+            checked_in_at: patient.checked_in_at,
+            updated_at: patient.updated_at
           }));
           setPatients(transformedPatients);
         }
@@ -200,6 +220,7 @@ export default function ReceptionDashboard() {
     }
   };
 
+  // Real-time auto-refresh effect
   useEffect(() => {
     // Get current user data
     const user = auth.getUser();
@@ -214,6 +235,14 @@ export default function ReceptionDashboard() {
     };
 
     loadData();
+
+    // Set up auto-refresh every 10 seconds for real-time updates
+    const refreshInterval = setInterval(() => {
+      fetchDashboardData();
+    }, 10000);
+
+    // Cleanup interval on unmount
+    return () => clearInterval(refreshInterval);
   }, []);
 
   // Handle search
@@ -338,11 +367,17 @@ export default function ReceptionDashboard() {
     const matchesSearch = patient.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          patient.patient_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          patient.phone_number?.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     const matchesStatus = statusFilter === '' || patient.current_status === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
+
+  // Pagination logic
+  const startIndex = (currentPage - 1) * PATIENTS_PER_PAGE;
+  const endIndex = showViewMore ? filteredPatients.length : startIndex + PATIENTS_PER_PAGE;
+  const paginatedPatients = filteredPatients.slice(startIndex, endIndex);
+  const hasMorePatients = filteredPatients.length > PATIENTS_PER_PAGE;
 
   const handleSelectExistingPatient = (patient: Patient) => {
     // Show patient details when selected from existing patient search
@@ -392,44 +427,10 @@ export default function ReceptionDashboard() {
     setShowEditPatientModal(true);
   };
 
-
-  const handleCheckInPatient = async (patient: Patient) => {
-    try {
-      const token = auth.getToken();
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/${patient.patient_id}/status/`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Token ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            current_status: 'WAITING_DOCTOR',
-            current_location: 'Waiting Area',
-            notes: 'Patient checked in at reception'
-          })
-        }
-      );
-
-      if (response.ok) {
-        alert(`${patient.full_name} checked in successfully`);
-        // Refresh the dashboard to update status
-        fetchDashboardData();
-      } else {
-        const errorData = await response.json();
-        alert(`Error: ${errorData.error || errorData.message || 'Failed to check in patient'}`);
-      }
-    } catch (error) {
-      console.error('Error checking in patient:', error);
-      alert('Error checking in patient. Please try again.');
-    }
-  };
-
   return (
     <>
-      {/* Welcome Section */}
-      <div 
+      {/* Welcome Section with Stats */}
+      <div
         className="rounded-lg p-6 mb-8"
         style={{
           background: 'linear-gradient(135deg, #1E40AF 0%, #1E3A8A 100%)',
@@ -437,32 +438,51 @@ export default function ReceptionDashboard() {
           boxShadow: '0px 0px 1px rgba(23, 26, 31, 0.05), 0px 0px 2px rgba(23, 26, 31, 0.08)'
         }}
       >
-        {/* Welcome Text */}
-        <h1 
-          style={{
-            fontFamily: 'Inter, sans-serif',
-            fontSize: '24px',
-            lineHeight: '32px',
-            fontWeight: '700',
-            color: '#FFFFFF',
-            margin: 0
-          }}
-        >
-          Welcome, {currentUser?.full_name || 'Reception Staff'}
-        </h1>
-        
-        <p 
-          style={{
-            fontFamily: 'Inter, sans-serif',
-            fontSize: '16px',
-            lineHeight: '24px',
-            fontWeight: '400',
-            color: 'rgba(255, 255, 255, 0.8)',
-            margin: '8px 0 0 0'
-          }}
-        >
-          Your reception dashboard for seamless patient management.
-        </p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1
+              style={{
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '24px',
+                lineHeight: '32px',
+                fontWeight: '700',
+                color: '#FFFFFF',
+                margin: 0
+              }}
+            >
+              Welcome, {currentUser?.full_name || 'Reception Staff'}
+            </h1>
+
+            <p
+              style={{
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '16px',
+                lineHeight: '24px',
+                fontWeight: '400',
+                color: 'rgba(255, 255, 255, 0.8)',
+                margin: '8px 0 0 0'
+              }}
+            >
+              Your reception dashboard for seamless patient management.
+            </p>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="flex gap-6">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-white">
+                {dashboardStats.total_patients_today}
+              </div>
+              <div className="text-sm text-blue-100">Today's Patients</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-white">
+                {dashboardStats.patients_waiting}
+              </div>
+              <div className="text-sm text-blue-100">In Queue</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Search and Action Buttons */}
@@ -688,7 +708,7 @@ export default function ReceptionDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {filteredPatients.map((patient, index) => (
+                {paginatedPatients.map((patient, index) => (
                   <tr key={patient.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                     <td className="p-4" style={{
                       fontFamily: 'Inter, sans-serif',
@@ -770,21 +790,6 @@ export default function ReceptionDashboard() {
                     }}>{patient.current_location || 'N/A'}</td>
                     <td className="p-4">
                       <div className="flex justify-end gap-2">
-                        {/* Check In Button - only show for patients not already checked in or waiting */}
-                        {patient.current_status === 'REGISTERED' && (
-                          <button 
-                            className="px-3 py-1 bg-blue-900 text-white text-sm rounded-lg hover:bg-blue-950 transition-colors"
-                            onClick={() => handleCheckInPatient(patient)}
-                            title="Check In Patient"
-                            style={{
-                              fontFamily: 'Inter, sans-serif',
-                              fontSize: '12px',
-                              fontWeight: '500'
-                            }}
-                          >
-                            Check In
-                          </button>
-                        )}
                         
                         {/* View Button */}
                         <button 
@@ -817,6 +822,46 @@ export default function ReceptionDashboard() {
             </table>
           </div>
         )}
+
+        {/* Pagination Controls */}
+        {hasMorePatients && (
+          <div className="p-6 border-t border-gray-200 flex items-center justify-between">
+            <div className="text-sm text-gray-500">
+              Showing {Math.min(startIndex + 1, filteredPatients.length)} - {Math.min(endIndex, filteredPatients.length)} of {filteredPatients.length} patients
+            </div>
+            <div className="flex items-center gap-3">
+              {!showViewMore && (
+                <button
+                  onClick={() => setShowViewMore(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  View All ({filteredPatients.length})
+                </button>
+              )}
+              {showViewMore && (
+                <button
+                  onClick={() => {
+                    setShowViewMore(false);
+                    setCurrentPage(1);
+                  }}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  Show Less (20)
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modals */}
@@ -826,6 +871,9 @@ export default function ReceptionDashboard() {
         onSuccess={() => {
           // Refresh the dashboard data after successful registration
           fetchDashboardData();
+          // Reset pagination to show new patient
+          setCurrentPage(1);
+          setShowViewMore(false);
         }}
       />
 
