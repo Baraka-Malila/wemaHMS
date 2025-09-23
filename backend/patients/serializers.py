@@ -66,16 +66,45 @@ class PatientSerializer(serializers.ModelSerializer):
 
 class PatientSearchSerializer(serializers.ModelSerializer):
     """Lightweight serializer for search results"""
-    
+
     age = serializers.ReadOnlyField()
-    
+
     class Meta:
         model = Patient
         fields = [
             'id', 'patient_id', 'full_name', 'phone_number', 'gender',
             'patient_type', 'nhif_card_number',
-            'current_status', 'current_location', 'age', 'created_at'
+            'current_status', 'current_location', 'age', 'created_at', 'updated_at'
         ]
+
+
+class PatientQueueSerializer(serializers.ModelSerializer):
+    """Serializer for queue ordering with queue entry time"""
+
+    age = serializers.ReadOnlyField()
+    queue_entry_time = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Patient
+        fields = [
+            'id', 'patient_id', 'full_name', 'phone_number', 'gender',
+            'patient_type', 'nhif_card_number',
+            'current_status', 'current_location', 'age', 'created_at', 'updated_at',
+            'queue_entry_time'
+        ]
+
+    def get_queue_entry_time(self, obj):
+        """Get the time when patient entered the current queue (status changed to WAITING_DOCTOR)"""
+        # Find the most recent status change to WAITING_DOCTOR
+        waiting_doctor_change = obj.status_history.filter(
+            new_status='WAITING_DOCTOR'
+        ).order_by('-changed_at').first()
+
+        if waiting_doctor_change:
+            return waiting_doctor_change.changed_at.isoformat()
+
+        # If no status change found, use updated_at as fallback
+        return obj.updated_at.isoformat()
 
 
 class PatientDetailSerializer(serializers.ModelSerializer):

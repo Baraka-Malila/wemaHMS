@@ -11,7 +11,7 @@ from drf_yasg import openapi
 from .models import Patient, PatientStatusHistory
 from .serializers import (
     PatientSerializer, PatientSearchSerializer, PatientDetailSerializer,
-    PatientStatusUpdateSerializer, PatientStatusHistorySerializer
+    PatientStatusUpdateSerializer, PatientStatusHistorySerializer, PatientQueueSerializer
 )
 
 
@@ -304,3 +304,72 @@ def delete_patient(request, patient_id):
             {'error': f'Failed to delete patient: {str(e)}'},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_summary="Get patient queue with FIFO ordering",
+    operation_description="Get all active patients in proper queue order based on when they entered each status, not their ID.",
+    manual_parameters=[
+        openapi.Parameter(
+            'limit', openapi.IN_QUERY,
+            description="Limit number of results (default: 100)",
+            type=openapi.TYPE_INTEGER,
+            required=False
+        )
+    ],
+    responses={
+        200: openapi.Response(
+            description="Queue data with FIFO ordering",
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'results': openapi.Schema(
+                        type=openapi.TYPE_ARRAY,
+                        items=openapi.Schema(type=openapi.TYPE_OBJECT)
+                    ),
+                    'count': openapi.Schema(type=openapi.TYPE_INTEGER),
+                }
+            )
+        ),
+        401: openapi.Response(description="Authentication required")
+    },
+    tags=['Patient Core - Universal APIs']
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_patient_queue(request):
+    """
+    Get all active patients in proper FIFO queue order.
+
+    This endpoint returns patients ordered by their actual queue entry time
+    (when they changed to WAITING_DOCTOR status), not by their patient ID.
+    """
+    limit = min(int(request.query_params.get('limit', 100)), 200)  # Max 200 results
+
+    # Get all non-completed patients
+    active_statuses = [
+        'REGISTERED', 'WAITING_DOCTOR', 'WITH_DOCTOR',
+        'WAITING_LAB', 'IN_LAB', 'LAB_RESULTS_READY',
+        'WAITING_PHARMACY', 'IN_PHARMACY', 'PAYMENT_PENDING'
+    ]
+
+    patients = Patient.objects.filter(
+        current_status__in=active_statuses
+    ).prefetch_related('status_history')[:limit]
+
+    # Serialize with queue entry time
+    serializer = PatientQueueSerializer(patients, many=True)
+
+    # Sort by queue_entry_time in frontend after serialization
+    # (Django can't easily sort by SerializerMethodField)
+    sorted_results = sorted(
+        serializer.data,
+        key=lambda x: x['queue_entry_time'] if x['queue_entry_time'] else '9999-12-31T23:59:59'
+    )
+
+    return Response({
+        'results': sorted_results,
+        'count': len(sorted_results),
+        'note': 'Patients ordered by actual queue entry time (FIFO)'
+    })

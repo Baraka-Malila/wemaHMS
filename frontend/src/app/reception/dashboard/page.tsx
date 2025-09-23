@@ -19,8 +19,8 @@ interface Patient {
   current_status: string;
   current_location: string;
   created_at: string;
-  checked_in_at?: string;
   updated_at?: string;
+  queue_entry_time?: string;
 }
 
 interface DashboardStats {
@@ -56,81 +56,48 @@ export default function ReceptionDashboard() {
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [modalStack, setModalStack] = useState<string[]>([]);
 
-  // Load ALL non-completed patients (FIFO queue)
+  // Load patients from the new queue endpoint with proper FIFO ordering
   const loadActiveQueuePatients = async () => {
     try {
       const token = auth.getToken();
 
-      // Make multiple calls to get all patients since search API has limits
-      // Try different prefixes to get all patients
-      const searchQueries = ['PAT', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
-      let allPatients: any[] = [];
-
-      for (const query of searchQueries) {
-        try {
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/search/?q=${query}&limit=100`,
-            {
-              headers: {
-                'Authorization': `Token ${token}`,
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-
-          if (response.ok) {
-            const data = await response.json();
-            if (data.results) {
-              allPatients = [...allPatients, ...data.results];
-            }
-          }
-        } catch (error) {
-          console.log(`Error searching for ${query}:`, error);
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/queue/?limit=200`,
+        {
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
         }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Queue API response:', data);
+
+        if (data.results) {
+          const transformedPatients = data.results.map((patient: any) => ({
+            id: patient.id,
+            patient_id: patient.patient_id,
+            full_name: patient.full_name,
+            phone_number: patient.phone_number,
+            age: patient.age,
+            gender: patient.gender,
+            patient_type: patient.patient_type || 'NORMAL',
+            nhif_card_number: patient.nhif_card_number,
+            current_status: patient.current_status,
+            current_location: patient.current_location,
+            created_at: patient.created_at,
+            updated_at: patient.updated_at,
+            queue_entry_time: patient.queue_entry_time
+          }));
+
+          setPatients(transformedPatients);
+          console.log(`Loaded ${transformedPatients.length} patients in queue (True FIFO order by queue entry time)`);
+        }
+      } else {
+        console.error('Failed to load queue:', response.status, response.statusText);
       }
-
-      // Remove duplicates based on patient_id
-      const uniquePatients = allPatients.filter((patient, index, self) =>
-        index === self.findIndex(p => p.patient_id === patient.patient_id)
-      );
-
-      // Filter to only non-completed patients
-      const queuePatients = uniquePatients.filter((patient: any) =>
-        patient.current_status !== 'COMPLETED'
-      );
-
-      // Sort by check-in time (FIFO) - patients with checked_in_at first, then by created_at
-      queuePatients.sort((a: any, b: any) => {
-        // If both have check-in times, sort by check-in time
-        if (a.checked_in_at && b.checked_in_at) {
-          return new Date(a.checked_in_at).getTime() - new Date(b.checked_in_at).getTime();
-        }
-        // If only one has check-in time, prioritize checked-in patients
-        if (a.checked_in_at && !b.checked_in_at) return -1;
-        if (!a.checked_in_at && b.checked_in_at) return 1;
-
-        // For patients without check-in time, sort by registration time
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      });
-
-      const transformedPatients = queuePatients.map((patient: any) => ({
-        id: patient.id,
-        patient_id: patient.patient_id,
-        full_name: patient.full_name,
-        phone_number: patient.phone_number,
-        age: patient.age,
-        gender: patient.gender,
-        patient_type: patient.patient_type || 'NORMAL',
-        nhif_card_number: patient.nhif_card_number,
-        current_status: patient.current_status,
-        current_location: patient.current_location,
-        created_at: patient.created_at,
-        checked_in_at: patient.checked_in_at,
-        updated_at: patient.updated_at
-      }));
-
-      setPatients(transformedPatients);
-      console.log(`Loaded ${transformedPatients.length} patients in queue (FIFO order)`);
     } catch (error) {
       console.error('Error loading active queue patients:', error);
     }
@@ -208,8 +175,8 @@ export default function ReceptionDashboard() {
             current_status: patient.current_status,
             current_location: patient.current_location,
             created_at: patient.created_at,
-            checked_in_at: patient.checked_in_at,
-            updated_at: patient.updated_at
+            updated_at: patient.updated_at,
+            queue_entry_time: patient.queue_entry_time
           }));
           setPatients(transformedPatients);
         }
@@ -831,17 +798,45 @@ export default function ReceptionDashboard() {
             </div>
             <div className="flex items-center gap-3">
               {!showViewMore && (
-                <button
-                  onClick={() => setShowViewMore(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  style={{
-                    fontFamily: 'Inter, sans-serif',
-                    fontSize: '14px',
-                    fontWeight: '500'
-                  }}
-                >
-                  View All ({filteredPatients.length})
-                </button>
+                <>
+                  {currentPage > 1 && (
+                    <button
+                      onClick={() => setCurrentPage(currentPage - 1)}
+                      className="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                      style={{
+                        fontFamily: 'Inter, sans-serif',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                      }}
+                    >
+                      ← Previous
+                    </button>
+                  )}
+                  {Math.ceil(filteredPatients.length / PATIENTS_PER_PAGE) > currentPage && (
+                    <button
+                      onClick={() => setCurrentPage(currentPage + 1)}
+                      className="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                      style={{
+                        fontFamily: 'Inter, sans-serif',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                      }}
+                    >
+                      Next →
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowViewMore(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '14px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    View All ({filteredPatients.length})
+                  </button>
+                </>
               )}
               {showViewMore && (
                 <button
@@ -856,7 +851,7 @@ export default function ReceptionDashboard() {
                     fontWeight: '500'
                   }}
                 >
-                  Show Less (20)
+                  Show Pages (20 per page)
                 </button>
               )}
             </div>
