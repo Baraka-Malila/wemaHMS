@@ -435,3 +435,78 @@ def doctor_dashboard(request):
             {'error': f'Failed to generate dashboard: {str(e)}'},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_summary="Get consultations",
+    operation_description="Get all consultations for viewing in diagnoses page.",
+    responses={200: openapi.Response(description="List of consultations")},
+    tags=['Doctor Portal']
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_consultations(request):
+    """Get all consultations for diagnoses page."""
+    try:
+        consultations = Consultation.objects.all().order_by('-consultation_date')
+        serializer = ConsultationListSerializer(consultations, many=True)
+        return Response({
+            'consultations': serializer.data,
+            'count': len(serializer.data)
+        })
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to get consultations: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_summary="Get prescriptions",
+    operation_description="Get all prescriptions.",
+    responses={200: openapi.Response(description="List of prescriptions")},
+    tags=['Doctor Portal']
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_prescriptions(request):
+    """Get all prescriptions."""
+    try:
+        prescriptions = Prescription.objects.all().order_by('-prescribed_at')
+        serializer = PrescriptionSerializer(prescriptions, many=True)
+        return Response({
+            'prescriptions': serializer.data,
+            'count': len(serializer.data)
+        })
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to get prescriptions: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_summary="Get lab requests",
+    operation_description="Get all lab test requests.",
+    responses={200: openapi.Response(description="List of lab requests")},
+    tags=['Doctor Portal']
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_lab_requests(request):
+    """Get all lab test requests."""
+    try:
+        lab_requests = LabTestRequest.objects.all().order_by('-requested_at')
+        serializer = LabTestRequestSerializer(lab_requests, many=True)
+        return Response({
+            'lab_requests': serializer.data,
+            'count': len(serializer.data)
+        })
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to get lab requests: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )

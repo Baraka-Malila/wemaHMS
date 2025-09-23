@@ -1,134 +1,172 @@
 'use client';
 
-import { useState } from 'react';
-import { 
-  Users, 
-  Search, 
-  Filter, 
-  Clock, 
+import { useState, useEffect } from 'react';
+import {
+  Users,
+  Search,
+  Filter,
+  Clock,
   AlertTriangle,
   UserCheck,
   Eye,
   FileText,
   Phone,
-  MapPin
+  MapPin,
+  Activity,
+  User
 } from 'lucide-react';
+import auth from '@/lib/auth';
+import PatientQueueModal from '@/components/PatientQueueModal';
+import DiagnosisModal from '@/components/DiagnosisModal';
+
+interface Patient {
+  id: string;
+  patient_id: string;
+  full_name: string;
+  phone_number?: string;
+  age: number;
+  gender: string;
+  patient_type: string;
+  current_status: string;
+  current_location: string;
+  created_at: string;
+  consultation_info?: {
+    chief_complaint: string;
+    priority: string;
+    doctor_assigned?: string;
+  };
+}
 
 export default function PatientQueue() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [startingConsultation, setStartingConsultation] = useState<string>('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalPatientId, setModalPatientId] = useState('');
+  const [modalMode, setModalMode] = useState<'view' | 'history'>('view');
+  const [diagnosisModalOpen, setDiagnosisModalOpen] = useState(false);
+  const [diagnosisPatientId, setDiagnosisPatientId] = useState('');
 
-  // Mock patient queue data
-  const patientQueue = [
-    {
-      id: 'PAT001',
-      name: 'John Doe',
-      age: 35,
-      gender: 'Male',
-      phone: '+255 123 456 789',
-      status: 'WAITING',
-      priority: 'Normal',
-      checkInTime: '09:30 AM',
-      waitTime: '45 mins',
-      complaint: 'Chest pain and shortness of breath for the past 2 days',
-      lastVisit: '2 months ago',
-      vitalSigns: {
-        bloodPressure: '140/90',
-        temperature: '37.2°C',
-        pulse: '85 bpm'
-      },
-      allergies: 'Penicillin',
-      medicalHistory: 'Hypertension, Diabetes'
-    },
-    {
-      id: 'PAT002',
-      name: 'Mary Johnson',
-      age: 28,
-      gender: 'Female',
-      phone: '+255 987 654 321',
-      status: 'URGENT',
-      priority: 'High',
-      checkInTime: '10:15 AM',
-      waitTime: '20 mins',
-      complaint: 'Severe headache with nausea and vomiting',
-      lastVisit: 'First visit',
-      vitalSigns: {
-        bloodPressure: '160/100',
-        temperature: '38.5°C',
-        pulse: '95 bpm'
-      },
-      allergies: 'None known',
-      medicalHistory: 'None'
-    },
-    {
-      id: 'PAT003',
-      name: 'David Smith',
-      age: 42,
-      gender: 'Male',
-      phone: '+255 456 789 123',
-      status: 'IN_PROGRESS',
-      priority: 'Normal',
-      checkInTime: '08:45 AM',
-      waitTime: '1hr 30mins',
-      complaint: 'Follow-up consultation for hypertension management',
-      lastVisit: '1 week ago',
-      vitalSigns: {
-        bloodPressure: '130/85',
-        temperature: '36.8°C',
-        pulse: '72 bpm'
-      },
-      allergies: 'Aspirin',
-      medicalHistory: 'Hypertension, High cholesterol'
-    },
-    {
-      id: 'PAT004',
-      name: 'Sarah Wilson',
-      age: 55,
-      gender: 'Female',
-      phone: '+255 789 123 456',
-      status: 'WAITING',
-      priority: 'Normal',
-      checkInTime: '11:00 AM',
-      waitTime: '15 mins',
-      complaint: 'Diabetes routine check-up and medication review',
-      lastVisit: '3 weeks ago',
-      vitalSigns: {
-        bloodPressure: '125/80',
-        temperature: '36.5°C',
-        pulse: '78 bpm'
-      },
-      allergies: 'None known',
-      medicalHistory: 'Type 2 Diabetes, Arthritis'
-    },
-    {
-      id: 'PAT005',
-      name: 'Michael Brown',
-      age: 67,
-      gender: 'Male',
-      phone: '+255 321 654 987',
-      status: 'URGENT',
-      priority: 'High',
-      checkInTime: '11:30 AM',
-      waitTime: '5 mins',
-      complaint: 'Acute chest pain with difficulty breathing',
-      lastVisit: '6 months ago',
-      vitalSigns: {
-        bloodPressure: '180/110',
-        temperature: '37.0°C',
-        pulse: '110 bpm'
-      },
-      allergies: 'Sulfa drugs',
-      medicalHistory: 'Coronary artery disease, Previous MI'
+  // Load waiting patients from API
+  const loadWaitingPatients = async (priority?: string) => {
+    try {
+      setLoading(true);
+      const token = auth.getToken();
+
+      const url = priority && priority !== 'all'
+        ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/waiting-patients/?priority=${priority}`
+        : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/waiting-patients/`;
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Waiting patients API response:', data);
+        setPatients(data.waiting_patients || []);
+        setError('');
+      } else {
+        setError('Failed to load waiting patients');
+        console.error('API Error:', response.status, response.statusText);
+      }
+    } catch (error) {
+      setError('Error loading patients');
+      console.error('Error loading waiting patients:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  // Start consultation for a patient
+  const handleStartConsultation = async (patient: Patient) => {
+    try {
+      setStartingConsultation(patient.patient_id);
+      const token = auth.getToken();
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/start-consultation/`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            patient_id: patient.patient_id,
+            chief_complaint: patient.consultation_info?.chief_complaint || 'General consultation',
+            priority: patient.consultation_info?.priority || 'NORMAL'
+          })
+        }
+      );
+
+      if (response.ok) {
+        // Open the diagnosis modal to record initial consultation details
+        setDiagnosisPatientId(patient.patient_id);
+        setDiagnosisModalOpen(true);
+        // Refresh the queue to remove the patient
+        loadWaitingPatients(filterPriority !== 'all' ? filterPriority : undefined);
+      } else {
+        const errorData = await response.json();
+        alert(`Error: ${errorData.error || 'Failed to start consultation'}`);
+      }
+    } catch (error) {
+      console.error('Error starting consultation:', error);
+      alert('Error starting consultation. Please try again.');
+    } finally {
+      setStartingConsultation('');
+    }
+  };
+
+  // View patient details
+  const handleViewPatient = (patient: Patient) => {
+    setModalPatientId(patient.patient_id);
+    setModalMode('view');
+    setModalOpen(true);
+  };
+
+  // View patient medical history
+  const handleViewHistory = (patient: Patient) => {
+    setModalPatientId(patient.patient_id);
+    setModalMode('history');
+    setModalOpen(true);
+  };
+
+  // Real-time updates
+  useEffect(() => {
+    loadWaitingPatients();
+
+    // Auto-refresh every 15 seconds
+    const refreshInterval = setInterval(() => {
+      loadWaitingPatients(filterPriority !== 'all' ? filterPriority : undefined);
+    }, 15000);
+
+    return () => clearInterval(refreshInterval);
+  }, []);
+
+  // Handle priority filter changes
+  useEffect(() => {
+    const priority = filterPriority !== 'all' ? filterPriority : undefined;
+    loadWaitingPatients(priority);
+  }, [filterPriority]);
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'URGENT':
+      case 'EMERGENCY':
         return 'bg-red-100 text-red-800 border-red-200';
+      case 'WITH_DOCTOR':
       case 'IN_PROGRESS':
         return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'WAITING_DOCTOR':
       case 'WAITING':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       default:
@@ -137,27 +175,33 @@ export default function PatientQueue() {
   };
 
   const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'High':
+    switch (priority?.toUpperCase()) {
+      case 'URGENT':
+      case 'EMERGENCY':
+      case 'HIGH':
         return 'text-red-600 bg-red-50';
-      case 'Normal':
+      case 'NORMAL':
         return 'text-green-600 bg-green-50';
       default:
         return 'text-gray-600 bg-gray-50';
     }
   };
 
-  const filteredPatients = patientQueue.filter(patient => {
-    const matchesSearch = patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         patient.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         patient.complaint.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || patient.status === filterStatus;
-    const matchesPriority = filterPriority === 'all' || patient.priority === filterPriority;
+  const filteredPatients = patients.filter(patient => {
+    const matchesSearch = patient.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         patient.patient_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (patient.consultation_info?.chief_complaint || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === 'all' || patient.current_status === filterStatus;
+    const matchesPriority = filterPriority === 'all' ||
+                           (patient.consultation_info?.priority?.toUpperCase() === filterPriority.toUpperCase());
     return matchesSearch && matchesStatus && matchesPriority;
   });
 
-  const urgentCount = patientQueue.filter(p => p.priority === 'High').length;
-  const waitingCount = patientQueue.filter(p => p.status === 'WAITING').length;
+  const urgentCount = patients.filter(p =>
+    p.consultation_info?.priority?.toUpperCase() === 'URGENT' ||
+    p.consultation_info?.priority?.toUpperCase() === 'EMERGENCY'
+  ).length;
+  const waitingCount = patients.filter(p => p.current_status === 'WAITING_DOCTOR').length;
 
   return (
     <div className="space-y-6">
@@ -201,9 +245,8 @@ export default function PatientQueue() {
                 onChange={(e) => setFilterStatus(e.target.value)}
               >
                 <option value="all">All Status</option>
-                <option value="URGENT">Urgent</option>
-                <option value="WAITING">Waiting</option>
-                <option value="IN_PROGRESS">In Progress</option>
+                <option value="WAITING_DOCTOR">Waiting Doctor</option>
+                <option value="WITH_DOCTOR">With Doctor</option>
               </select>
             </div>
             <select
@@ -212,140 +255,193 @@ export default function PatientQueue() {
               onChange={(e) => setFilterPriority(e.target.value)}
             >
               <option value="all">All Priority</option>
-              <option value="High">High Priority</option>
-              <option value="Normal">Normal Priority</option>
+              <option value="URGENT">Urgent Priority</option>
+              <option value="EMERGENCY">Emergency Priority</option>
+              <option value="NORMAL">Normal Priority</option>
             </select>
           </div>
         </div>
       </div>
 
+      {/* Loading State */}
+      {loading && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+          <div className="text-gray-500">Loading patient queue...</div>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="text-red-700">{error}</div>
+          <button
+            onClick={() => loadWaitingPatients()}
+            className="mt-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!loading && !error && filteredPatients.length === 0 && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+          <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No patients waiting</h3>
+          <p className="text-gray-500">All patients have been seen or no patients are currently waiting.</p>
+        </div>
+      )}
+
       {/* Patient Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredPatients.map((patient) => (
-          <div
-            key={patient.id}
-            className={`bg-white rounded-lg shadow-sm border-2 ${
-              patient.priority === 'High' ? 'border-red-200 bg-red-50/30' : 'border-gray-200'
-            } overflow-hidden`}
-          >
-            {/* Card Header */}
-            <div className="p-4 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
-                    <span className="text-lg font-semibold text-green-600">
-                      {patient.name.split(' ').map(n => n[0]).join('')}
+        {filteredPatients.map((patient) => {
+          const priority = patient.consultation_info?.priority || 'NORMAL';
+          const isUrgent = priority.toUpperCase() === 'URGENT' || priority.toUpperCase() === 'EMERGENCY';
+          const checkInTime = new Date(patient.created_at).toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          const waitTime = Math.floor((Date.now() - new Date(patient.created_at).getTime()) / (1000 * 60));
+
+          return (
+            <div
+              key={patient.id}
+              className={`bg-white rounded-lg shadow-sm border-2 ${
+                isUrgent ? 'border-red-200 bg-red-50/30' : 'border-gray-200'
+              } overflow-hidden`}
+            >
+              {/* Card Header */}
+              <div className="p-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+                      <span className="text-lg font-semibold text-green-600">
+                        {patient.full_name.split(' ').map(n => n[0]).join('')}
+                      </span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">{patient.full_name}</h3>
+                      <p className="text-sm text-gray-600">
+                        {patient.patient_id} • {patient.age}y {patient.gender}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end space-y-2">
+                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full border ${getStatusColor(patient.current_status)}`}>
+                      {patient.current_status.replace('_', ' ')}
+                    </span>
+                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md ${getPriorityColor(priority)}`}>
+                      {priority} Priority
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card Content */}
+              <div className="p-4 space-y-4">
+                {/* Check-in Info */}
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center space-x-2">
+                    <Clock className="h-4 w-4 text-gray-400" />
+                    <span className="text-gray-600">Check-in: {checkInTime}</span>
+                  </div>
+                  <span className="text-orange-600 font-medium">
+                    Wait: {waitTime}min{waitTime !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                {/* Chief Complaint */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900 mb-1">Chief Complaint</h4>
+                  <p className="text-sm text-gray-700">
+                    {patient.consultation_info?.chief_complaint || 'General consultation'}
+                  </p>
+                </div>
+
+                {/* Patient Type */}
+                <div className="flex items-center space-x-4 text-xs">
+                  <div>
+                    <span className="text-gray-600">Type:</span>
+                    <span className={`ml-1 px-2 py-1 rounded ${
+                      patient.patient_type === 'NHIF' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                    }`}>
+                      {patient.patient_type}
                     </span>
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{patient.name}</h3>
-                    <p className="text-sm text-gray-600">
-                      {patient.id} • {patient.age}y {patient.gender}
-                    </p>
+                    <span className="text-gray-600">Location:</span>
+                    <span className="ml-1 text-gray-900">{patient.current_location || 'Reception'}</span>
                   </div>
                 </div>
-                <div className="flex flex-col items-end space-y-2">
-                  <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full border ${getStatusColor(patient.status)}`}>
-                    {patient.status.replace('_', ' ')}
-                  </span>
-                  <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md ${getPriorityColor(patient.priority)}`}>
-                    {patient.priority} Priority
-                  </span>
+
+                {/* Contact Info */}
+                <div className="flex items-center space-x-2 text-xs text-gray-600">
+                  <Phone className="h-3 w-3" />
+                  <span>{patient.phone_number || 'No phone'}</span>
+                </div>
+
+                {/* Doctor Assignment */}
+                {patient.consultation_info?.doctor_assigned && (
+                  <div className="flex items-center space-x-2 text-xs">
+                    <User className="h-3 w-3 text-gray-400" />
+                    <span className="text-gray-600">Assigned to:</span>
+                    <span className="text-gray-900 font-medium">{patient.consultation_info.doctor_assigned}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Card Actions */}
+              <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleStartConsultation(patient)}
+                    disabled={startingConsultation === patient.patient_id}
+                    className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-green-700 text-white text-sm font-medium rounded-md hover:bg-green-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <UserCheck className="h-4 w-4" />
+                    <span>
+                      {startingConsultation === patient.patient_id ? 'Starting...' : 'Start Consultation'}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => handleViewPatient(patient)}
+                    className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-50 text-blue-700 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors"
+                  >
+                    <Eye className="h-4 w-4" />
+                    <span>View</span>
+                  </button>
+                  <button
+                    onClick={() => handleViewHistory(patient)}
+                    className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-50 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors"
+                  >
+                    <FileText className="h-4 w-4" />
+                    <span>History</span>
+                  </button>
                 </div>
               </div>
             </div>
-
-            {/* Card Content */}
-            <div className="p-4 space-y-4">
-              {/* Check-in Info */}
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center space-x-2">
-                  <Clock className="h-4 w-4 text-gray-400" />
-                  <span className="text-gray-600">Check-in: {patient.checkInTime}</span>
-                </div>
-                <span className="text-orange-600 font-medium">Wait: {patient.waitTime}</span>
-              </div>
-
-              {/* Chief Complaint */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-900 mb-1">Chief Complaint</h4>
-                <p className="text-sm text-gray-700">{patient.complaint}</p>
-              </div>
-
-              {/* Vital Signs */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-900 mb-2">Vital Signs</h4>
-                <div className="grid grid-cols-3 gap-3 text-xs">
-                  <div className="bg-gray-50 p-2 rounded">
-                    <p className="text-gray-600">BP</p>
-                    <p className="font-medium">{patient.vitalSigns.bloodPressure}</p>
-                  </div>
-                  <div className="bg-gray-50 p-2 rounded">
-                    <p className="text-gray-600">Temp</p>
-                    <p className="font-medium">{patient.vitalSigns.temperature}</p>
-                  </div>
-                  <div className="bg-gray-50 p-2 rounded">
-                    <p className="text-gray-600">Pulse</p>
-                    <p className="font-medium">{patient.vitalSigns.pulse}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Medical Info */}
-              <div className="space-y-2 text-xs">
-                <div>
-                  <span className="text-gray-600">Last Visit:</span>
-                  <span className="ml-1 text-gray-900">{patient.lastVisit}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Allergies:</span>
-                  <span className="ml-1 text-gray-900">{patient.allergies}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Medical History:</span>
-                  <span className="ml-1 text-gray-900">{patient.medicalHistory}</span>
-                </div>
-              </div>
-
-              {/* Contact Info */}
-              <div className="flex items-center space-x-2 text-xs text-gray-600">
-                <Phone className="h-3 w-3" />
-                <span>{patient.phone}</span>
-              </div>
-            </div>
-
-            {/* Card Actions */}
-            <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
-              <div className="flex space-x-2">
-                <button className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-green-700 text-white text-sm font-medium rounded-md hover:bg-green-800 transition-colors">
-                  <UserCheck className="h-4 w-4" />
-                  <span>Start Consultation</span>
-                </button>
-                <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-50 text-blue-700 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors">
-                  <Eye className="h-4 w-4" />
-                  <span>View</span>
-                </button>
-                <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-50 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors">
-                  <FileText className="h-4 w-4" />
-                  <span>History</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {filteredPatients.length === 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-          <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No patients found</h3>
-          <p className="text-gray-600">
-            {searchTerm || filterStatus !== 'all' || filterPriority !== 'all'
-              ? 'Try adjusting your search criteria or filters.'
-              : 'No patients in queue at the moment.'}
-          </p>
-        </div>
-      )}
+      {/* Patient Details/History Modal */}
+      <PatientQueueModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        patientId={modalPatientId}
+        mode={modalMode}
+      />
+
+      {/* Diagnosis Modal */}
+      <DiagnosisModal
+        isOpen={diagnosisModalOpen}
+        onClose={() => setDiagnosisModalOpen(false)}
+        patientId={diagnosisPatientId}
+        onSave={() => {
+          setDiagnosisModalOpen(false);
+          loadWaitingPatients(filterPriority !== 'all' ? filterPriority : undefined);
+        }}
+      />
     </div>
   );
 }

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { 
-  History, 
-  Search, 
-  Filter, 
+import { useState, useEffect } from 'react';
+import {
+  History,
+  Search,
+  Filter,
   Calendar,
   Clock,
   FileText,
@@ -16,180 +16,67 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronUp,
-  Eye
+  Eye,
+  RefreshCw
 } from 'lucide-react';
+import auth from '@/lib/auth';
 
 export default function PatientHistory() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<string | null>(null);
   const [expandedVisit, setExpandedVisit] = useState<string | null>(null);
+  const [patients, setPatients] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Mock patient data with complete history
-  const patients = [
-    {
-      id: 'PAT001',
-      name: 'John Doe',
-      age: 35,
-      gender: 'Male',
-      phone: '+255 123 456 789',
-      address: '123 Main St, Dar es Salaam',
-      bloodGroup: 'O+',
-      allergies: 'Penicillin',
-      emergencyContact: 'Jane Doe - Wife (+255 987 654 321)',
-      medicalHistory: 'Hypertension (2020), Type 2 Diabetes (2022)',
-      visits: [
+  // Load patient history from API
+  const loadPatientHistory = async () => {
+    try {
+      setLoading(true);
+      const token = auth.getToken();
+
+      // For now, use consultations as patient history
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/consultations/`,
         {
-          id: 'V001',
-          date: '2025-09-07',
-          time: '10:30 AM',
-          type: 'Follow-up',
-          chiefComplaint: 'Chest pain and shortness of breath',
-          diagnosis: 'Hypertensive Heart Disease',
-          prescriptions: [
-            { name: 'Lisinopril 10mg', frequency: 'Once daily', duration: '30 days' },
-            { name: 'Metformin 500mg', frequency: 'Twice daily', duration: '30 days' }
-          ],
-          labTests: [
-            { name: 'Complete Blood Count', status: 'Pending', date: '2025-09-07' },
-            { name: 'Lipid Profile', status: 'Pending', date: '2025-09-07' }
-          ],
-          vitalSigns: {
-            bloodPressure: '140/90',
-            temperature: '37.2°C',
-            pulse: '85 bpm',
-            weight: '75 kg',
-            height: '175 cm'
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
           },
-          notes: 'Patient shows good compliance with medication. Blood pressure well controlled.',
-          followUp: '2025-09-21'
-        },
-        {
-          id: 'V002',
-          date: '2025-07-15',
-          time: '2:00 PM',
-          type: 'Routine Check',
-          chiefComplaint: 'Diabetes routine monitoring',
-          diagnosis: 'Type 2 Diabetes Mellitus - Well Controlled',
-          prescriptions: [
-            { name: 'Metformin 500mg', frequency: 'Twice daily', duration: '90 days' }
-          ],
-          labTests: [
-            { name: 'HbA1c', status: 'Completed', result: '6.8%', date: '2025-07-15' },
-            { name: 'Fasting Glucose', status: 'Completed', result: '125 mg/dL', date: '2025-07-15' }
-          ],
-          vitalSigns: {
-            bloodPressure: '135/85',
-            temperature: '36.8°C',
-            pulse: '78 bpm',
-            weight: '73 kg',
-            height: '175 cm'
-          },
-          notes: 'Excellent diabetes control. Continue current regimen.',
-          followUp: '2025-10-15'
-        },
-        {
-          id: 'V003',
-          date: '2025-05-20',
-          time: '11:00 AM',
-          type: 'Initial Consultation',
-          chiefComplaint: 'Newly diagnosed hypertension',
-          diagnosis: 'Essential Hypertension',
-          prescriptions: [
-            { name: 'Lisinopril 5mg', frequency: 'Once daily', duration: '30 days' }
-          ],
-          labTests: [
-            { name: 'Basic Metabolic Panel', status: 'Completed', result: 'Normal', date: '2025-05-20' },
-            { name: 'ECG', status: 'Completed', result: 'Normal sinus rhythm', date: '2025-05-20' }
-          ],
-          vitalSigns: {
-            bloodPressure: '155/95',
-            temperature: '36.5°C',
-            pulse: '82 bpm',
-            weight: '72 kg',
-            height: '175 cm'
-          },
-          notes: 'New hypertension diagnosis. Patient counseled on lifestyle modifications.',
-          followUp: '2025-06-20'
         }
-      ]
-    },
-    {
-      id: 'PAT002',
-      name: 'Mary Johnson',
-      age: 28,
-      gender: 'Female',
-      phone: '+255 987 654 321',
-      address: '456 Oak Ave, Dar es Salaam',
-      bloodGroup: 'A+',
-      allergies: 'None known',
-      emergencyContact: 'Robert Johnson - Father (+255 123 987 654)',
-      medicalHistory: 'Migraine (2023)',
-      visits: [
-        {
-          id: 'V004',
-          date: '2025-09-07',
-          time: '11:15 AM',
-          type: 'Emergency',
-          chiefComplaint: 'Severe headache with nausea',
-          diagnosis: 'Migraine without Aura',
-          prescriptions: [
-            { name: 'Sumatriptan 50mg', frequency: 'As needed', duration: '6 tablets' },
-            { name: 'Propranolol 40mg', frequency: 'Twice daily', duration: '30 days' }
-          ],
-          labTests: [
-            { name: 'CT Scan Brain', status: 'Completed', result: 'No acute findings', date: '2025-09-07' }
-          ],
-          vitalSigns: {
-            bloodPressure: '120/80',
-            temperature: '37.0°C',
-            pulse: '95 bpm',
-            weight: '58 kg',
-            height: '165 cm'
-          },
-          notes: 'First severe migraine episode. Patient educated on trigger identification.',
-          followUp: '2025-09-14'
-        }
-      ]
-    },
-    {
-      id: 'PAT003',
-      name: 'David Smith',
-      age: 42,
-      gender: 'Male',
-      phone: '+255 456 789 123',
-      address: '789 Pine St, Dar es Salaam',
-      bloodGroup: 'B+',
-      allergies: 'Aspirin',
-      emergencyContact: 'Sarah Smith - Wife (+255 321 654 987)',
-      medicalHistory: 'Hypertension (2018), High cholesterol (2020)',
-      visits: [
-        {
-          id: 'V005',
-          date: '2025-09-06',
-          time: '2:20 PM',
-          type: 'Follow-up',
-          chiefComplaint: 'Hypertension and cholesterol follow-up',
-          diagnosis: 'Essential Hypertension, Dyslipidemia - Well Controlled',
-          prescriptions: [
-            { name: 'Amlodipine 5mg', frequency: 'Once daily', duration: '30 days' },
-            { name: 'Atorvastatin 20mg', frequency: 'Once daily at bedtime', duration: '30 days' }
-          ],
-          labTests: [
-            { name: 'Lipid Profile', status: 'Completed', result: 'Normal levels', date: '2025-09-06' }
-          ],
-          vitalSigns: {
-            bloodPressure: '130/85',
-            temperature: '36.8°C',
-            pulse: '72 bpm',
-            weight: '80 kg',
-            height: '178 cm'
-          },
-          notes: 'Good compliance with medications. Continue current regimen.',
-          followUp: '2025-12-06'
-        }
-      ]
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        // Transform consultations into patient history format
+        const patientsMap = new Map();
+        data.consultations.forEach((consultation: any) => {
+          if (!patientsMap.has(consultation.patient_id)) {
+            patientsMap.set(consultation.patient_id, {
+              id: consultation.patient_id,
+              name: consultation.patient_name,
+              visits: []
+            });
+          }
+          patientsMap.get(consultation.patient_id).visits.push(consultation);
+        });
+        setPatients(Array.from(patientsMap.values()));
+        setError('');
+      } else {
+        setError('Failed to load patient history');
+      }
+    } catch (error) {
+      setError('Error loading patient history');
+      console.error('Error loading patient history:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    loadPatientHistory();
+  }, []);
+
 
   const filteredPatients = patients.filter(patient =>
     patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -429,42 +316,42 @@ export default function PatientHistory() {
                               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                                 <div className="bg-gray-50 p-2 rounded text-center">
                                   <p className="text-xs text-gray-600">Blood Pressure</p>
-                                  <p className="text-sm font-medium">{visit.vitalSigns.bloodPressure}</p>
+                                  <p className="text-sm font-medium">{visit.blood_pressure_systolic && visit.blood_pressure_diastolic ? `${visit.blood_pressure_systolic}/${visit.blood_pressure_diastolic}` : 'Not recorded'}</p>
                                 </div>
                                 <div className="bg-gray-50 p-2 rounded text-center">
                                   <p className="text-xs text-gray-600">Temperature</p>
-                                  <p className="text-sm font-medium">{visit.vitalSigns.temperature}</p>
+                                  <p className="text-sm font-medium">{visit.temperature ? `${visit.temperature}°C` : 'Not recorded'}</p>
                                 </div>
                                 <div className="bg-gray-50 p-2 rounded text-center">
                                   <p className="text-xs text-gray-600">Pulse</p>
-                                  <p className="text-sm font-medium">{visit.vitalSigns.pulse}</p>
+                                  <p className="text-sm font-medium">{visit.heart_rate ? `${visit.heart_rate} bpm` : 'Not recorded'}</p>
                                 </div>
                                 <div className="bg-gray-50 p-2 rounded text-center">
                                   <p className="text-xs text-gray-600">Weight</p>
-                                  <p className="text-sm font-medium">{visit.vitalSigns.weight}</p>
+                                  <p className="text-sm font-medium">Not available</p>
                                 </div>
                                 <div className="bg-gray-50 p-2 rounded text-center">
                                   <p className="text-xs text-gray-600">Height</p>
-                                  <p className="text-sm font-medium">{visit.vitalSigns.height}</p>
+                                  <p className="text-sm font-medium">Not available</p>
                                 </div>
                               </div>
                             </div>
 
                             {/* Prescriptions */}
-                            {visit.prescriptions.length > 0 && (
+                            {visit.prescriptions && visit.prescriptions.length > 0 && (
                               <div>
                                 <h5 className="text-sm font-medium text-gray-900 mb-2 flex items-center space-x-2">
                                   <Pill className="h-4 w-4" />
                                   <span>Prescriptions ({visit.prescriptions.length})</span>
                                 </h5>
                                 <div className="space-y-2">
-                                  {visit.prescriptions.map((prescription, index) => (
+                                  {visit.prescriptions.map((prescription: any, index: number) => (
                                     <div key={index} className="bg-blue-50 p-3 rounded-lg">
                                       <div className="flex items-center justify-between">
-                                        <span className="font-medium text-blue-900">{prescription.name}</span>
-                                        <span className="text-sm text-blue-700">{prescription.duration}</span>
+                                        <span className="font-medium text-blue-900">{prescription.medication_name || prescription.name || 'N/A'}</span>
+                                        <span className="text-sm text-blue-700">{prescription.duration || 'N/A'}</span>
                                       </div>
-                                      <p className="text-sm text-blue-800 mt-1">{prescription.frequency}</p>
+                                      <p className="text-sm text-blue-800 mt-1">{prescription.frequency_display || prescription.frequency || 'N/A'}</p>
                                     </div>
                                   ))}
                                 </div>
@@ -472,28 +359,28 @@ export default function PatientHistory() {
                             )}
 
                             {/* Lab Tests */}
-                            {visit.labTests.length > 0 && (
+                            {visit.lab_requests && visit.lab_requests.length > 0 && (
                               <div>
                                 <h5 className="text-sm font-medium text-gray-900 mb-2 flex items-center space-x-2">
                                   <TestTube className="h-4 w-4" />
-                                  <span>Lab Tests ({visit.labTests.length})</span>
+                                  <span>Lab Tests ({visit.lab_requests.length})</span>
                                 </h5>
                                 <div className="space-y-2">
-                                  {visit.labTests.map((test, index) => (
+                                  {visit.lab_requests.map((test: any, index: number) => (
                                     <div key={index} className="bg-purple-50 p-3 rounded-lg">
                                       <div className="flex items-center justify-between">
-                                        <span className="font-medium text-purple-900">{test.name}</span>
+                                        <span className="font-medium text-purple-900">{test.test_type || test.name || 'N/A'}</span>
                                         <span className={`text-sm font-medium ${getTestStatusColor(test.status)}`}>
                                           {test.status}
                                         </span>
                                       </div>
                                       <div className="flex items-center justify-between mt-1">
                                         <span className="text-sm text-purple-700">
-                                          {new Date(test.date).toLocaleDateString()}
+                                          {new Date(test.requested_at || test.date).toLocaleDateString()}
                                         </span>
                                         {'result' in test && test.result && (
                                           <span className="text-sm text-purple-800 font-medium">
-                                            Result: {test.result}
+                                            Status: {test.status}
                                           </span>
                                         )}
                                       </div>

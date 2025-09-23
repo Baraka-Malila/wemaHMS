@@ -48,14 +48,26 @@ class Consultation(models.Model):
     
     # Consultation information
     chief_complaint = models.TextField(help_text='Main reason for visit')
-    symptoms = models.TextField(help_text='Patient symptoms and history')
+    symptoms = models.TextField(
+        blank=True,
+        default='',
+        help_text='Patient symptoms and history'
+    )
     examination_findings = models.TextField(
         blank=True,
         null=True,
         help_text='Physical examination results'
     )
-    diagnosis = models.TextField(help_text='Medical diagnosis')
-    treatment_plan = models.TextField(help_text='Treatment recommendations')
+    diagnosis = models.TextField(
+        blank=True,
+        default='',
+        help_text='Medical diagnosis'
+    )
+    treatment_plan = models.TextField(
+        blank=True,
+        default='',
+        help_text='Treatment recommendations'
+    )
     
     # Follow-up and priority
     follow_up_date = models.DateField(blank=True, null=True)

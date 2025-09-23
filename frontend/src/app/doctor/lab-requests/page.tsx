@@ -1,137 +1,143 @@
 'use client';
 
-import { useState } from 'react';
-import { 
-  TestTube, 
-  Search, 
-  Filter, 
-  Plus, 
-  Eye, 
+import { useState, useEffect } from 'react';
+import {
+  TestTube,
+  Search,
+  Filter,
+  Plus,
+  Eye,
   Calendar,
   Clock,
   AlertCircle,
   CheckCircle,
   XCircle,
-  User
+  User,
+  RefreshCw
 } from 'lucide-react';
+import auth from '@/lib/auth';
+import LabRequestDetailsModal from '@/components/LabRequestDetailsModal';
 
 export default function LabRequests() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterUrgency, setFilterUrgency] = useState('all');
   const [showNewRequest, setShowNewRequest] = useState(false);
+  const [labRequests, setLabRequests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Mock lab requests data
-  const labRequests = [
-    {
-      id: 'LAB001',
-      patientId: 'PAT001',
-      patientName: 'John Doe',
-      age: 35,
-      gender: 'Male',
-      requestDate: '2025-09-07',
-      testType: 'Complete Blood Count',
-      category: 'Hematology',
-      urgency: 'Routine',
-      status: 'PENDING',
-      clinicalHistory: 'Chest pain, hypertension evaluation',
-      instructions: 'Fasting not required. Patient on antihypertensive medication.',
-      expectedDate: '2025-09-08',
-      requestedBy: 'Dr. Smith',
-      labNotes: '',
-      results: null,
-      createdAt: '2025-09-07T10:30:00Z'
-    },
-    {
-      id: 'LAB002',
-      patientId: 'PAT002',
-      patientName: 'Mary Johnson',
-      age: 28,
-      gender: 'Female',
-      requestDate: '2025-09-07',
-      testType: 'CT Scan Brain',
-      category: 'Radiology',
-      urgency: 'URGENT',
-      status: 'IN_PROGRESS',
-      clinicalHistory: 'Severe headache with nausea, rule out intracranial pathology',
-      instructions: 'Contrast study if indicated. Patient allergic to iodine - use alternative.',
-      expectedDate: '2025-09-07',
-      requestedBy: 'Dr. Smith',
-      labNotes: 'Scan in progress, preliminary findings normal',
-      results: null,
-      createdAt: '2025-09-07T11:15:00Z'
-    },
-    {
-      id: 'LAB003',
-      patientId: 'PAT003',
-      patientName: 'David Smith',
-      age: 42,
-      gender: 'Male',
-      requestDate: '2025-09-06',
-      testType: 'Lipid Profile',
-      category: 'Biochemistry',
-      urgency: 'Routine',
-      status: 'COMPLETED',
-      clinicalHistory: 'Hypertension follow-up, cardiovascular risk assessment',
-      instructions: '12-hour fasting required. Morning collection preferred.',
-      expectedDate: '2025-09-07',
-      requestedBy: 'Dr. Smith',
-      labNotes: 'Results within normal limits',
-      results: {
-        summary: 'Normal lipid profile',
-        details: 'Total Cholesterol: 180 mg/dL, HDL: 45 mg/dL, LDL: 110 mg/dL, Triglycerides: 125 mg/dL',
-        abnormal: false
-      },
-      createdAt: '2025-09-06T14:20:00Z'
-    },
-    {
-      id: 'LAB004',
-      patientId: 'PAT004',
-      patientName: 'Sarah Wilson',
-      age: 55,
-      gender: 'Female',
-      requestDate: '2025-09-05',
-      testType: 'HbA1c',
-      category: 'Biochemistry',
-      urgency: 'Routine',
-      status: 'COMPLETED',
-      clinicalHistory: 'Type 2 diabetes monitoring',
-      instructions: 'No fasting required. Patient on metformin.',
-      expectedDate: '2025-09-06',
-      requestedBy: 'Dr. Smith',
-      labNotes: 'Elevated levels - medication adjustment recommended',
-      results: {
-        summary: 'Elevated HbA1c',
-        details: 'HbA1c: 8.2% (Target: <7%)',
-        abnormal: true
-      },
-      createdAt: '2025-09-05T09:45:00Z'
-    },
-    {
-      id: 'LAB005',
-      patientId: 'PAT005',
-      patientName: 'Michael Brown',
-      age: 67,
-      gender: 'Male',
-      requestDate: '2025-09-07',
-      testType: 'Troponin I',
-      category: 'Biochemistry',
-      urgency: 'STAT',
-      status: 'COMPLETED',
-      clinicalHistory: 'Acute chest pain, rule out myocardial infarction',
-      instructions: 'STAT collection and processing. Notify immediately if positive.',
-      expectedDate: '2025-09-07',
-      requestedBy: 'Dr. Smith',
-      labNotes: 'CRITICAL: Elevated troponin levels - cardiology consulted',
-      results: {
-        summary: 'CRITICAL: Elevated Troponin',
-        details: 'Troponin I: 2.5 ng/mL (Normal: <0.04 ng/mL)',
-        abnormal: true,
-        critical: true
-      },
-      createdAt: '2025-09-07T11:30:00Z'
+  // Load lab requests from API
+  const loadLabRequests = async () => {
+    try {
+      setLoading(true);
+      const token = auth.getToken();
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/lab-requests/list/`,
+        {
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setLabRequests(data.lab_requests || []);
+        setError('');
+      } else {
+        setError('Failed to load lab requests');
+      }
+    } catch (error) {
+      setError('Error loading lab requests');
+      console.error('Error loading lab requests:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    loadLabRequests();
+  }, []);
+
+  // Modal states
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [cancelingRequest, setCancelingRequest] = useState<string>('');
+
+  // Handle button actions
+  const handleViewRequest = (request: any) => {
+    setSelectedRequest(request);
+    setViewModalOpen(true);
+  };
+
+  const handleCancelRequest = async (request: any) => {
+    if (!confirm(`Are you sure you want to cancel lab request ${request.id}?`)) {
+      return;
+    }
+
+    try {
+      setCancelingRequest(request.id);
+      const token = auth.getToken();
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/lab-requests/${request.id}/cancel/`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ status: 'CANCELLED' })
+        }
+      );
+
+      if (response.ok) {
+        alert('Lab request cancelled successfully');
+        loadLabRequests(); // Refresh the list
+      } else {
+        alert('Failed to cancel lab request');
+      }
+    } catch (error) {
+      console.error('Error cancelling lab request:', error);
+      alert('Error cancelling lab request. Please try again.');
+    } finally {
+      setCancelingRequest('');
+    }
+  };
+
+  const handleCreateNewRequest = async (requestData: any) => {
+    try {
+      const token = auth.getToken();
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/lab-requests/create/`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestData)
+        }
+      );
+
+      if (response.ok) {
+        alert('Lab request created successfully');
+        setShowNewRequest(false);
+        loadLabRequests(); // Refresh the list
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to create lab request: ${errorData.error || 'Please try again'}`);
+      }
+    } catch (error) {
+      console.error('Error creating lab request:', error);
+      alert('Error creating lab request. Please try again.');
+    }
+  };
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -177,10 +183,10 @@ export default function LabRequests() {
   };
 
   const filteredRequests = labRequests.filter(request => {
-    const matchesSearch = request.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         request.patientId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         request.testType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         request.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (request.consultation?.patient_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (request.consultation?.patient_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (request.test_type || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (request.id || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || request.status === filterStatus;
     const matchesUrgency = filterUrgency === 'all' || request.urgency === filterUrgency;
     return matchesSearch && matchesStatus && matchesUrgency;
@@ -300,13 +306,13 @@ export default function LabRequests() {
                 <div className="flex items-center space-x-3">
                   <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
                     <span className="text-sm font-semibold text-green-600">
-                      {request.patientName.split(' ').map(n => n[0]).join('')}
+                      {(request.consultation?.patient_name || 'N/A').split(' ').map(n => n[0]).join('')}
                     </span>
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{request.patientName}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">{request.consultation?.patient_name || 'N/A'}</h3>
                     <p className="text-sm text-gray-600">
-                      {request.patientId} • {request.age}y {request.gender}
+                      {request.consultation?.patient_id || 'N/A'}
                     </p>
                   </div>
                 </div>
@@ -327,27 +333,27 @@ export default function LabRequests() {
               {/* Test Information */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-lg font-medium text-gray-900">{request.testType}</h4>
+                  <h4 className="text-lg font-medium text-gray-900">{request.test_type || 'N/A'}</h4>
                   <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
                     {request.category}
                   </span>
                 </div>
                 <div className="text-sm text-gray-600 space-y-1">
                   <p><span className="font-medium">Request ID:</span> {request.id}</p>
-                  <p><span className="font-medium">Requested by:</span> {request.requestedBy}</p>
+                  <p><span className="font-medium">Requested by:</span> {request.requested_by?.full_name || 'N/A'}</p>
                 </div>
               </div>
 
               {/* Clinical History */}
               <div>
                 <h4 className="text-sm font-medium text-gray-900 mb-1">Clinical History</h4>
-                <p className="text-sm text-gray-700">{request.clinicalHistory}</p>
+                <p className="text-sm text-gray-700">{request.clinical_notes || 'N/A'}</p>
               </div>
 
               {/* Instructions */}
               <div>
                 <h4 className="text-sm font-medium text-gray-900 mb-1">Instructions</h4>
-                <p className="text-sm text-gray-700">{request.instructions}</p>
+                <p className="text-sm text-gray-700">{request.test_description || 'N/A'}</p>
               </div>
 
               {/* Lab Notes */}
@@ -387,14 +393,14 @@ export default function LabRequests() {
                   <Calendar className="h-4 w-4 text-gray-400" />
                   <div>
                     <p className="text-gray-600">Requested</p>
-                    <p className="font-medium">{new Date(request.requestDate).toLocaleDateString()}</p>
+                    <p className="font-medium">{new Date(request.requested_at).toLocaleDateString()}</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Clock className="h-4 w-4 text-gray-400" />
                   <div>
                     <p className="text-gray-600">Expected</p>
-                    <p className="font-medium">{new Date(request.expectedDate).toLocaleDateString()}</p>
+                    <p className="font-medium">{request.completed_at ? new Date(request.completed_at).toLocaleDateString() : 'Pending'}</p>
                   </div>
                 </div>
               </div>
@@ -404,14 +410,21 @@ export default function LabRequests() {
             <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
               <div className="flex justify-between items-center">
                 <div className="flex space-x-2">
-                  <button className="flex items-center space-x-1 px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors">
+                  <button
+                    onClick={() => handleViewRequest(request)}
+                    className="flex items-center space-x-1 px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors"
+                  >
                     <Eye className="h-3 w-3" />
                     <span>View Details</span>
                   </button>
-                  {request.status === 'COMPLETED' && request.results && (
-                    <button className="flex items-center space-x-1 px-3 py-1 bg-green-50 text-green-700 text-sm font-medium rounded-md hover:bg-green-100 transition-colors">
-                      <TestTube className="h-3 w-3" />
-                      <span>View Results</span>
+                  {request.status === 'REQUESTED' && (
+                    <button
+                      onClick={() => handleCancelRequest(request)}
+                      disabled={cancelingRequest === request.id}
+                      className="flex items-center space-x-1 px-3 py-1 bg-red-50 text-red-700 text-sm font-medium rounded-md hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <XCircle className="h-3 w-3" />
+                      <span>{cancelingRequest === request.id ? 'Cancelling...' : 'Cancel'}</span>
                     </button>
                   )}
                 </div>
@@ -456,6 +469,13 @@ export default function LabRequests() {
           </div>
         </div>
       )}
+
+      {/* Lab Request Details Modal */}
+      <LabRequestDetailsModal
+        isOpen={viewModalOpen}
+        onClose={() => setViewModalOpen(false)}
+        request={selectedRequest}
+      />
     </div>
   );
 }

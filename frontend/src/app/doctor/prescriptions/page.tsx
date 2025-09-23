@@ -1,217 +1,121 @@
 'use client';
 
-import { useState } from 'react';
-import { 
-  Pill, 
-  Search, 
-  Filter, 
-  Plus, 
-  Eye, 
+import { useState, useEffect } from 'react';
+import {
+  Pill,
+  Search,
+  Filter,
+  Plus,
+  Eye,
   Edit,
   Calendar,
   Clock,
   User,
   AlertTriangle,
   CheckCircle,
-  FileText
+  FileText,
+  RefreshCw
 } from 'lucide-react';
+import auth from '@/lib/auth';
+import PrescriptionDetailsModal from '@/components/PrescriptionDetailsModal';
 
 export default function Prescriptions() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showNewPrescription, setShowNewPrescription] = useState(false);
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Mock prescriptions data
-  const prescriptions = [
-    {
-      id: 'RX001',
-      patientId: 'PAT001',
-      patientName: 'John Doe',
-      age: 35,
-      gender: 'Male',
-      prescriptionDate: '2025-09-07',
-      diagnosis: 'Hypertensive Heart Disease',
-      status: 'ACTIVE',
-      medications: [
+  // Load prescriptions from API
+  const loadPrescriptions = async () => {
+    try {
+      setLoading(true);
+      const token = auth.getToken();
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/prescriptions/list/`,
         {
-          name: 'Lisinopril',
-          dosage: '10mg',
-          frequency: 'Once daily',
-          duration: '30 days',
-          instructions: 'Take with or without food. Monitor blood pressure.',
-          quantity: '30 tablets'
-        },
-        {
-          name: 'Metformin',
-          dosage: '500mg',
-          frequency: 'Twice daily',
-          duration: '30 days',
-          instructions: 'Take with meals to reduce stomach upset.',
-          quantity: '60 tablets'
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
         }
-      ],
-      notes: 'Patient counseled on lifestyle modifications. Follow-up in 2 weeks.',
-      followUpDate: '2025-09-21',
-      dispensedDate: null,
-      dispensedBy: null,
-      prescribedBy: 'Dr. Smith',
-      allergies: 'Penicillin',
-      totalCost: '25000',
-      createdAt: '2025-09-07T10:30:00Z'
-    },
-    {
-      id: 'RX002',
-      patientId: 'PAT002',
-      patientName: 'Mary Johnson',
-      age: 28,
-      gender: 'Female',
-      prescriptionDate: '2025-09-07',
-      diagnosis: 'Migraine without Aura',
-      status: 'DISPENSED',
-      medications: [
-        {
-          name: 'Sumatriptan',
-          dosage: '50mg',
-          frequency: 'As needed',
-          duration: '6 tablets',
-          instructions: 'Take at onset of migraine. Maximum 2 doses per 24 hours.',
-          quantity: '6 tablets'
-        },
-        {
-          name: 'Propranolol',
-          dosage: '40mg',
-          frequency: 'Twice daily',
-          duration: '30 days',
-          instructions: 'Take for migraine prevention. Do not stop abruptly.',
-          quantity: '60 tablets'
-        }
-      ],
-      notes: 'Patient educated on migraine triggers. Diary recommended.',
-      followUpDate: '2025-09-14',
-      dispensedDate: '2025-09-07T15:30:00Z',
-      dispensedBy: 'Pharmacist Jane',
-      prescribedBy: 'Dr. Smith',
-      allergies: 'None known',
-      totalCost: '18000',
-      createdAt: '2025-09-07T11:15:00Z'
-    },
-    {
-      id: 'RX003',
-      patientId: 'PAT003',
-      patientName: 'David Smith',
-      age: 42,
-      gender: 'Male',
-      prescriptionDate: '2025-09-06',
-      diagnosis: 'Essential Hypertension, Dyslipidemia',
-      status: 'DISPENSED',
-      medications: [
-        {
-          name: 'Amlodipine',
-          dosage: '5mg',
-          frequency: 'Once daily',
-          duration: '30 days',
-          instructions: 'Take at the same time each day, preferably in the morning.',
-          quantity: '30 tablets'
-        },
-        {
-          name: 'Atorvastatin',
-          dosage: '20mg',
-          frequency: 'Once daily at bedtime',
-          duration: '30 days',
-          instructions: 'Take with or without food. Avoid grapefruit juice.',
-          quantity: '30 tablets'
-        }
-      ],
-      notes: 'Good compliance with previous medications. Continue current regimen.',
-      followUpDate: '2025-10-06',
-      dispensedDate: '2025-09-06T16:45:00Z',
-      dispensedBy: 'Pharmacist John',
-      prescribedBy: 'Dr. Smith',
-      allergies: 'Aspirin',
-      totalCost: '22000',
-      createdAt: '2025-09-06T14:20:00Z'
-    },
-    {
-      id: 'RX004',
-      patientId: 'PAT004',
-      patientName: 'Sarah Wilson',
-      age: 55,
-      gender: 'Female',
-      prescriptionDate: '2025-09-05',
-      diagnosis: 'Type 2 Diabetes Mellitus',
-      status: 'PENDING',
-      medications: [
-        {
-          name: 'Metformin XR',
-          dosage: '1000mg',
-          frequency: 'Twice daily',
-          duration: '30 days',
-          instructions: 'Take with dinner to reduce GI side effects.',
-          quantity: '60 tablets'
-        },
-        {
-          name: 'Insulin Glargine',
-          dosage: '20 units',
-          frequency: 'Once daily at bedtime',
-          duration: '30 days',
-          instructions: 'Rotate injection sites. Store in refrigerator.',
-          quantity: '1 vial (10ml)'
-        }
-      ],
-      notes: 'HbA1c elevated. Insulin therapy initiated. Patient education provided.',
-      followUpDate: '2025-09-19',
-      dispensedDate: null,
-      dispensedBy: null,
-      prescribedBy: 'Dr. Smith',
-      allergies: 'None known',
-      totalCost: '45000',
-      createdAt: '2025-09-05T09:45:00Z'
-    },
-    {
-      id: 'RX005',
-      patientId: 'PAT005',
-      patientName: 'Michael Brown',
-      age: 67,
-      gender: 'Male',
-      prescriptionDate: '2025-09-07',
-      diagnosis: 'Acute Myocardial Infarction',
-      status: 'URGENT',
-      medications: [
-        {
-          name: 'Aspirin',
-          dosage: '81mg',
-          frequency: 'Once daily',
-          duration: 'Ongoing',
-          instructions: 'Take with food to reduce stomach irritation.',
-          quantity: '30 tablets'
-        },
-        {
-          name: 'Clopidogrel',
-          dosage: '75mg',
-          frequency: 'Once daily',
-          duration: '12 months',
-          instructions: 'Take at the same time each day. Do not skip doses.',
-          quantity: '30 tablets'
-        },
-        {
-          name: 'Atorvastatin',
-          dosage: '80mg',
-          frequency: 'Once daily at bedtime',
-          duration: 'Ongoing',
-          instructions: 'High-intensity statin therapy. Monitor liver function.',
-          quantity: '30 tablets'
-        }
-      ],
-      notes: 'CRITICAL: Post-MI medications. Patient requires immediate pharmacy attention.',
-      followUpDate: '2025-09-10',
-      dispensedDate: null,
-      dispensedBy: null,
-      prescribedBy: 'Dr. Smith',
-      allergies: 'Sulfa drugs',
-      totalCost: '35000',
-      createdAt: '2025-09-07T12:00:00Z'
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setPrescriptions(data.prescriptions || []);
+        setError('');
+      } else {
+        setError('Failed to load prescriptions');
+      }
+    } catch (error) {
+      setError('Error loading prescriptions');
+      console.error('Error loading prescriptions:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    loadPrescriptions();
+  }, []);
+
+  // Modal states
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedPrescription, setSelectedPrescription] = useState<any>(null);
+
+  // Handle button actions
+  const handleEditPrescription = (prescription: any) => {
+    setSelectedPrescription(prescription);
+    setEditModalOpen(true);
+  };
+
+  const handleViewPrescription = (prescription: any) => {
+    setSelectedPrescription(prescription);
+    setViewModalOpen(true);
+  };
+
+  const handlePrintPrescription = (prescription: any) => {
+    // Create a printable version
+    const printContent = `
+PRESCRIPTION
+
+Patient: ${prescription.consultation?.patient_name || 'N/A'}
+Patient ID: ${prescription.consultation?.patient_id || 'N/A'}
+Date: ${new Date(prescription.prescribed_at).toLocaleDateString()}
+
+Medication: ${prescription.medication_name}
+Strength: ${prescription.strength}
+Form: ${prescription.dosage_form}
+Quantity: ${prescription.quantity_prescribed}
+
+Instructions: ${prescription.dosage_instructions}
+Duration: ${prescription.duration}
+Frequency: ${prescription.frequency_display || prescription.frequency}
+
+${prescription.special_instructions ? 'Special Instructions: ' + prescription.special_instructions : ''}
+
+Prescribed by: ${prescription.prescribed_by?.full_name || 'Doctor'}
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head><title>Prescription</title></head>
+          <body>
+            <pre style="font-family: monospace; white-space: pre-wrap;">${printContent}</pre>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -246,8 +150,8 @@ export default function Prescriptions() {
   };
 
   const filteredPrescriptions = prescriptions.filter(prescription => {
-    const matchesSearch = prescription.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         prescription.patientId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = (prescription.consultation?.patient_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (prescription.consultation?.patient_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                          prescription.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          prescription.diagnosis.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          prescription.medications.some(med => 
@@ -371,13 +275,13 @@ export default function Prescriptions() {
                 <div className="flex items-center space-x-3">
                   <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
                     <span className="text-sm font-semibold text-green-600">
-                      {prescription.patientName.split(' ').map(n => n[0]).join('')}
+                      {(prescription.consultation?.patient_name || 'N/A').split(' ').map(n => n[0]).join('')}
                     </span>
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{prescription.patientName}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">{prescription.consultation?.patient_name || 'N/A'}</h3>
                     <p className="text-sm text-gray-600">
-                      {prescription.patientId} • {prescription.age}y {prescription.gender}
+                      {prescription.consultation?.patient_id || 'N/A'}
                     </p>
                   </div>
                 </div>
@@ -398,54 +302,58 @@ export default function Prescriptions() {
               {/* Diagnosis */}
               <div>
                 <h4 className="text-sm font-medium text-gray-900 mb-1">Diagnosis</h4>
-                <p className="text-sm text-gray-700">{prescription.diagnosis}</p>
+                <p className="text-sm text-gray-700">{prescription.consultation?.diagnosis || 'N/A'}</p>
               </div>
 
-              {/* Medications */}
+              {/* Medication Details */}
               <div>
-                <h4 className="text-sm font-medium text-gray-900 mb-2">Medications ({prescription.medications.length})</h4>
-                <div className="space-y-3">
-                  {prescription.medications.map((medication, index) => (
-                    <div key={index} className="bg-gray-50 p-3 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <h5 className="font-medium text-gray-900">{medication.name}</h5>
-                        <span className="text-sm text-gray-600">{medication.quantity}</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 mb-2">
-                        <div>
-                          <span className="font-medium">Dosage:</span> {medication.dosage}
-                        </div>
-                        <div>
-                          <span className="font-medium">Frequency:</span> {medication.frequency}
-                        </div>
-                        <div>
-                          <span className="font-medium">Duration:</span> {medication.duration}
-                        </div>
-                      </div>
-                      <p className="text-xs text-gray-700 italic">{medication.instructions}</p>
+                <h4 className="text-sm font-medium text-gray-900 mb-2">Medication</h4>
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="font-medium text-gray-900">{prescription.medication_name || 'N/A'}</h5>
+                    <span className="text-sm text-gray-600">{prescription.quantity_prescribed || 0} {prescription.dosage_form || ''}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 mb-2">
+                    <div>
+                      <span className="font-medium">Strength:</span> {prescription.strength || 'N/A'}
                     </div>
-                  ))}
+                    <div>
+                      <span className="font-medium">Frequency:</span> {prescription.frequency_display || prescription.frequency || 'N/A'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Duration:</span> {prescription.duration || 'N/A'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Form:</span> {prescription.dosage_form || 'N/A'}
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-700 italic">{prescription.dosage_instructions || 'No specific instructions'}</p>
+                  {prescription.special_instructions && (
+                    <p className="text-xs text-blue-700 mt-1">
+                      <span className="font-medium">Special:</span> {prescription.special_instructions}
+                    </p>
+                  )}
                 </div>
               </div>
 
               {/* Notes */}
-              {prescription.notes && (
+              {prescription.special_instructions && (
                 <div>
                   <h4 className="text-sm font-medium text-gray-900 mb-1">Clinical Notes</h4>
                   <p className={`text-sm ${prescription.status === 'URGENT' ? 'text-red-700 font-medium' : 'text-gray-700'}`}>
-                    {prescription.notes}
+                    {prescription.special_instructions}
                   </p>
                 </div>
               )}
 
               {/* Allergies */}
-              {prescription.allergies && (
+              {prescription.consultation?.patient_allergies && (
                 <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
                   <div className="flex items-center space-x-2">
                     <AlertTriangle className="h-4 w-4 text-yellow-600" />
                     <h4 className="text-sm font-medium text-yellow-900">Allergies</h4>
                   </div>
-                  <p className="text-sm text-yellow-800 mt-1">{prescription.allergies}</p>
+                  <p className="text-sm text-yellow-800 mt-1">{prescription.consultation?.patient_allergies}</p>
                 </div>
               )}
 
@@ -453,32 +361,32 @@ export default function Prescriptions() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-gray-600">Prescribed by</p>
-                  <p className="font-medium">{prescription.prescribedBy}</p>
+                  <p className="font-medium">{prescription.prescribed_by?.full_name || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-gray-600">Total Cost</p>
-                  <p className="font-medium">TZS {parseInt(prescription.totalCost).toLocaleString()}</p>
+                  <p className="font-medium">Qty: {prescription.quantity_prescribed || 0}</p>
                 </div>
                 <div>
                   <p className="text-gray-600">Prescription Date</p>
-                  <p className="font-medium">{new Date(prescription.prescriptionDate).toLocaleDateString()}</p>
+                  <p className="font-medium">{new Date(prescription.prescribed_at).toLocaleDateString()}</p>
                 </div>
                 <div>
                   <p className="text-gray-600">Follow-up</p>
-                  <p className="font-medium">{new Date(prescription.followUpDate).toLocaleDateString()}</p>
+                  <p className="font-medium">{prescription.consultation?.follow_up_date ? new Date(prescription.consultation.follow_up_date).toLocaleDateString() : 'Not scheduled'}</p>
                 </div>
               </div>
 
               {/* Dispensing Information */}
-              {prescription.dispensedDate && (
+              {prescription.dispensed_at && (
                 <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
                   <div className="flex items-center space-x-2 mb-1">
                     <CheckCircle className="h-4 w-4 text-green-600" />
                     <h4 className="text-sm font-medium text-green-900">Dispensed</h4>
                   </div>
                   <div className="text-sm text-green-800">
-                    <p>By: {prescription.dispensedBy}</p>
-                    <p>Date: {new Date(prescription.dispensedDate).toLocaleString()}</p>
+                    <p>By: {prescription.dispensed_by?.full_name || 'N/A'}</p>
+                    <p>Date: {new Date(prescription.dispensed_at).toLocaleString()}</p>
                   </div>
                 </div>
               )}
@@ -488,21 +396,30 @@ export default function Prescriptions() {
             <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
               <div className="flex justify-between items-center">
                 <div className="flex space-x-2">
-                  <button className="flex items-center space-x-1 px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors">
+                  <button
+                    onClick={() => handleViewPrescription(prescription)}
+                    className="flex items-center space-x-1 px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors"
+                  >
                     <Eye className="h-3 w-3" />
                     <span>View Full</span>
                   </button>
-                  <button className="flex items-center space-x-1 px-3 py-1 bg-green-50 text-green-700 text-sm font-medium rounded-md hover:bg-green-100 transition-colors">
+                  <button
+                    onClick={() => handleEditPrescription(prescription)}
+                    className="flex items-center space-x-1 px-3 py-1 bg-green-50 text-green-700 text-sm font-medium rounded-md hover:bg-green-100 transition-colors"
+                  >
                     <Edit className="h-3 w-3" />
                     <span>Edit</span>
                   </button>
-                  <button className="flex items-center space-x-1 px-3 py-1 bg-gray-50 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors">
+                  <button
+                    onClick={() => handlePrintPrescription(prescription)}
+                    className="flex items-center space-x-1 px-3 py-1 bg-gray-50 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors"
+                  >
                     <FileText className="h-3 w-3" />
                     <span>Print</span>
                   </button>
                 </div>
                 <div className="text-xs text-gray-500">
-                  {new Date(prescription.createdAt).toLocaleString()}
+                  {new Date(prescription.prescribed_at).toLocaleString()}
                 </div>
               </div>
             </div>
@@ -537,6 +454,36 @@ export default function Prescriptions() {
               </button>
               <button className="px-4 py-2 bg-green-700 text-white rounded-md hover:bg-green-800">
                 Create Prescription
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Prescription Details Modal */}
+      <PrescriptionDetailsModal
+        isOpen={viewModalOpen}
+        onClose={() => setViewModalOpen(false)}
+        prescription={selectedPrescription}
+      />
+
+      {/* Edit Modal Placeholder */}
+      {editModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit Prescription</h3>
+            <p className="text-gray-600 mb-4">
+              Prescription editing functionality would be implemented here with proper form fields.
+            </p>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setEditModalOpen(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+              <button className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                Save Changes
               </button>
             </div>
           </div>

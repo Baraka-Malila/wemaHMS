@@ -14,15 +14,65 @@ import {
   Eye,
   Edit,
   UserCheck,
-  History
+  History,
+  RefreshCw
 } from 'lucide-react';
 import RealTimeClock from '@/components/ui/RealTimeClock';
 import auth from '@/lib/auth';
+import PatientQueueModal from '@/components/PatientQueueModal';
+import DiagnosisModal from '@/components/DiagnosisModal';
+
+interface DashboardStats {
+  today_consultations: number;
+  pending_consultations: number;
+  patients_waiting: number;
+  lab_requests_pending: number;
+  prescriptions_today: number;
+  recent_consultations: any[];
+  urgent_cases: any[];
+  doctor_name: string;
+}
 
 export default function DoctorDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [dashboardData, setDashboardData] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  // Load dashboard data from API
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      const token = auth.getToken();
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/dashboard/`,
+        {
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Dashboard API response:', data);
+        setDashboardData(data);
+        setError('');
+      } else {
+        setError('Failed to load dashboard data');
+        console.error('Dashboard API Error:', response.status, response.statusText);
+      }
+    } catch (error) {
+      setError('Error loading dashboard');
+      console.error('Error loading dashboard:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     // Get current user data using auth manager
@@ -30,6 +80,18 @@ export default function DoctorDashboard() {
     if (user) {
       setCurrentUser(user);
     }
+
+    // Load dashboard data
+    loadDashboardData();
+    loadWaitingPatientsQueue();
+
+    // Auto-refresh every 30 seconds
+    const refreshInterval = setInterval(() => {
+      loadDashboardData();
+      loadWaitingPatientsQueue();
+    }, 30000);
+
+    return () => clearInterval(refreshInterval);
   }, []);
 
   // Dynamic greeting based on time
@@ -40,107 +102,160 @@ export default function DoctorDashboard() {
     return 'Good Evening';
   };
 
-  // Mock data - replace with API calls
-  const stats = [
+  // Generate stats from dashboard data
+  const stats = dashboardData ? [
     {
       title: 'Patients Today',
-      value: '12',
-      change: '+3 from yesterday',
+      value: dashboardData.today_consultations.toString(),
+      change: `${dashboardData.patients_waiting} waiting`,
       icon: Users,
       color: 'text-green-600',
       bgColor: 'bg-green-50'
     },
     {
-      title: 'Pending Diagnoses',
-      value: '5',
-      change: '2 urgent cases',
+      title: 'Pending Consultations',
+      value: dashboardData.pending_consultations.toString(),
+      change: `${dashboardData.urgent_cases.length} urgent cases`,
       icon: FileText,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50'
     },
     {
       title: 'Lab Requests',
-      value: '8',
-      change: '3 results pending',
+      value: dashboardData.lab_requests_pending.toString(),
+      change: 'Pending results',
       icon: TestTube,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50'
     },
     {
       title: 'Prescriptions',
-      value: '15',
+      value: dashboardData.prescriptions_today.toString(),
       change: 'Today\'s total',
       icon: Pill,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50'
     }
-  ];
+  ] : [];
 
-  const patientQueue = [
-    {
-      id: 'PAT001',
-      name: 'John Doe',
-      age: 35,
-      gender: 'Male',
-      status: 'WAITING',
-      priority: 'Normal',
-      checkInTime: '09:30 AM',
-      complaint: 'Chest pain and shortness of breath',
-      lastVisit: '2 months ago'
-    },
-    {
-      id: 'PAT002',
-      name: 'Mary Johnson',
-      age: 28,
-      gender: 'Female',
-      status: 'URGENT',
-      priority: 'High',
-      checkInTime: '10:15 AM',
-      complaint: 'Severe headache with nausea',
-      lastVisit: 'First visit'
-    },
-    {
-      id: 'PAT003',
-      name: 'David Smith',
-      age: 42,
-      gender: 'Male',
-      status: 'IN_PROGRESS',
-      priority: 'Normal',
-      checkInTime: '08:45 AM',
-      complaint: 'Follow-up hypertension check',
-      lastVisit: '1 week ago'
-    },
-    {
-      id: 'PAT004',
-      name: 'Sarah Wilson',
-      age: 55,
-      gender: 'Female',
-      status: 'WAITING',
-      priority: 'Normal',
-      checkInTime: '11:00 AM',
-      complaint: 'Diabetes consultation',
-      lastVisit: '3 weeks ago'
+  // Load real waiting patients queue (same as queue page)
+  const [waitingPatients, setWaitingPatients] = useState<any[]>([]);
+  const [queueLoading, setQueueLoading] = useState(false);
+
+  // Modal states
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalPatientId, setModalPatientId] = useState('');
+  const [modalMode, setModalMode] = useState<'view' | 'history'>('view');
+  const [diagnosisModalOpen, setDiagnosisModalOpen] = useState(false);
+  const [diagnosisPatientId, setDiagnosisPatientId] = useState('');
+  const [startingConsultation, setStartingConsultation] = useState<string>('');
+
+  const loadWaitingPatientsQueue = async () => {
+    try {
+      setQueueLoading(true);
+      const token = auth.getToken();
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/waiting-patients/`,
+        {
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setWaitingPatients(data.waiting_patients || []);
+      }
+    } catch (error) {
+      console.error('Error loading waiting patients:', error);
+    } finally {
+      setQueueLoading(false);
     }
-  ];
+  };
+
+  // Handler functions for dashboard actions
+  const handleStartConsultation = async (patient: any) => {
+    try {
+      setStartingConsultation(patient.patient_id);
+      const token = auth.getToken();
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/start-consultation/`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            patient_id: patient.patient_id,
+            chief_complaint: patient.consultation_info?.chief_complaint || 'General consultation',
+            priority: patient.consultation_info?.priority || 'NORMAL'
+          })
+        }
+      );
+
+      if (response.ok) {
+        // Open the diagnosis modal to record initial consultation details
+        setDiagnosisPatientId(patient.patient_id);
+        setDiagnosisModalOpen(true);
+        // Refresh the queue
+        loadWaitingPatientsQueue();
+      } else {
+        const errorData = await response.json();
+        alert(`Error: ${errorData.error || 'Failed to start consultation'}`);
+      }
+    } catch (error) {
+      console.error('Error starting consultation:', error);
+      alert('Error starting consultation. Please try again.');
+    } finally {
+      setStartingConsultation('');
+    }
+  };
+
+  const handleViewPatient = (patient: any) => {
+    setModalPatientId(patient.patient_id);
+    setModalMode('view');
+    setModalOpen(true);
+  };
+
+  const handleViewHistory = (patient: any) => {
+    setModalPatientId(patient.patient_id);
+    setModalMode('history');
+    setModalOpen(true);
+  };
+
+  // Use real waiting patients as the queue
+  const patientQueue = waitingPatients.slice(0, 5); // Show top 5 in dashboard
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'URGENT':
-        return 'bg-red-100 text-red-800';
+      case 'WAITING_DOCTOR':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'WITH_DOCTOR':
       case 'IN_PROGRESS':
         return 'bg-blue-100 text-blue-800';
-      case 'WAITING':
-        return 'bg-yellow-100 text-yellow-800';
+      case 'COMPLETED':
+        return 'bg-green-100 text-green-800';
+      case 'FOLLOW_UP_REQUIRED':
+        return 'bg-orange-100 text-orange-800';
+      case 'REFERRED':
+        return 'bg-purple-100 text-purple-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'High':
+    switch (priority?.toUpperCase()) {
+      case 'URGENT':
+      case 'EMERGENCY':
         return 'text-red-600';
-      case 'Normal':
+      case 'NORMAL':
         return 'text-green-600';
       default:
         return 'text-gray-600';
@@ -148,12 +263,47 @@ export default function DoctorDashboard() {
   };
 
   const filteredPatients = patientQueue.filter(patient => {
-    const matchesSearch = patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         patient.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         patient.complaint.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || patient.status === filterStatus;
+    const matchesSearch = (patient.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (patient.patient_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (patient.consultation_info?.chief_complaint || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filterStatus === 'all' || patient.current_status === filterStatus;
     return matchesSearch && matchesFilter;
   });
+
+  if (loading) {
+    return (
+      <div className="space-y-8">
+        <div className="bg-gray-100 rounded-xl p-6 animate-pulse">
+          <div className="h-8 bg-gray-300 rounded w-1/3 mb-4"></div>
+          <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1,2,3,4].map(i => (
+            <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 animate-pulse">
+              <div className="h-16 bg-gray-100 rounded"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-8">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="text-red-700">{error}</div>
+          <button
+            onClick={loadDashboardData}
+            className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors flex items-center space-x-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            <span>Retry</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -162,11 +312,21 @@ export default function DoctorDashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold mb-2">
-              {getGreeting()}, {currentUser?.first_name || 'Doctor'}!
+              {getGreeting()}, {dashboardData?.doctor_name || currentUser?.full_name || 'Doctor'}!
             </h1>
-            <p className="text-blue-100">You have 5 patients waiting and 3 urgent cases requiring attention.</p>
+            <p className="text-blue-100">
+              You have {dashboardData?.patients_waiting || 0} patients waiting
+              {dashboardData?.urgent_cases?.length ? ` and ${dashboardData.urgent_cases.length} urgent cases requiring attention` : ''}.
+            </p>
           </div>
-          <div className="hidden md:block">
+          <div className="hidden md:flex items-center space-x-4">
+            <button
+              onClick={loadDashboardData}
+              className="bg-white/10 hover:bg-white/20 rounded-lg p-2 transition-colors"
+              title="Refresh dashboard"
+            >
+              <RefreshCw className="h-5 w-5 text-white" />
+            </button>
             <div className="bg-white/10 rounded-lg p-4">
               <Clock className="h-8 w-8 text-white mb-2" />
               <p className="text-sm text-blue-100">Current Time</p>
@@ -207,7 +367,9 @@ export default function DoctorDashboard() {
             </div>
             <div className="flex items-center space-x-2">
               <AlertCircle className="h-5 w-5 text-red-500" />
-              <span className="text-sm text-red-600 font-medium">2 Urgent Cases</span>
+              <span className="text-sm text-red-600 font-medium">
+                {dashboardData?.urgent_cases?.length || 0} Urgent Cases
+              </span>
             </div>
           </div>
           
@@ -268,47 +430,57 @@ export default function DoctorDashboard() {
                     <div className="flex items-center">
                       <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
                         <span className="text-sm font-medium text-green-600">
-                          {patient.name.split(' ').map(n => n[0]).join('')}
+                          {(patient.full_name || 'N/A').split(' ').map(n => n[0]).join('')}
                         </span>
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{patient.name}</div>
+                        <div className="text-sm font-medium text-gray-900">{patient.full_name || 'N/A'}</div>
                         <div className="text-sm text-gray-500">
-                          {patient.id} • {patient.age}y {patient.gender}
+                          {patient.patient_id || 'N/A'} • {patient.age}y {patient.gender}
                         </div>
-                        <div className="text-xs text-gray-400">Last visit: {patient.lastVisit}</div>
+                        <div className="text-xs text-gray-400">Checked in: {new Date(patient.created_at).toLocaleTimeString()}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col space-y-1">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(patient.status)}`}>
-                        {patient.status.replace('_', ' ')}
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(patient.current_status || 'WAITING_DOCTOR')}`}>
+                        {(patient.current_status || 'WAITING_DOCTOR').replace('_', ' ')}
                       </span>
-                      <span className={`text-xs font-medium ${getPriorityColor(patient.priority)}`}>
-                        {patient.priority} Priority
+                      <span className={`text-xs font-medium ${getPriorityColor(patient.consultation_info?.priority || 'NORMAL')}`}>
+                        {patient.consultation_info?.priority || 'NORMAL'} Priority
                       </span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900 max-w-xs">
-                      {patient.complaint}
+                      {patient.consultation_info?.chief_complaint || 'General consultation'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {patient.checkInTime}
+                    {new Date(patient.created_at).toLocaleTimeString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
-                      <button className="text-green-700 hover:text-green-900 flex items-center space-x-1">
+                      <button
+                        onClick={() => handleStartConsultation(patient)}
+                        disabled={startingConsultation === patient.patient_id}
+                        className="text-green-700 hover:text-green-900 flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
                         <UserCheck className="h-4 w-4" />
-                        <span>Consult</span>
+                        <span>{startingConsultation === patient.patient_id ? 'Starting...' : 'Consult'}</span>
                       </button>
-                      <button className="text-blue-700 hover:text-blue-900 flex items-center space-x-1">
+                      <button
+                        onClick={() => handleViewPatient(patient)}
+                        className="text-blue-700 hover:text-blue-900 flex items-center space-x-1"
+                      >
                         <Eye className="h-4 w-4" />
                         <span>View</span>
                       </button>
-                      <button className="text-gray-700 hover:text-gray-900 flex items-center space-x-1">
+                      <button
+                        onClick={() => handleViewHistory(patient)}
+                        className="text-gray-700 hover:text-gray-900 flex items-center space-x-1"
+                      >
                         <History className="h-4 w-4" />
                         <span>History</span>
                       </button>
@@ -332,6 +504,25 @@ export default function DoctorDashboard() {
           </div>
         )}
       </div>
+
+      {/* Patient Details/History Modal */}
+      <PatientQueueModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        patientId={modalPatientId}
+        mode={modalMode}
+      />
+
+      {/* Diagnosis Modal */}
+      <DiagnosisModal
+        isOpen={diagnosisModalOpen}
+        onClose={() => setDiagnosisModalOpen(false)}
+        patientId={diagnosisPatientId}
+        onSave={() => {
+          setDiagnosisModalOpen(false);
+          loadWaitingPatientsQueue();
+        }}
+      />
     </div>
   );
 }

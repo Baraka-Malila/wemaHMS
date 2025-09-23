@@ -35,16 +35,12 @@ export default function DoctorLayout({
       return;
     }
 
-    try {
-      // User data already parsed by auth manager
-      if (user.role !== 'DOCTOR') {
-        router.push('/login');
-        return;
-      }
-      setUser(parsedUser);
-    } catch (error) {
+    // User data already parsed by auth manager
+    if (user.role !== 'DOCTOR') {
       router.push('/login');
+      return;
     }
+    setUser(user);
 
     // Load sidebar preference from localStorage
     const savedSidebarState = localStorage.getItem('sidebar-collapsed');

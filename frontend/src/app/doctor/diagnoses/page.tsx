@@ -1,99 +1,107 @@
 'use client';
 
-import { useState } from 'react';
-import { 
-  FileText, 
-  Search, 
-  Filter, 
-  Plus, 
-  Edit, 
-  Eye, 
+import { useState, useEffect } from 'react';
+import {
+  FileText,
+  Search,
+  Filter,
+  Plus,
+  Edit,
+  Eye,
   Calendar,
   User,
   Clock,
-  Tag
+  Tag,
+  RefreshCw
 } from 'lucide-react';
+import auth from '@/lib/auth';
+import DiagnosisModal from '@/components/DiagnosisModal';
+import ConsultationDetailsModal from '@/components/ConsultationDetailsModal';
+
+interface Consultation {
+  id: string;
+  patient_id: string;
+  patient_name: string;
+  doctor: any;
+  chief_complaint: string;
+  symptoms: string;
+  examination_findings?: string;
+  diagnosis: string;
+  treatment_plan: string;
+  priority: string;
+  status: string;
+  consultation_date: string;
+  follow_up_date?: string;
+  temperature?: number;
+  blood_pressure_systolic?: number;
+  blood_pressure_diastolic?: number;
+  heart_rate?: number;
+  doctor_notes?: string;
+}
 
 export default function Diagnoses() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showNewDiagnosis, setShowNewDiagnosis] = useState(false);
+  const [consultations, setConsultations] = useState<Consultation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Mock diagnoses data
-  const diagnoses = [
-    {
-      id: 'DIAG001',
-      patientId: 'PAT001',
-      patientName: 'John Doe',
-      age: 35,
-      gender: 'Male',
-      diagnosisDate: '2025-09-07',
-      chiefComplaint: 'Chest pain and shortness of breath',
-      primaryDiagnosis: 'Hypertensive Heart Disease',
-      secondaryDiagnosis: 'Type 2 Diabetes Mellitus',
-      icdCode: 'I11.9',
-      severity: 'Moderate',
-      status: 'Active',
-      treatmentPlan: 'ACE inhibitor therapy, lifestyle modifications, regular monitoring',
-      followUpDate: '2025-09-21',
-      notes: 'Patient shows good compliance with medication. Blood pressure well controlled.',
-      createdAt: '2025-09-07T10:30:00Z'
-    },
-    {
-      id: 'DIAG002',
-      patientId: 'PAT002',
-      patientName: 'Mary Johnson',
-      age: 28,
-      gender: 'Female',
-      diagnosisDate: '2025-09-07',
-      chiefComplaint: 'Severe headache with nausea',
-      primaryDiagnosis: 'Migraine without Aura',
-      secondaryDiagnosis: 'Tension-type Headache',
-      icdCode: 'G43.909',
-      severity: 'Severe',
-      status: 'Active',
-      treatmentPlan: 'Sumatriptan for acute episodes, preventive therapy with propranolol',
-      followUpDate: '2025-09-14',
-      notes: 'First episode. Patient education provided on trigger identification.',
-      createdAt: '2025-09-07T11:15:00Z'
-    },
-    {
-      id: 'DIAG003',
-      patientId: 'PAT003',
-      patientName: 'David Smith',
-      age: 42,
-      gender: 'Male',
-      diagnosisDate: '2025-09-06',
-      chiefComplaint: 'Follow-up hypertension',
-      primaryDiagnosis: 'Essential Hypertension',
-      secondaryDiagnosis: 'Dyslipidemia',
-      icdCode: 'I10',
-      severity: 'Mild',
-      status: 'Controlled',
-      treatmentPlan: 'Continue current antihypertensive therapy, statin therapy',
-      followUpDate: '2025-10-06',
-      notes: 'Blood pressure well controlled. Patient adherent to medications.',
-      createdAt: '2025-09-06T14:20:00Z'
-    },
-    {
-      id: 'DIAG004',
-      patientId: 'PAT004',
-      patientName: 'Sarah Wilson',
-      age: 55,
-      gender: 'Female',
-      diagnosisDate: '2025-09-05',
-      chiefComplaint: 'Diabetes routine check',
-      primaryDiagnosis: 'Type 2 Diabetes Mellitus',
-      secondaryDiagnosis: 'Diabetic Retinopathy',
-      icdCode: 'E11.9',
-      severity: 'Moderate',
-      status: 'Active',
-      treatmentPlan: 'Metformin, insulin therapy, ophthalmology referral',
-      followUpDate: '2025-09-19',
-      notes: 'HbA1c elevated at 8.2%. Medication adjustment needed.',
-      createdAt: '2025-09-05T09:45:00Z'
+  // Modal states
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editConsultationId, setEditConsultationId] = useState('');
+  const [editPatientId, setEditPatientId] = useState('');
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [viewConsultation, setViewConsultation] = useState<Consultation | null>(null);
+
+  // Load consultations from API
+  const loadConsultations = async () => {
+    try {
+      setLoading(true);
+      const token = auth.getToken();
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/consultations/`,
+        {
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setConsultations(data.consultations || []);
+        setError('');
+      } else {
+        setError('Failed to load consultations');
+      }
+    } catch (error) {
+      setError('Error loading consultations');
+      console.error('Error loading consultations:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  // Edit consultation
+  const handleEditConsultation = (consultation: Consultation) => {
+    setEditConsultationId(consultation.id);
+    setEditPatientId(consultation.patient_id);
+    setEditModalOpen(true);
+  };
+
+  // View full consultation details
+  const handleViewFull = (consultation: Consultation) => {
+    setViewConsultation(consultation);
+    setViewModalOpen(true);
+  };
+
+  useEffect(() => {
+    loadConsultations();
+  }, []);
+
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -121,14 +129,49 @@ export default function Diagnoses() {
     }
   };
 
-  const filteredDiagnoses = diagnoses.filter(diagnosis => {
-    const matchesSearch = diagnosis.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         diagnosis.patientId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         diagnosis.primaryDiagnosis.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         diagnosis.icdCode.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || diagnosis.status === filterStatus;
+  const filteredConsultations = consultations.filter(consultation => {
+    const matchesSearch = (consultation.patient_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (consultation.patient_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (consultation.diagnosis || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (consultation.chief_complaint || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === 'all' || consultation.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-gray-100 rounded-lg p-6 animate-pulse">
+          <div className="h-8 bg-gray-300 rounded w-1/3 mb-4"></div>
+          <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {[1,2,3,4].map(i => (
+            <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 animate-pulse">
+              <div className="h-32 bg-gray-100 rounded"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="text-red-700">{error}</div>
+          <button
+            onClick={loadConsultations}
+            className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors flex items-center space-x-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            <span>Retry</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -180,9 +223,9 @@ export default function Diagnoses() {
 
       {/* Diagnoses Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredDiagnoses.map((diagnosis) => (
+        {filteredConsultations.map((consultation) => (
           <div
-            key={diagnosis.id}
+            key={consultation.id}
             className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
           >
             {/* Card Header */}
@@ -191,22 +234,22 @@ export default function Diagnoses() {
                 <div className="flex items-center space-x-3">
                   <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
                     <span className="text-sm font-semibold text-green-600">
-                      {diagnosis.patientName.split(' ').map(n => n[0]).join('')}
+                      {(consultation.patient_name || 'N/A').split(' ').map(n => n[0]).join('')}
                     </span>
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{diagnosis.patientName}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">{consultation.patient_name || 'N/A'}</h3>
                     <p className="text-sm text-gray-600">
-                      {diagnosis.patientId} • {diagnosis.age}y {diagnosis.gender}
+                      {consultation.patient_id || 'N/A'}
                     </p>
                   </div>
                 </div>
                 <div className="flex flex-col items-end space-y-1">
-                  <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md ${getStatusColor(diagnosis.status)}`}>
-                    {diagnosis.status}
+                  <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md ${getStatusColor(consultation.status)}`}>
+                    {consultation.status}
                   </span>
                   <span className="text-xs text-gray-500">
-                    {new Date(diagnosis.diagnosisDate).toLocaleDateString()}
+                    {new Date(consultation.consultation_date).toLocaleDateString()}
                   </span>
                 </div>
               </div>
@@ -217,42 +260,41 @@ export default function Diagnoses() {
               {/* Chief Complaint */}
               <div>
                 <h4 className="text-sm font-medium text-gray-900 mb-1">Chief Complaint</h4>
-                <p className="text-sm text-gray-700">{diagnosis.chiefComplaint}</p>
+                <p className="text-sm text-gray-700">{consultation.chief_complaint || 'N/A'}</p>
               </div>
 
               {/* Primary Diagnosis */}
               <div>
-                <h4 className="text-sm font-medium text-gray-900 mb-2">Primary Diagnosis</h4>
+                <h4 className="text-sm font-medium text-gray-900 mb-2">Diagnosis</h4>
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-900">{diagnosis.primaryDiagnosis}</p>
+                  <p className="text-sm font-medium text-gray-900">{consultation.diagnosis || 'Not yet diagnosed'}</p>
                   <div className="flex items-center space-x-2">
-                    <span className="text-xs text-gray-500">ICD: {diagnosis.icdCode}</span>
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${getSeverityColor(diagnosis.severity)}`}>
-                      {diagnosis.severity}
+                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${getSeverityColor(consultation.priority)}`}>
+                      {consultation.priority}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Secondary Diagnosis */}
-              {diagnosis.secondaryDiagnosis && (
+              {/* Examination Findings */}
+              {consultation.examination_findings && (
                 <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-1">Secondary Diagnosis</h4>
-                  <p className="text-sm text-gray-700">{diagnosis.secondaryDiagnosis}</p>
+                  <h4 className="text-sm font-medium text-gray-900 mb-1">Examination Findings</h4>
+                  <p className="text-sm text-gray-700">{consultation.examination_findings}</p>
                 </div>
               )}
 
               {/* Treatment Plan */}
               <div>
                 <h4 className="text-sm font-medium text-gray-900 mb-1">Treatment Plan</h4>
-                <p className="text-sm text-gray-700">{diagnosis.treatmentPlan}</p>
+                <p className="text-sm text-gray-700">{consultation.treatment_plan || 'Not yet planned'}</p>
               </div>
 
               {/* Notes */}
-              {diagnosis.notes && (
+              {consultation.doctor_notes && (
                 <div>
                   <h4 className="text-sm font-medium text-gray-900 mb-1">Clinical Notes</h4>
-                  <p className="text-sm text-gray-700">{diagnosis.notes}</p>
+                  <p className="text-sm text-gray-700">{consultation.doctor_notes}</p>
                 </div>
               )}
 
@@ -262,13 +304,13 @@ export default function Diagnoses() {
                   <Calendar className="h-4 w-4 text-gray-400" />
                   <span className="text-gray-600">Follow-up:</span>
                   <span className="font-medium text-gray-900">
-                    {new Date(diagnosis.followUpDate).toLocaleDateString()}
+                    {consultation.follow_up_date ? new Date(consultation.follow_up_date).toLocaleDateString() : 'Not scheduled'}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Clock className="h-4 w-4 text-gray-400" />
                   <span className="text-gray-500 text-xs">
-                    {new Date(diagnosis.createdAt).toLocaleString()}
+                    {new Date(consultation.consultation_date).toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -278,17 +320,23 @@ export default function Diagnoses() {
             <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
               <div className="flex justify-between">
                 <div className="flex space-x-2">
-                  <button className="flex items-center space-x-1 px-3 py-1 bg-green-50 text-green-700 text-sm font-medium rounded-md hover:bg-green-100 transition-colors">
+                  <button
+                    onClick={() => handleEditConsultation(consultation)}
+                    className="flex items-center space-x-1 px-3 py-1 bg-green-50 text-green-700 text-sm font-medium rounded-md hover:bg-green-100 transition-colors"
+                  >
                     <Edit className="h-3 w-3" />
                     <span>Edit</span>
                   </button>
-                  <button className="flex items-center space-x-1 px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors">
+                  <button
+                    onClick={() => handleViewFull(consultation)}
+                    className="flex items-center space-x-1 px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors"
+                  >
                     <Eye className="h-3 w-3" />
                     <span>View Full</span>
                   </button>
                 </div>
                 <div className="text-xs text-gray-500">
-                  ID: {diagnosis.id}
+                  ID: {consultation.id}
                 </div>
               </div>
             </div>
@@ -296,7 +344,7 @@ export default function Diagnoses() {
         ))}
       </div>
 
-      {filteredDiagnoses.length === 0 && (
+      {filteredConsultations.length === 0 && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
           <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No diagnoses found</h3>
@@ -328,6 +376,25 @@ export default function Diagnoses() {
           </div>
         </div>
       )}
+
+      {/* Edit Diagnosis Modal */}
+      <DiagnosisModal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        patientId={editPatientId}
+        consultationId={editConsultationId}
+        onSave={() => {
+          setEditModalOpen(false);
+          loadConsultations();
+        }}
+      />
+
+      {/* View Consultation Details Modal */}
+      <ConsultationDetailsModal
+        isOpen={viewModalOpen}
+        onClose={() => setViewModalOpen(false)}
+        consultation={viewConsultation}
+      />
     </div>
   );
 }
