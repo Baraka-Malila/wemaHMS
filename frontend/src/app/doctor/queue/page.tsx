@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import auth from '@/lib/auth';
 import PatientQueueModal from '@/components/PatientQueueModal';
-import DiagnosisModal from '@/components/DiagnosisModal';
+import EnhancedDiagnosisModal from '@/components/EnhancedDiagnosisModal';
 
 interface Patient {
   id: string;
@@ -432,8 +432,8 @@ export default function PatientQueue() {
         mode={modalMode}
       />
 
-      {/* Diagnosis Modal */}
-      <DiagnosisModal
+      {/* Enhanced Diagnosis Modal */}
+      <EnhancedDiagnosisModal
         isOpen={diagnosisModalOpen}
         onClose={() => setDiagnosisModalOpen(false)}
         patientId={diagnosisPatientId}

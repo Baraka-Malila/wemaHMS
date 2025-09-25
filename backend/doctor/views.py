@@ -447,9 +447,16 @@ def doctor_dashboard(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_consultations(request):
-    """Get all consultations for diagnoses page."""
+    """Get consultations. Filter by patient_id if provided."""
     try:
-        consultations = Consultation.objects.all().order_by('-consultation_date')
+        consultations = Consultation.objects.all()
+
+        # Filter by patient_id if provided
+        patient_id = request.query_params.get('patient_id')
+        if patient_id:
+            consultations = consultations.filter(patient_id=patient_id.upper())
+
+        consultations = consultations.order_by('-consultation_date')
         serializer = ConsultationListSerializer(consultations, many=True)
         return Response({
             'consultations': serializer.data,
@@ -458,6 +465,50 @@ def get_consultations(request):
     except Exception as e:
         return Response(
             {'error': f'Failed to get consultations: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@swagger_auto_schema(
+    method='post',
+    operation_summary="Create consultation record",
+    operation_description="Create a new consultation record with diagnosis details.",
+    request_body=ConsultationSerializer,
+    responses={
+        201: openapi.Response(description="Consultation created successfully"),
+        400: openapi.Response(description="Invalid data")
+    },
+    tags=['Doctor Portal']
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_consultation(request):
+    """
+    Create a new consultation record.
+
+    This is typically used when a consultation needs to be created separately
+    from the start-consultation flow.
+    """
+    try:
+        data = request.data.copy()
+        data['doctor'] = request.user.id
+
+        serializer = ConsultationSerializer(data=data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        consultation = serializer.save()
+
+        return Response({
+            'message': 'Consultation created successfully',
+            'consultation': ConsultationSerializer(consultation).data,
+            'created_at': consultation.consultation_date.isoformat()
+        }, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to create consultation: {str(e)}'},
             status=status.HTTP_400_BAD_REQUEST
         )
 

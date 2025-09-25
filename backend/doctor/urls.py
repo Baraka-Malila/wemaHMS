@@ -10,6 +10,7 @@ urlpatterns = [
 
     # Consultation management
     path('consultations/', views.get_consultations, name='get_consultations'),
+    path('consultations/create/', views.create_consultation, name='create_consultation'),
     path('consultations/<str:consultation_id>/', views.update_consultation, name='update_consultation'),
 
     # Prescriptions
