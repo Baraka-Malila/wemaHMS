@@ -27,6 +27,11 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
     weight: '',
     height: '',
     tribe: '',
+    occupation: '',
+    temperature: '',
+    blood_pressure_systolic: '',
+    blood_pressure_diastolic: '',
+    pulse_rate: '',
     file_fee_paid: false,
     file_fee_amount: 2000.00
   });
@@ -83,6 +88,8 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
           phone_number: '',
           gender: 'MALE',
           date_of_birth: '',
+          patient_type: 'NORMAL',
+          nhif_card_number: '',
           emergency_contact_name: '',
           emergency_contact_phone: '',
           address: '',
@@ -92,6 +99,11 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
           weight: '',
           height: '',
           tribe: '',
+          occupation: '',
+          temperature: '',
+          blood_pressure_systolic: '',
+          blood_pressure_diastolic: '',
+          pulse_rate: '',
           file_fee_paid: false,
           file_fee_amount: 2000.00
         });
@@ -294,6 +306,23 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
                 style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
               />
             </div>
+            <div>
+              <label style={{
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '14px',
+                fontWeight: '500',
+                color: '#171A1F'
+              }}>Occupation</label>
+              <input
+                type="text"
+                name="occupation"
+                value={formData.occupation}
+                onChange={handleInputChange}
+                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
+                placeholder="e.g., Teacher, Engineer, Student"
+              />
+            </div>
           </div>
 
           {/* Physical Information */}
@@ -334,6 +363,99 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
                 className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
               />
+            </div>
+          </div>
+
+          {/* Vital Signs */}
+          <div className="mb-4">
+            <h3 style={{
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '16px',
+              fontWeight: '600',
+              color: '#171A1F',
+              marginBottom: '12px'
+            }}>Vital Signs</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label style={{
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#171A1F'
+                }}>Temperature (°C)</label>
+                <input
+                  type="number"
+                  name="temperature"
+                  value={formData.temperature || ''}
+                  onChange={handleInputChange}
+                  step="0.1"
+                  min="30"
+                  max="50"
+                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
+                  placeholder="36.5"
+                />
+              </div>
+
+              <div>
+                <label style={{
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#171A1F'
+                }}>Systolic BP (mmHg)</label>
+                <input
+                  type="number"
+                  name="blood_pressure_systolic"
+                  value={formData.blood_pressure_systolic || ''}
+                  onChange={handleInputChange}
+                  min="50"
+                  max="300"
+                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
+                  placeholder="120"
+                />
+              </div>
+
+              <div>
+                <label style={{
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#171A1F'
+                }}>Diastolic BP (mmHg)</label>
+                <input
+                  type="number"
+                  name="blood_pressure_diastolic"
+                  value={formData.blood_pressure_diastolic || ''}
+                  onChange={handleInputChange}
+                  min="30"
+                  max="200"
+                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
+                  placeholder="80"
+                />
+              </div>
+
+              <div>
+                <label style={{
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#171A1F'
+                }}>Pulse Rate (bpm)</label>
+                <input
+                  type="number"
+                  name="pulse_rate"
+                  value={formData.pulse_rate || ''}
+                  onChange={handleInputChange}
+                  min="30"
+                  max="250"
+                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
+                  placeholder="72"
+                />
+              </div>
             </div>
           </div>
 

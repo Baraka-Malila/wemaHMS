@@ -152,6 +152,7 @@ class Patient(models.Model):
     )
     address = models.TextField(blank=True, null=True)
     tribe = models.CharField(max_length=50, blank=True, null=True)
+    occupation = models.CharField(max_length=100, blank=True, null=True, help_text='Patient occupation/job')
     
     # Optional medical details
     weight = models.DecimalField(
@@ -185,6 +186,34 @@ class Patient(models.Model):
         blank=True,
         null=True,
         help_text='Diabetes, hypertension, etc.'
+    )
+
+    # Vital signs (recorded at registration/check-in)
+    temperature = models.DecimalField(
+        max_digits=4,
+        decimal_places=1,
+        validators=[MinValueValidator(30.0), MaxValueValidator(50.0)],
+        blank=True,
+        null=True,
+        help_text='Body temperature in Celsius'
+    )
+    blood_pressure_systolic = models.IntegerField(
+        validators=[MinValueValidator(50), MaxValueValidator(300)],
+        blank=True,
+        null=True,
+        help_text='Systolic blood pressure (mmHg)'
+    )
+    blood_pressure_diastolic = models.IntegerField(
+        validators=[MinValueValidator(30), MaxValueValidator(200)],
+        blank=True,
+        null=True,
+        help_text='Diastolic blood pressure (mmHg)'
+    )
+    pulse_rate = models.IntegerField(
+        validators=[MinValueValidator(30), MaxValueValidator(250)],
+        blank=True,
+        null=True,
+        help_text='Pulse rate (beats per minute)'
     )
     
     # Administrative fields
@@ -273,6 +302,13 @@ class Patient(models.Model):
     def is_nhif_patient(self):
         """Check if this is an NHIF insured patient"""
         return self.patient_type == 'NHIF' and bool(self.nhif_card_number)
+
+    @property
+    def blood_pressure(self):
+        """Get formatted blood pressure (e.g., '120/80')"""
+        if self.blood_pressure_systolic and self.blood_pressure_diastolic:
+            return f"{self.blood_pressure_systolic}/{self.blood_pressure_diastolic}"
+        return None
     
     def save(self, *args, **kwargs):
         # Auto-generate patient_id if not provided

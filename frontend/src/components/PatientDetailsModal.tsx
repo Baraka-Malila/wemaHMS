@@ -36,6 +36,12 @@ interface PatientDetails {
   patient_type?: string;
   nhif_card_number?: string;
   tribe?: string;
+  occupation?: string;
+  temperature?: number;
+  blood_pressure_systolic?: number;
+  blood_pressure_diastolic?: number;
+  pulse_rate?: number;
+  blood_pressure?: string;
   created_at: string;
   updated_at: string;
 }
@@ -274,6 +280,17 @@ export default function PatientDetailsModal({ isOpen, onClose, patientId, onEdit
                       </p>
                     </div>
                   )}
+
+                  {patient.occupation && (
+                    <div>
+                      <label style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: '500', color: '#9CA3AF' }}>
+                        Occupation
+                      </label>
+                      <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', color: '#171A1F', marginTop: '4px' }}>
+                        {patient.occupation}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -318,6 +335,54 @@ export default function PatientDetailsModal({ isOpen, onClose, patientId, onEdit
                         </label>
                         <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', color: '#171A1F', marginTop: '4px' }}>
                           {patient.bmi}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Vital Signs */}
+              {(patient.temperature || patient.blood_pressure_systolic || patient.blood_pressure_diastolic || patient.pulse_rate) && (
+                <div>
+                  <h3 style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    color: '#171A1F',
+                    marginBottom: '16px'
+                  }}>Vital Signs</h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {patient.temperature && (
+                      <div>
+                        <label style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: '500', color: '#9CA3AF' }}>
+                          Temperature
+                        </label>
+                        <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', color: '#171A1F', marginTop: '4px' }}>
+                          {patient.temperature}°C
+                        </p>
+                      </div>
+                    )}
+
+                    {(patient.blood_pressure_systolic && patient.blood_pressure_diastolic) && (
+                      <div>
+                        <label style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: '500', color: '#9CA3AF' }}>
+                          Blood Pressure
+                        </label>
+                        <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', color: '#171A1F', marginTop: '4px' }}>
+                          {patient.blood_pressure_systolic}/{patient.blood_pressure_diastolic} mmHg
+                        </p>
+                      </div>
+                    )}
+
+                    {patient.pulse_rate && (
+                      <div>
+                        <label style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: '500', color: '#9CA3AF' }}>
+                          Pulse Rate
+                        </label>
+                        <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', color: '#171A1F', marginTop: '4px' }}>
+                          {patient.pulse_rate} bpm
                         </p>
                       </div>
                     )}

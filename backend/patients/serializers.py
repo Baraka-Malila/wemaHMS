@@ -21,8 +21,9 @@ class PatientSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'patient_id', 'full_name', 'phone_number', 'gender', 'date_of_birth',
             'patient_type', 'nhif_card_number',
-            'emergency_contact_name', 'emergency_contact_phone', 'address', 'tribe',
+            'emergency_contact_name', 'emergency_contact_phone', 'address', 'tribe', 'occupation',
             'weight', 'height', 'blood_group', 'allergies', 'chronic_conditions',
+            'temperature', 'blood_pressure_systolic', 'blood_pressure_diastolic', 'pulse_rate',
             'file_fee_paid', 'file_fee_amount', 'file_fee_payment_date',
             'current_status', 'current_location',
             'created_at', 'updated_at', 'created_by_name', 'last_updated_by_name',
@@ -127,8 +128,9 @@ class PatientDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'patient_id', 'full_name', 'phone_number', 'gender', 'date_of_birth',
             'patient_type', 'nhif_card_number',
-            'emergency_contact_name', 'emergency_contact_phone', 'address', 'tribe',
+            'emergency_contact_name', 'emergency_contact_phone', 'address', 'tribe', 'occupation',
             'weight', 'height', 'blood_group', 'allergies', 'chronic_conditions',
+            'temperature', 'blood_pressure_systolic', 'blood_pressure_diastolic', 'pulse_rate',
             'file_fee_paid', 'file_fee_amount', 'file_fee_payment_date',
             'current_status', 'current_location',
             'created_at', 'updated_at', 'created_by_name', 'created_by_role',
@@ -201,8 +203,9 @@ class PatientCreateSerializer(serializers.ModelSerializer):
         fields = [
             'full_name', 'phone_number', 'gender', 'date_of_birth',
             'patient_type', 'nhif_card_number',
-            'emergency_contact_name', 'emergency_contact_phone', 'address', 'tribe',
-            'weight', 'height', 'blood_group', 'allergies', 'chronic_conditions'
+            'emergency_contact_name', 'emergency_contact_phone', 'address', 'tribe', 'occupation',
+            'weight', 'height', 'blood_group', 'allergies', 'chronic_conditions',
+            'temperature', 'blood_pressure_systolic', 'blood_pressure_diastolic', 'pulse_rate'
         ]
     
     def validate_date_of_birth(self, value):
