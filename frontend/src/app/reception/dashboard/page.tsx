@@ -717,7 +717,8 @@ export default function ReceptionDashboard() {
                             padding: '2px 6px',
                             borderRadius: '4px',
                             display: 'inline-block',
-                            marginBottom: '2px'
+                            marginBottom: '2px',
+                            textAlign: 'center'
                           }}>
                             NHIF
                           </span>
@@ -739,7 +740,8 @@ export default function ReceptionDashboard() {
                           backgroundColor: '#10B981',
                           color: 'white',
                           padding: '2px 6px',
-                          borderRadius: '4px'
+                          borderRadius: '4px',
+                          textAlign: 'center'
                         }}>
                           NORMAL
                         </span>
@@ -753,8 +755,17 @@ export default function ReceptionDashboard() {
                       fontSize: '14px',
                       lineHeight: '20px',
                       fontWeight: '400',
-                      color: '#565D6D'
-                    }}>{patient.current_location || 'N/A'}</td>
+                      color: '#565D6D',
+                      maxWidth: '150px'
+                    }}>
+                      <div style={{
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }} title={patient.current_location || 'N/A'}>
+                        {patient.current_location || 'N/A'}
+                      </div>
+                    </td>
                     <td className="p-4">
                       <div className="flex justify-end gap-2">
                         
