@@ -16,7 +16,7 @@ import {
   User
 } from 'lucide-react';
 import auth from '@/lib/auth';
-import PatientQueueModal from '@/components/PatientQueueModal';
+import PatientDetailsModal from '@/components/PatientDetailsModal';
 import EnhancedDiagnosisModal from '@/components/EnhancedDiagnosisModal';
 
 interface Patient {
@@ -47,7 +47,6 @@ export default function PatientQueue() {
   const [startingConsultation, setStartingConsultation] = useState<string>('');
   const [modalOpen, setModalOpen] = useState(false);
   const [modalPatientId, setModalPatientId] = useState('');
-  const [modalMode, setModalMode] = useState<'view' | 'history'>('view');
   const [diagnosisModalOpen, setDiagnosisModalOpen] = useState(false);
   const [diagnosisPatientId, setDiagnosisPatientId] = useState('');
 
@@ -111,8 +110,7 @@ export default function PatientQueue() {
         // Open the diagnosis modal to record initial consultation details
         setDiagnosisPatientId(patient.patient_id);
         setDiagnosisModalOpen(true);
-        // Refresh the queue to remove the patient
-        loadWaitingPatients(filterPriority !== 'all' ? filterPriority : undefined);
+        // DON'T refresh queue here - only refresh when consultation is completed/saved
       } else {
         const errorData = await response.json();
         alert(`Error: ${errorData.error || 'Failed to start consultation'}`);
@@ -125,17 +123,9 @@ export default function PatientQueue() {
     }
   };
 
-  // View patient details
+  // View patient details (comprehensive view with all info)
   const handleViewPatient = (patient: Patient) => {
     setModalPatientId(patient.patient_id);
-    setModalMode('view');
-    setModalOpen(true);
-  };
-
-  // View patient medical history
-  const handleViewHistory = (patient: Patient) => {
-    setModalPatientId(patient.patient_id);
-    setModalMode('history');
     setModalOpen(true);
   };
 
@@ -411,11 +401,11 @@ export default function PatientQueue() {
                     <span>View</span>
                   </button>
                   <button
-                    onClick={() => handleViewHistory(patient)}
+                    onClick={() => handleViewPatient(patient)}
                     className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-50 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors"
                   >
                     <FileText className="h-4 w-4" />
-                    <span>History</span>
+                    <span>Details</span>
                   </button>
                 </div>
               </div>
@@ -424,12 +414,11 @@ export default function PatientQueue() {
         })}
       </div>
 
-      {/* Patient Details/History Modal */}
-      <PatientQueueModal
+      {/* Patient Details Modal */}
+      <PatientDetailsModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         patientId={modalPatientId}
-        mode={modalMode}
       />
 
       {/* Enhanced Diagnosis Modal */}

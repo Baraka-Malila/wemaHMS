@@ -7,11 +7,13 @@ User = get_user_model()
 
 class ConsultationSerializer(serializers.ModelSerializer):
     """Serializer for creating and updating consultations"""
-    
+
     doctor_name = serializers.CharField(source='doctor.full_name', read_only=True)
     duration_minutes = serializers.ReadOnlyField()
     blood_pressure = serializers.ReadOnlyField()
-    
+    can_proceed_to_completion = serializers.ReadOnlyField()
+    payment_status = serializers.ReadOnlyField()
+
     class Meta:
         model = Consultation
         fields = [
@@ -20,11 +22,21 @@ class ConsultationSerializer(serializers.ModelSerializer):
             'treatment_plan', 'follow_up_date', 'priority', 'status',
             'temperature', 'blood_pressure_systolic', 'blood_pressure_diastolic',
             'heart_rate', 'blood_pressure', 'doctor_notes',
+
+            # New clinical notes fields
+            'clinical_notes', 'possible_diagnosis', 'medication_plan',
+
+            # Payment fields
+            'consultation_fee_required', 'consultation_fee_amount',
+            'consultation_fee_paid', 'consultation_fee_payment_date',
+            'can_proceed_to_completion', 'payment_status',
+
             'consultation_date', 'updated_at', 'completed_at', 'duration_minutes'
         ]
         read_only_fields = [
             'id', 'consultation_date', 'updated_at', 'completed_at',
-            'duration_minutes', 'blood_pressure', 'doctor_name'
+            'consultation_fee_payment_date', 'duration_minutes', 'blood_pressure',
+            'doctor_name', 'can_proceed_to_completion', 'payment_status'
         ]
     
     def validate_follow_up_date(self, value):
@@ -52,36 +64,94 @@ class ConsultationListSerializer(serializers.ModelSerializer):
 
 
 class LabTestRequestSerializer(serializers.ModelSerializer):
-    """Serializer for lab test requests"""
-    
+    """Comprehensive serializer for lab test requests matching hospital form"""
+
     requested_by_name = serializers.CharField(source='requested_by.full_name', read_only=True)
     processed_by_name = serializers.CharField(source='processed_by.full_name', read_only=True)
-    patient_id = serializers.CharField(source='consultation.patient_id', read_only=True)
-    patient_name = serializers.CharField(source='consultation.patient_name', read_only=True)
-    
+    can_proceed_to_testing = serializers.ReadOnlyField()
+    requested_tests_count = serializers.ReadOnlyField()
+    payment_status = serializers.ReadOnlyField()
+
     class Meta:
         model = LabTestRequest
         fields = [
-            'id', 'consultation', 'patient_id', 'patient_name',
-            'test_type', 'test_description', 'urgency', 'status',
-            'clinical_notes', 'requested_at', 'updated_at', 'completed_at',
-            'requested_by_name', 'processed_by_name'
+            'id', 'consultation', 'patient_id', 'patient_name', 'patient_age',
+            'patient_sex', 'patient_address', 'patient_phone', 'short_clinical_notes',
+
+            # PARASITOLOGY TESTS
+            'mrdt_requested', 'mrdt_result', 'bs_requested', 'bs_result',
+            'stool_analysis_requested', 'stool_macro_result', 'stool_micro_result',
+            'urine_sed_requested', 'urine_sed_macro_result', 'urine_sed_micro_result',
+            'urinalysis_requested', 'urinalysis_urobilinogen', 'urinalysis_glucose',
+            'urinalysis_bilirubin', 'urinalysis_ketones', 'urinalysis_sg',
+            'urinalysis_blood', 'urinalysis_ph', 'urinalysis_protein',
+            'urinalysis_nitrite', 'urinalysis_leucocytes',
+
+            # MICROBIOLOGY TESTS
+            'rpr_requested', 'rpr_result', 'h_pylori_requested', 'h_pylori_result',
+            'hepatitis_b_requested', 'hepatitis_b_result', 'hepatitis_c_requested',
+            'hepatitis_c_result', 'ssat_requested', 'ssat_result',
+            'upt_requested', 'upt_result',
+
+            # CLINICAL CHEMISTRY & HEMATOLOGY
+            'esr_requested', 'esr_result', 'blood_grouping_requested', 'blood_grouping_result',
+            'hb_requested', 'hb_result', 'rheumatoid_factor_requested', 'rheumatoid_factor_result',
+            'rbg_requested', 'rbg_result', 'fbg_requested', 'fbg_result',
+            'sickling_test_requested', 'sickling_test_result',
+
+            # Status and tracking
+            'status', 'lab_fee_required', 'lab_fee_amount', 'lab_fee_paid',
+            'lab_fee_payment_date', 'reported_by', 'signature',
+            'requested_at', 'updated_at', 'investigation_date', 'completed_at',
+
+            # Read-only properties
+            'requested_by_name', 'processed_by_name', 'can_proceed_to_testing',
+            'requested_tests_count', 'payment_status'
         ]
         read_only_fields = [
-            'id', 'requested_at', 'updated_at', 'completed_at',
-            'patient_id', 'patient_name', 'requested_by_name', 'processed_by_name'
+            'id', 'requested_at', 'updated_at', 'completed_at', 'lab_fee_payment_date',
+            'requested_by_name', 'processed_by_name', 'can_proceed_to_testing',
+            'requested_tests_count', 'payment_status'
         ]
 
 
 class LabTestRequestCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating lab test requests"""
-    
+    """Serializer for creating comprehensive lab test requests"""
+
     class Meta:
         model = LabTestRequest
         fields = [
-            'consultation', 'test_type', 'test_description', 
-            'urgency', 'clinical_notes'
+            'consultation_id', 'patient_id', 'patient_name', 'patient_age',
+            'patient_sex', 'patient_address', 'patient_phone', 'short_clinical_notes',
+
+            # All test request fields
+            'mrdt_requested', 'bs_requested', 'stool_analysis_requested',
+            'urine_sed_requested', 'urinalysis_requested', 'rpr_requested',
+            'h_pylori_requested', 'hepatitis_b_requested', 'hepatitis_c_requested',
+            'ssat_requested', 'upt_requested', 'esr_requested',
+            'blood_grouping_requested', 'hb_requested', 'rheumatoid_factor_requested',
+            'rbg_requested', 'fbg_requested', 'sickling_test_requested',
+
+            # Payment info
+            'lab_fee_required', 'lab_fee_amount', 'status'
         ]
+
+    def validate(self, data):
+        """Ensure at least one test is requested"""
+        test_fields = [
+            'mrdt_requested', 'bs_requested', 'stool_analysis_requested',
+            'urine_sed_requested', 'urinalysis_requested', 'rpr_requested',
+            'h_pylori_requested', 'hepatitis_b_requested', 'hepatitis_c_requested',
+            'ssat_requested', 'upt_requested', 'esr_requested',
+            'blood_grouping_requested', 'hb_requested', 'rheumatoid_factor_requested',
+            'rbg_requested', 'fbg_requested', 'sickling_test_requested'
+        ]
+
+        requested_tests = sum(1 for field in test_fields if data.get(field, False))
+        if requested_tests == 0:
+            raise serializers.ValidationError("At least one test must be requested.")
+
+        return data
 
 
 class PrescriptionSerializer(serializers.ModelSerializer):

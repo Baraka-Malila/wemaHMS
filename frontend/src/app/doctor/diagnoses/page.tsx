@@ -15,7 +15,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import auth from '@/lib/auth';
-import DiagnosisModal from '@/components/DiagnosisModal';
+import EnhancedDiagnosisModal from '@/components/EnhancedDiagnosisModal';
 import ConsultationDetailsModal from '@/components/ConsultationDetailsModal';
 
 interface Consultation {
@@ -378,7 +378,7 @@ export default function Diagnoses() {
       )}
 
       {/* Edit Diagnosis Modal */}
-      <DiagnosisModal
+      <EnhancedDiagnosisModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
         patientId={editPatientId}

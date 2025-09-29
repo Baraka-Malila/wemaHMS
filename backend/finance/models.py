@@ -564,3 +564,127 @@ class RevenueRecord(models.Model):
 # PatientBill, BillLineItem, and DailyBalance models exist in the database
 # with the original structure from the first migrations.
 # ==============================================================================
+
+
+class ServicePayment(models.Model):
+    """
+    Unified payment tracking for all hospital services.
+    Links to specific service records (consultations, lab requests, etc.)
+    """
+
+    SERVICE_TYPES = [
+        ('FILE_FEE', 'Patient File Fee'),
+        ('CONSULTATION', 'Doctor Consultation'),
+        ('LAB_TEST', 'Laboratory Test'),
+        ('MEDICATION', 'Medication/Pharmacy'),
+        ('NURSING', 'Nursing Service'),
+        ('WARD', 'Ward/Admission'),
+        ('PROCEDURE', 'Medical Procedure'),
+        ('OTHER', 'Other Service'),
+    ]
+
+    PAYMENT_METHODS = [
+        ('CASH', 'Cash'),
+        ('MOBILE_MONEY', 'Mobile Money'),
+        ('BANK_TRANSFER', 'Bank Transfer'),
+        ('INSURANCE', 'Insurance'),
+        ('CREDIT', 'Credit/Deferred'),
+    ]
+
+    STATUS_CHOICES = [
+        ('PENDING', 'Payment Pending'),
+        ('PAID', 'Payment Completed'),
+        ('REFUNDED', 'Payment Refunded'),
+        ('WAIVED', 'Payment Waived'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # Patient and service info
+    patient_id = models.CharField(max_length=20, help_text='Patient ID (PAT123)')
+    patient_name = models.CharField(max_length=100, help_text='Patient name for quick reference')
+
+    # Service details
+    service_type = models.CharField(max_length=20, choices=SERVICE_TYPES)
+    service_name = models.CharField(max_length=200, help_text='Name of the service provided')
+    reference_id = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text='Reference to consultation_id, lab_request_id, etc.'
+    )
+
+    # Payment details
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text='Payment amount in TZS'
+    )
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PAYMENT_METHODS,
+        default='CASH'
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='PENDING'
+    )
+
+    # Processing info
+    payment_date = models.DateTimeField(blank=True, null=True)
+    processed_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name='payments_processed',
+        null=True,
+        blank=True,
+        help_text='Staff who processed the payment'
+    )
+
+    # Additional details
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text='Payment notes or special instructions'
+    )
+    receipt_number = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text='Receipt or transaction number'
+    )
+
+    # Tracking
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'service_payments'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['patient_id']),
+            models.Index(fields=['service_type', 'status']),
+            models.Index(fields=['status', '-created_at']),
+            models.Index(fields=['payment_date']),
+        ]
+
+    def __str__(self):
+        return f"{self.service_name} - {self.patient_name} ({self.amount} TZS) - {self.status}"
+
+    def save(self, *args, **kwargs):
+        # Set payment date when status changes to PAID
+        if self.status == 'PAID' and not self.payment_date:
+            self.payment_date = timezone.now()
+
+        super().save(*args, **kwargs)
+
+    @property
+    def is_paid(self):
+        """Check if payment is completed"""
+        return self.status == 'PAID'
+
+    @property
+    def amount_formatted(self):
+        """Format amount with currency"""
+        return f"{self.amount:,.2f} TZS"

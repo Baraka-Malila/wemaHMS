@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import ServicePricing, ExpenseCategory, ExpenseRecord, StaffSalary
+from .models import ServicePricing, ExpenseCategory, ExpenseRecord, StaffSalary, ServicePayment
 
 
 class ServicePricingSerializer(serializers.ModelSerializer):
@@ -118,3 +118,28 @@ class PaymentStatusBreakdownSerializer(serializers.Serializer):
     payment_status = serializers.CharField()
     count = serializers.IntegerField()
     total_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+
+class ServicePaymentSerializer(serializers.ModelSerializer):
+    """Comprehensive serializer for service payments"""
+    processed_by_name = serializers.CharField(source='processed_by.full_name', read_only=True)
+    service_type_display = serializers.CharField(source='get_service_type_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = ServicePayment
+        fields = [
+            'id', 'patient_id', 'patient_name', 'service_type', 'service_type_display',
+            'service_name', 'reference_id', 'amount', 'payment_method', 'status',
+            'status_display', 'payment_date', 'processed_by', 'processed_by_name',
+            'notes', 'receipt_number', 'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'receipt_number', 'processed_by', 'processed_by_name',
+            'service_type_display', 'status_display', 'created_at', 'updated_at'
+        ]
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Payment amount must be greater than zero.")
+        return value

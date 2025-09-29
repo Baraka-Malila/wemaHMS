@@ -333,29 +333,51 @@ def create_prescription(request):
 @permission_classes([IsAuthenticated])
 def request_lab_test(request):
     """
-    Request lab test for a patient.
-    
+    Request comprehensive lab tests for a patient.
+
+    Creates lab test request matching hospital form with all test categories.
     Test request will be available to lab technicians for processing.
     """
     try:
-        serializer = LabTestRequestCreateSerializer(data=request.data)
+        # Add the requesting doctor to the data
+        data = request.data.copy()
+        data['requested_by'] = request.user.id
+
+        serializer = LabTestRequestCreateSerializer(data=data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
         lab_request = serializer.save(requested_by=request.user)
-        
+
+        # Count requested tests
+        test_fields = [
+            'mrdt_requested', 'bs_requested', 'stool_analysis_requested',
+            'urine_sed_requested', 'urinalysis_requested', 'rpr_requested',
+            'h_pylori_requested', 'hepatitis_b_requested', 'hepatitis_c_requested',
+            'ssat_requested', 'upt_requested', 'esr_requested',
+            'blood_grouping_requested', 'hb_requested', 'rheumatoid_factor_requested',
+            'rbg_requested', 'fbg_requested', 'sickling_test_requested'
+        ]
+
+        requested_tests = [field.replace('_requested', '').upper().replace('_', ' ')
+                          for field in test_fields if getattr(lab_request, field, False)]
+
         return Response({
-            'message': 'Lab test requested successfully',
+            'message': 'Lab tests requested successfully',
             'request_id': str(lab_request.id),
-            'test_type': lab_request.test_type,
-            'patient_id': lab_request.consultation.patient_id,
-            'urgency': lab_request.urgency,
+            'patient_id': lab_request.patient_id,
+            'patient_name': lab_request.patient_name,
+            'requested_tests': requested_tests,
+            'tests_count': len(requested_tests),
+            'lab_fee_required': lab_request.lab_fee_required,
+            'lab_fee_amount': float(lab_request.lab_fee_amount) if lab_request.lab_fee_amount else 0,
+            'status': lab_request.status,
             'requested_at': lab_request.requested_at.isoformat()
         }, status=status.HTTP_201_CREATED)
-        
+
     except Exception as e:
         return Response(
-            {'error': f'Failed to request lab test: {str(e)}'},
+            {'error': f'Failed to request lab tests: {str(e)}'},
             status=status.HTTP_400_BAD_REQUEST
         )
 
@@ -397,7 +419,7 @@ def doctor_dashboard(request):
         
         # Pending lab requests
         lab_requests_pending = LabTestRequest.objects.filter(
-            status='REQUESTED'
+            status='PENDING'
         ).count()
         
         # Today's prescriptions
@@ -541,17 +563,44 @@ def get_prescriptions(request):
 @swagger_auto_schema(
     method='get',
     operation_summary="Get lab requests",
-    operation_description="Get all lab test requests.",
+    operation_description="Get comprehensive lab test requests. Filter by patient_id or consultation_id if provided.",
+    manual_parameters=[
+        openapi.Parameter(
+            'patient_id', openapi.IN_QUERY,
+            description="Filter by patient ID",
+            type=openapi.TYPE_STRING,
+            required=False
+        ),
+        openapi.Parameter(
+            'consultation_id', openapi.IN_QUERY,
+            description="Filter by consultation ID",
+            type=openapi.TYPE_STRING,
+            required=False
+        )
+    ],
     responses={200: openapi.Response(description="List of lab requests")},
     tags=['Doctor Portal']
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_lab_requests(request):
-    """Get all lab test requests."""
+    """Get comprehensive lab test requests with filtering options."""
     try:
-        lab_requests = LabTestRequest.objects.all().order_by('-requested_at')
+        lab_requests = LabTestRequest.objects.all()
+
+        # Filter by patient_id if provided
+        patient_id = request.query_params.get('patient_id')
+        if patient_id:
+            lab_requests = lab_requests.filter(patient_id=patient_id.upper())
+
+        # Filter by consultation_id if provided
+        consultation_id = request.query_params.get('consultation_id')
+        if consultation_id:
+            lab_requests = lab_requests.filter(consultation_id=consultation_id)
+
+        lab_requests = lab_requests.order_by('-requested_at')
         serializer = LabTestRequestSerializer(lab_requests, many=True)
+
         return Response({
             'lab_requests': serializer.data,
             'count': len(serializer.data)
@@ -559,5 +608,129 @@ def get_lab_requests(request):
     except Exception as e:
         return Response(
             {'error': f'Failed to get lab requests: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_summary="Get consultation details",
+    operation_description="Get detailed consultation information including clinical notes and payment status.",
+    responses={
+        200: openapi.Response(description="Consultation details", schema=ConsultationSerializer),
+        404: openapi.Response(description="Consultation not found")
+    },
+    tags=['Doctor Portal']
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_consultation_detail(request, consultation_id):
+    """Get detailed consultation information."""
+    try:
+        consultation = get_object_or_404(Consultation, id=consultation_id)
+        serializer = ConsultationSerializer(consultation)
+
+        return Response({
+            'consultation': serializer.data,
+            'patient_id': consultation.patient_id,
+            'doctor_name': consultation.doctor.full_name
+        })
+
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to get consultation details: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@swagger_auto_schema(
+    method='post',
+    operation_summary="Complete consultation",
+    operation_description="Mark consultation as completed and update patient status.",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'consultation_id': openapi.Schema(type=openapi.TYPE_STRING, description="Consultation ID"),
+        },
+        required=['consultation_id']
+    ),
+    responses={
+        200: openapi.Response(description="Consultation completed successfully"),
+        400: openapi.Response(description="Invalid data"),
+        404: openapi.Response(description="Consultation not found")
+    },
+    tags=['Doctor Portal']
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def complete_consultation(request):
+    """Mark consultation as completed and update patient status."""
+    try:
+        consultation_id = request.data.get('consultation_id')
+        if not consultation_id:
+            return Response(
+                {'error': 'Consultation ID is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        consultation = get_object_or_404(Consultation, id=consultation_id)
+
+        # Check if the current user is the doctor for this consultation
+        if consultation.doctor != request.user:
+            return Response(
+                {'error': 'You can only complete your own consultations'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Check if consultation fee is paid (if required)
+        if consultation.consultation_fee_required and not consultation.consultation_fee_paid:
+            return Response(
+                {'error': 'Consultation fee must be paid before completing consultation'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Mark consultation as completed
+        consultation.status = 'COMPLETED'
+        consultation.completed_at = timezone.now()
+        consultation.save()
+
+        # Update patient status
+        try:
+            from patients.models import Patient, PatientStatusHistory
+            patient = Patient.objects.get(patient_id=consultation.patient_id)
+
+            previous_status = patient.current_status
+            previous_location = patient.current_location
+
+            patient.current_status = 'COMPLETED'
+            patient.current_location = 'Consultation Completed'
+            patient.last_updated_by = request.user
+            patient.save()
+
+            # Create status history
+            PatientStatusHistory.objects.create(
+                patient=patient,
+                previous_status=previous_status,
+                new_status='COMPLETED',
+                previous_location=previous_location,
+                new_location=patient.current_location,
+                changed_by=request.user,
+                notes=f"Consultation completed by Dr. {request.user.full_name}"
+            )
+        except Exception as patient_error:
+            # Log the error but don't fail the consultation completion
+            print(f"Error updating patient status: {patient_error}")
+
+        return Response({
+            'message': 'Consultation completed successfully',
+            'consultation_id': str(consultation.id),
+            'patient_id': consultation.patient_id,
+            'completed_at': consultation.completed_at.isoformat(),
+            'patient_status_updated': 'COMPLETED'
+        })
+
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to complete consultation: {str(e)}'},
             status=status.HTTP_400_BAD_REQUEST
         )

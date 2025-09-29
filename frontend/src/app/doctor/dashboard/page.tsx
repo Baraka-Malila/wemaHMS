@@ -19,8 +19,8 @@ import {
 } from 'lucide-react';
 import RealTimeClock from '@/components/ui/RealTimeClock';
 import auth from '@/lib/auth';
-import PatientQueueModal from '@/components/PatientQueueModal';
-import DiagnosisModal from '@/components/DiagnosisModal';
+import PatientDetailsModal from '@/components/PatientDetailsModal';
+import EnhancedDiagnosisModal from '@/components/EnhancedDiagnosisModal';
 
 interface DashboardStats {
   today_consultations: number;
@@ -145,7 +145,6 @@ export default function DoctorDashboard() {
   // Modal states
   const [modalOpen, setModalOpen] = useState(false);
   const [modalPatientId, setModalPatientId] = useState('');
-  const [modalMode, setModalMode] = useState<'view' | 'history'>('view');
   const [diagnosisModalOpen, setDiagnosisModalOpen] = useState(false);
   const [diagnosisPatientId, setDiagnosisPatientId] = useState('');
   const [startingConsultation, setStartingConsultation] = useState<string>('');
@@ -505,16 +504,15 @@ export default function DoctorDashboard() {
         )}
       </div>
 
-      {/* Patient Details/History Modal */}
-      <PatientQueueModal
+      {/* Patient Details Modal */}
+      <PatientDetailsModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         patientId={modalPatientId}
-        mode={modalMode}
       />
 
-      {/* Diagnosis Modal */}
-      <DiagnosisModal
+      {/* Enhanced Diagnosis Modal */}
+      <EnhancedDiagnosisModal
         isOpen={diagnosisModalOpen}
         onClose={() => setDiagnosisModalOpen(false)}
         patientId={diagnosisPatientId}

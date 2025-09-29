@@ -10,12 +10,12 @@ from django_filters import rest_framework as django_filters
 import django_filters
 
 from core.permissions import IsAdminUser, IsStaffMember
-from .models import ServicePricing, ExpenseCategory, ExpenseRecord, StaffSalary
+from .models import ServicePricing, ExpenseCategory, ExpenseRecord, StaffSalary, ServicePayment
 from .serializers import (
     ServicePricingSerializer, ExpenseCategorySerializer,
     ExpenseRecordSerializer, StaffSalarySerializer,
     ExpenseSummarySerializer, PayrollSummarySerializer,
-    PaymentStatusBreakdownSerializer
+    PaymentStatusBreakdownSerializer, ServicePaymentSerializer
 )
 
 
@@ -355,3 +355,263 @@ class StaffSalaryViewSet(viewsets.ModelViewSet):
         
         serializer = PaymentStatusBreakdownSerializer(breakdown_data, many=True)
         return Response(serializer.data)
+
+
+# Service Payment Views
+
+class ServicePaymentFilter(django_filters.FilterSet):
+    payment_date_from = django_filters.DateFilter(field_name='payment_date', lookup_expr='gte')
+    payment_date_to = django_filters.DateFilter(field_name='payment_date', lookup_expr='lte')
+    amount_min = django_filters.NumberFilter(field_name='amount', lookup_expr='gte')
+    amount_max = django_filters.NumberFilter(field_name='amount', lookup_expr='lte')
+
+    class Meta:
+        model = ServicePayment
+        fields = ['patient_id', 'service_type', 'status', 'payment_method', 'processed_by']
+
+
+class ServicePaymentViewSet(viewsets.ModelViewSet):
+    """
+    SERVICE PAYMENTS
+
+    Service Payment Management - Process payments for consultation, lab tests, and other services.
+    Integrated with hospital workflow for payment gates.
+    """
+    queryset = ServicePayment.objects.select_related('processed_by')
+    serializer_class = ServicePaymentSerializer
+    permission_classes = [IsAuthenticated, IsStaffMember]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = ServicePaymentFilter
+    search_fields = ['patient_id', 'patient_name', 'service_name', 'receipt_number']
+    ordering_fields = ['payment_date', 'amount', 'status', 'created_at']
+    ordering = ['-created_at']
+
+    def perform_create(self, serializer):
+        serializer.save(processed_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(processed_by=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def mark_paid(self, request, pk=None):
+        """Mark a service payment as paid"""
+        payment = self.get_object()
+
+        if payment.status == 'PAID':
+            return Response(
+                {'error': 'Payment is already marked as paid'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        payment_date = request.data.get('payment_date')
+        payment_method = request.data.get('payment_method', 'CASH')
+        notes = request.data.get('notes', '')
+
+        if not payment_date:
+            payment_date = timezone.now()
+
+        payment.status = 'PAID'
+        payment.payment_date = payment_date
+        payment.payment_method = payment_method
+        payment.notes = notes
+        payment.processed_by = request.user
+        payment.save()
+
+        # Update related service payment status based on service type
+        if payment.service_type == 'CONSULTATION' and payment.reference_id:
+            try:
+                from doctor.models import Consultation
+                consultation = Consultation.objects.get(id=payment.reference_id)
+                consultation.consultation_fee_paid = True
+                consultation.consultation_fee_payment_date = payment_date
+                consultation.save()
+            except Consultation.DoesNotExist:
+                pass
+
+        elif payment.service_type == 'LAB_TEST' and payment.reference_id:
+            try:
+                from doctor.models import LabTestRequest
+                lab_request = LabTestRequest.objects.get(id=payment.reference_id)
+                lab_request.lab_fee_paid = True
+                lab_request.lab_fee_payment_date = payment_date
+                lab_request.save()
+            except LabTestRequest.DoesNotExist:
+                pass
+
+        serializer = self.get_serializer(payment)
+        return Response({
+            'message': 'Payment marked as paid successfully',
+            'payment': serializer.data,
+            'receipt_number': payment.receipt_number
+        })
+
+    @action(detail=False, methods=['get'])
+    def pending_payments(self, request):
+        """Get all pending service payments"""
+        pending_payments = self.get_queryset().filter(status='PENDING')
+        serializer = self.get_serializer(pending_payments, many=True)
+        return Response({
+            'pending_payments': serializer.data,
+            'count': len(serializer.data)
+        })
+
+    @action(detail=False, methods=['get'])
+    def by_service_type(self, request):
+        """Get payments grouped by service type"""
+        service_type = request.query_params.get('service_type')
+        patient_id = request.query_params.get('patient_id')
+
+        queryset = self.get_queryset()
+
+        if service_type:
+            queryset = queryset.filter(service_type=service_type.upper())
+
+        if patient_id:
+            queryset = queryset.filter(patient_id=patient_id.upper())
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'payments': serializer.data,
+            'count': len(serializer.data)
+        })
+
+    @action(detail=False, methods=['post'])
+    def process_consultation_payment(self, request):
+        """Process consultation fee payment"""
+        consultation_id = request.data.get('consultation_id')
+        patient_id = request.data.get('patient_id')
+        patient_name = request.data.get('patient_name')
+        amount = request.data.get('amount', 5000.00)  # Default consultation fee
+        payment_method = request.data.get('payment_method', 'CASH')
+
+        if not consultation_id or not patient_id:
+            return Response(
+                {'error': 'consultation_id and patient_id are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Check if payment already exists
+            existing_payment = ServicePayment.objects.filter(
+                service_type='CONSULTATION',
+                reference_id=consultation_id,
+                status='PAID'
+            ).first()
+
+            if existing_payment:
+                return Response(
+                    {'error': 'Consultation fee already paid', 'receipt_number': existing_payment.receipt_number},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Create payment record
+            payment_data = {
+                'patient_id': patient_id.upper(),
+                'patient_name': patient_name,
+                'service_type': 'CONSULTATION',
+                'service_name': 'Doctor Consultation Fee',
+                'reference_id': consultation_id,
+                'amount': amount,
+                'payment_method': payment_method,
+                'status': 'PAID',
+                'payment_date': timezone.now(),
+                'notes': f'Consultation fee payment for {patient_name}',
+                'processed_by': request.user
+            }
+
+            payment = ServicePayment.objects.create(**payment_data)
+
+            # Update consultation payment status
+            try:
+                from doctor.models import Consultation
+                consultation = Consultation.objects.get(id=consultation_id)
+                consultation.consultation_fee_paid = True
+                consultation.consultation_fee_payment_date = payment.payment_date
+                consultation.save()
+            except Consultation.DoesNotExist:
+                pass
+
+            return Response({
+                'message': 'Consultation payment processed successfully',
+                'payment_id': str(payment.id),
+                'receipt_number': payment.receipt_number,
+                'amount': payment.amount,
+                'patient_id': payment.patient_id
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to process consultation payment: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=False, methods=['post'])
+    def process_lab_payment(self, request):
+        """Process lab test fee payment"""
+        lab_request_id = request.data.get('lab_request_id')
+        patient_id = request.data.get('patient_id')
+        patient_name = request.data.get('patient_name')
+        amount = request.data.get('amount')
+        payment_method = request.data.get('payment_method', 'CASH')
+
+        if not lab_request_id or not patient_id or not amount:
+            return Response(
+                {'error': 'lab_request_id, patient_id, and amount are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Check if payment already exists
+            existing_payment = ServicePayment.objects.filter(
+                service_type='LAB_TEST',
+                reference_id=lab_request_id,
+                status='PAID'
+            ).first()
+
+            if existing_payment:
+                return Response(
+                    {'error': 'Lab test fee already paid', 'receipt_number': existing_payment.receipt_number},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Create payment record
+            payment_data = {
+                'patient_id': patient_id.upper(),
+                'patient_name': patient_name,
+                'service_type': 'LAB_TEST',
+                'service_name': 'Laboratory Test Fee',
+                'reference_id': lab_request_id,
+                'amount': amount,
+                'payment_method': payment_method,
+                'status': 'PAID',
+                'payment_date': timezone.now(),
+                'notes': f'Lab test fee payment for {patient_name}',
+                'processed_by': request.user
+            }
+
+            payment = ServicePayment.objects.create(**payment_data)
+
+            # Update lab request payment status
+            try:
+                from doctor.models import LabTestRequest
+                lab_request = LabTestRequest.objects.get(id=lab_request_id)
+                lab_request.lab_fee_paid = True
+                lab_request.lab_fee_payment_date = payment.payment_date
+                lab_request.status = 'PAID'  # Allow lab processing
+                lab_request.save()
+            except LabTestRequest.DoesNotExist:
+                pass
+
+            return Response({
+                'message': 'Lab test payment processed successfully',
+                'payment_id': str(payment.id),
+                'receipt_number': payment.receipt_number,
+                'amount': payment.amount,
+                'patient_id': payment.patient_id
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to process lab payment: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
