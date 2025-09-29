@@ -169,3 +169,6 @@ You are tasked with finalizing the **Lab Portal**—the backbone of diagnostics 
 ---
 
 **Ready to complete the Lab Portal? Let’s build the diagnostic backbone of our hospital management system! 🚀**
+
+
+#https://www.vectorizer.io/images/1ntYmHqq6xmzb9/Selection.html

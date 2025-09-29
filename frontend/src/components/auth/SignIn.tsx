@@ -76,7 +76,12 @@ const SignIn: React.FC = () => {
     setErrors({});
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/auth/login/`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ||
+                    (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+                      ? `http://${window.location.hostname}:8000`
+                      : 'http://localhost:8000');
+
+      const response = await fetch(`${apiUrl}/api/auth/login/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -120,7 +125,13 @@ const SignIn: React.FC = () => {
       }
     } catch (error) {
       console.error('Login error:', error);
-      setErrors({ general: 'Network error. Please check your connection and try again.' });
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        setErrors({ general: 'Connection failed. Please check if the server is running and try again.' });
+      } else if (error instanceof SyntaxError) {
+        setErrors({ general: 'Server response error. Please try again or contact support.' });
+      } else {
+        setErrors({ general: 'Network error. Please check your connection and try again.' });
+      }
     } finally {
       setIsSubmitting(false);
     }
