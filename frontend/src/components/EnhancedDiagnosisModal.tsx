@@ -48,8 +48,7 @@ interface PrescriptionData {
 }
 
 interface LabRequestData {
-  test_type: string;
-  test_description: string;
+  selected_tests: string[];
   urgency: string;
   clinical_notes: string;
 }
@@ -62,18 +61,47 @@ const FREQUENCY_OPTIONS = [
   { value: 'AS_NEEDED', label: 'As Needed' },
 ];
 
-const TEST_TYPES = [
-  { value: 'BLOOD_TEST', label: 'Blood Test' },
-  { value: 'URINE_TEST', label: 'Urine Test' },
-  { value: 'STOOL_TEST', label: 'Stool Test' },
-  { value: 'XRAY', label: 'X-Ray' },
-  { value: 'ULTRASOUND', label: 'Ultrasound' },
-  { value: 'ECG', label: 'ECG' },
-  { value: 'BLOOD_SUGAR', label: 'Blood Sugar Test' },
-  { value: 'MALARIA_TEST', label: 'Malaria Test' },
-  { value: 'HIV_TEST', label: 'HIV Test' },
-  { value: 'OTHER', label: 'Other Test' },
-];
+// Lab tests based on the physical lab request form
+const LAB_TESTS = {
+  PARASITOLOGY: [
+    { id: 'mrdt', name: 'MRDT' },
+    { id: 'bs', name: 'BS (Blood Smear)' },
+    { id: 'stool_macro', name: 'STOOL ANALYSIS - Macro' },
+    { id: 'stool_micro', name: 'STOOL ANALYSIS - Micro' },
+    { id: 'urine_sed_macro', name: 'URINE SED - Macro' },
+    { id: 'urine_sed_micro', name: 'URINE SED - Micro' },
+    { id: 'urinalysis', name: 'URINALYSIS' },
+  ],
+  MICROBIOLOGY: [
+    { id: 'rpr', name: 'RPR (Syphilis)' },
+    { id: 'h_pylori', name: 'H. Pylori' },
+    { id: 'hepatitis_b', name: 'Hepatitis B' },
+    { id: 'hepatitis_c', name: 'Hepatitis C' },
+    { id: 'ssat', name: 'SsAT (Salmonella)' },
+    { id: 'upt', name: 'UPT (Pregnancy Test)' },
+  ],
+  CLINICAL_CHEMISTRY: [
+    { id: 'glucose', name: 'Glucose' },
+    { id: 'urobiliogen', name: 'Urobiliogen' },
+    { id: 'bilirubin', name: 'Bilirubin' },
+    { id: 'ketones', name: 'Ketones' },
+    { id: 's_gravity', name: 'S. Gravity' },
+    { id: 'blood', name: 'Blood' },
+    { id: 'ph', name: 'pH' },
+    { id: 'protein', name: 'Protein' },
+    { id: 'nitrite', name: 'Nitrite' },
+    { id: 'leucocytes', name: 'Leucocytes' },
+  ],
+  HEMATOLOGY: [
+    { id: 'esr', name: 'ESR' },
+    { id: 'b_grouping', name: 'B/Grouping (Blood Group)' },
+    { id: 'hb', name: 'Hb (Hemoglobin)' },
+    { id: 'rheumatoid_factor', name: 'Rheumatoid factor' },
+    { id: 'rbg', name: 'RBG (Random Blood Glucose)' },
+    { id: 'fbg', name: 'FBG (Fasting Blood Glucose)' },
+    { id: 'sickling_test', name: 'Sickling test' },
+  ],
+};
 
 export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, consultationId, onSave }: EnhancedDiagnosisModalProps) {
   const [loading, setLoading] = useState(false);
@@ -97,7 +125,11 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
   });
 
   const [prescriptions, setPrescriptions] = useState<PrescriptionData[]>([]);
-  const [labRequests, setLabRequests] = useState<LabRequestData[]>([]);
+  const [labRequest, setLabRequest] = useState<LabRequestData>({
+    selected_tests: [],
+    urgency: 'NORMAL',
+    clinical_notes: '',
+  });
 
   useEffect(() => {
     if (isOpen && patientId) {
@@ -106,8 +138,30 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
         setActiveConsultationId(consultationId);
         fetchConsultationDetails();
       }
+    } else if (!isOpen) {
+      // Reset form when modal is closed to prevent flickering on next open
+      setFormData({
+        symptoms: '',
+        examination_findings: '',
+        diagnosis: '',
+        treatment_plan: '',
+        follow_up_date: '',
+        priority: 'NORMAL',
+        temperature: undefined,
+        blood_pressure_systolic: undefined,
+        blood_pressure_diastolic: undefined,
+        heart_rate: undefined,
+        doctor_notes: ''
+      });
+      setPrescriptions([]);
+      setLabRequest({
+        selected_tests: [],
+        urgency: 'NORMAL',
+        clinical_notes: '',
+      });
+      setCurrentTab('consultation');
     }
-  }, [isOpen, patientId, consultationId]);
+  }, [isOpen, patientId]);
 
   const fetchPatientDetails = async () => {
     try {
@@ -126,6 +180,17 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
       if (response.ok) {
         const data = await response.json();
         setPatient(data);
+
+        // Auto-populate vital signs from patient record if available
+        if (data.temperature || data.blood_pressure_systolic || data.pulse_rate) {
+          setFormData(prev => ({
+            ...prev,
+            temperature: data.temperature || prev.temperature,
+            blood_pressure_systolic: data.blood_pressure_systolic || prev.blood_pressure_systolic,
+            blood_pressure_diastolic: data.blood_pressure_diastolic || prev.blood_pressure_diastolic,
+            heart_rate: data.pulse_rate || prev.heart_rate,
+          }));
+        }
       }
     } catch (error) {
       console.error('Error fetching patient details:', error);
@@ -201,26 +266,34 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
     setPrescriptions(prev => prev.filter((_, i) => i !== index));
   };
 
-  const addLabRequest = () => {
-    setLabRequests(prev => [...prev, {
-      test_type: 'BLOOD_TEST',
-      test_description: '',
-      urgency: 'NORMAL',
-      clinical_notes: ''
-    }]);
+  const toggleLabTest = (testId: string) => {
+    setLabRequest(prev => ({
+      ...prev,
+      selected_tests: prev.selected_tests.includes(testId)
+        ? prev.selected_tests.filter(id => id !== testId)
+        : [...prev.selected_tests, testId]
+    }));
   };
 
-  const updateLabRequest = (index: number, field: keyof LabRequestData, value: string) => {
-    setLabRequests(prev => prev.map((request, i) =>
-      i === index ? { ...request, [field]: value } : request
-    ));
-  };
-
-  const removeLabRequest = (index: number) => {
-    setLabRequests(prev => prev.filter((_, i) => i !== index));
+  const updateLabRequestField = (field: keyof LabRequestData, value: any) => {
+    setLabRequest(prev => ({ ...prev, [field]: value }));
   };
 
   const saveConsultation = async () => {
+    // Validate required fields
+    if (!formData.symptoms.trim()) {
+      alert('Please enter patient symptoms before completing consultation.');
+      return;
+    }
+    if (!formData.diagnosis.trim()) {
+      alert('Please enter a diagnosis before completing consultation.');
+      return;
+    }
+    if (!formData.treatment_plan.trim()) {
+      alert('Please enter a treatment plan before completing consultation.');
+      return;
+    }
+
     try {
       setSaving(true);
       const token = auth.getToken();
@@ -295,25 +368,50 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
           }
         }
 
-        // Create lab requests
-        for (const labRequest of labRequests) {
-          if (labRequest.test_description.trim()) {
-            await fetch(
-              `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/lab-requests/`,
-              {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Token ${token}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  consultation: finalConsultationId,
-                  ...labRequest
-                })
-              }
-            );
-          }
+        // Create lab requests - create individual requests for each selected test
+        if (labRequest.selected_tests.length > 0) {
+          // Get test names for description
+          const allTests = [...LAB_TESTS.PARASITOLOGY, ...LAB_TESTS.MICROBIOLOGY, ...LAB_TESTS.CLINICAL_CHEMISTRY, ...LAB_TESTS.HEMATOLOGY];
+          const selectedTestNames = labRequest.selected_tests
+            .map(testId => allTests.find(t => t.id === testId)?.name)
+            .filter(Boolean)
+            .join(', ');
+
+          await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/lab-requests/`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Token ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                consultation: finalConsultationId,
+                patient: patientId,
+                test_type: 'MULTIPLE',
+                test_description: selectedTestNames,
+                urgency: labRequest.urgency,
+                clinical_notes: labRequest.clinical_notes,
+                selected_tests: labRequest.selected_tests,
+              })
+            }
+          );
         }
+
+        // Update patient status to completed after successful consultation
+        await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/${patientId}/status/`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Token ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              status: 'COMPLETED'
+            })
+          }
+        );
 
         alert('Consultation completed successfully!');
         onSave?.();
@@ -406,7 +504,7 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
               }`}
             >
               <TestTube className="inline h-4 w-4 mr-2" />
-              Lab Requests ({labRequests.length})
+              Lab Requests ({labRequest.selected_tests.length})
             </button>
           </div>
         </div>
@@ -420,32 +518,16 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-sm font-medium text-gray-700">
-                      Patient Symptoms
+                      Symptoms & Examination
                     </label>
                     <MedicalFormattingGuide field="symptoms" />
                   </div>
                   <textarea
-                    rows={3}
+                    rows={6}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                    placeholder="Chief Complaint: Main reason for visit&#10;Duration: How long present&#10;Severity: Mild/moderate/severe&#10;Associated symptoms: Related symptoms&#10;Aggravating/Relieving factors: What helps/worsens"
+                    placeholder="SYMPTOMS:&#10;Chief Complaint: Main reason for visit&#10;Duration: How long present&#10;Severity: Mild/moderate/severe&#10;&#10;EXAMINATION:&#10;General appearance: Alert, oriented&#10;Relevant systems: Focus on complaint&#10;Positive findings: Abnormalities"
                     value={formData.symptoms}
                     onChange={(e) => handleInputChange('symptoms', e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Physical Examination
-                    </label>
-                    <MedicalFormattingGuide field="examination" />
-                  </div>
-                  <textarea
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                    placeholder="General appearance: Alert, oriented&#10;Vital signs: If measured&#10;Relevant systems: Focus on complaint&#10;Positive findings: Abnormalities&#10;Negative findings: Important normals"
-                    value={formData.examination_findings}
-                    onChange={(e) => handleInputChange('examination_findings', e.target.value)}
                   />
                 </div>
 
@@ -500,7 +582,8 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Vital Signs (Optional)</h4>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Vital Signs</h4>
+                  <p className="text-xs text-gray-500 mb-3">Auto-populated from patient records. Modify if needed.</p>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs text-gray-600 mb-1">Temperature (°C)</label>
@@ -726,93 +809,127 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
 
           {currentTab === 'lab-requests' && (
             <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium">Lab Test Requests</h3>
-                <button
-                  onClick={addLabRequest}
-                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Add Lab Request</span>
-                </button>
+              <div className="mb-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Laboratory Request Form</h3>
+                <p className="text-sm text-gray-600">Select tests required for this patient</p>
               </div>
 
-              {labRequests.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  No lab requests added. Click "Add Lab Request" to start.
+              {/* Test Selection Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Parasitology */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 mb-3 uppercase text-sm">Parasitology</h4>
+                  <div className="space-y-2">
+                    {LAB_TESTS.PARASITOLOGY.map(test => (
+                      <label key={test.id} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                        <input
+                          type="checkbox"
+                          checked={labRequest.selected_tests.includes(test.id)}
+                          onChange={() => toggleLabTest(test.id)}
+                          className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-gray-700">{test.name}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              ) : (
-                <div className="space-y-6">
-                  {labRequests.map((request, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-4">
-                        <h4 className="font-medium">Lab Request {index + 1}</h4>
-                        <button
-                          onClick={() => removeLabRequest(index)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Test Type *
-                          </label>
-                          <select
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                            value={request.test_type}
-                            onChange={(e) => updateLabRequest(index, 'test_type', e.target.value)}
-                          >
-                            {TEST_TYPES.map(option => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Urgency *
-                          </label>
-                          <select
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                            value={request.urgency}
-                            onChange={(e) => updateLabRequest(index, 'urgency', e.target.value)}
-                          >
-                            <option value="NORMAL">Normal</option>
-                            <option value="URGENT">Urgent</option>
-                            <option value="STAT">STAT (Immediate)</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="mt-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Test Description *
-                        </label>
-                        <textarea
-                          rows={2}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                          placeholder="Specific test requirements..."
-                          value={request.test_description}
-                          onChange={(e) => updateLabRequest(index, 'test_description', e.target.value)}
+                {/* Microbiology */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 mb-3 uppercase text-sm">Microbiology</h4>
+                  <div className="space-y-2">
+                    {LAB_TESTS.MICROBIOLOGY.map(test => (
+                      <label key={test.id} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                        <input
+                          type="checkbox"
+                          checked={labRequest.selected_tests.includes(test.id)}
+                          onChange={() => toggleLabTest(test.id)}
+                          className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                         />
-                      </div>
-                      <div className="mt-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Clinical Notes
-                        </label>
-                        <textarea
-                          rows={2}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                          placeholder="Clinical justification for the test..."
-                          value={request.clinical_notes}
-                          onChange={(e) => updateLabRequest(index, 'clinical_notes', e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                        <span className="text-sm text-gray-700">{test.name}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              )}
+
+                {/* Clinical Chemistry & Hematology */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 mb-3 uppercase text-sm">Clinical Chemistry & Hematology</h4>
+                  <div className="space-y-2">
+                    {LAB_TESTS.CLINICAL_CHEMISTRY.map(test => (
+                      <label key={test.id} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                        <input
+                          type="checkbox"
+                          checked={labRequest.selected_tests.includes(test.id)}
+                          onChange={() => toggleLabTest(test.id)}
+                          className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-gray-700">{test.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Hematology */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 mb-3 uppercase text-sm">Hematology</h4>
+                  <div className="space-y-2">
+                    {LAB_TESTS.HEMATOLOGY.map(test => (
+                      <label key={test.id} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                        <input
+                          type="checkbox"
+                          checked={labRequest.selected_tests.includes(test.id)}
+                          onChange={() => toggleLabTest(test.id)}
+                          className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-gray-700">{test.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Urgency and Clinical Notes */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Urgency Level
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+                    value={labRequest.urgency}
+                    onChange={(e) => updateLabRequestField('urgency', e.target.value)}
+                  >
+                    <option value="NORMAL">Normal</option>
+                    <option value="URGENT">Urgent</option>
+                    <option value="STAT">STAT (Immediate)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tests Selected: {labRequest.selected_tests.length}
+                  </label>
+                  <div className="px-3 py-2 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
+                    {labRequest.selected_tests.length === 0
+                      ? 'No tests selected'
+                      : `${labRequest.selected_tests.length} test(s) selected`
+                    }
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Clinical Notes / Short Clinical Notes
+                </label>
+                <textarea
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+                  placeholder="Clinical justification for requested tests..."
+                  value={labRequest.clinical_notes}
+                  onChange={(e) => updateLabRequestField('clinical_notes', e.target.value)}
+                />
+              </div>
             </div>
           )}
         </div>

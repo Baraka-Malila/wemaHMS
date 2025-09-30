@@ -50,6 +50,16 @@ export default function PatientDetailsModal({ isOpen, onClose, patientId, onEdit
   const [loading, setLoading] = useState(false);
   const [patient, setPatient] = useState<PatientDetails | null>(null);
 
+  // Format date without timezone conversion issues
+  const formatDateOnly = (dateString: string) => {
+    if (!dateString) return '';
+    // Split the date string and use it directly without creating a Date object
+    // This prevents timezone conversion
+    const [year, month, day] = dateString.split('T')[0].split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  };
+
   useEffect(() => {
     if (isOpen && patientId) {
       fetchPatientDetails();
@@ -257,7 +267,7 @@ export default function PatientDetailsModal({ isOpen, onClose, patientId, onEdit
                       Date of Birth
                     </label>
                     <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', color: '#171A1F', marginTop: '4px' }}>
-                      {new Date(patient.date_of_birth).toLocaleDateString()}
+                      {formatDateOnly(patient.date_of_birth)}
                     </p>
                   </div>
                   

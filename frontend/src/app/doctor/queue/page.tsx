@@ -18,6 +18,7 @@ import {
 import auth from '@/lib/auth';
 import PatientDetailsModal from '@/components/PatientDetailsModal';
 import EnhancedDiagnosisModal from '@/components/EnhancedDiagnosisModal';
+import PatientHistoryModal from '@/components/PatientHistoryModal';
 
 interface Patient {
   id: string;
@@ -49,11 +50,15 @@ export default function PatientQueue() {
   const [modalPatientId, setModalPatientId] = useState('');
   const [diagnosisModalOpen, setDiagnosisModalOpen] = useState(false);
   const [diagnosisPatientId, setDiagnosisPatientId] = useState('');
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [historyPatientId, setHistoryPatientId] = useState('');
 
   // Load waiting patients from API
-  const loadWaitingPatients = async (priority?: string) => {
+  const loadWaitingPatients = async (isInitialLoad: boolean = false, priority?: string) => {
     try {
-      setLoading(true);
+      if (isInitialLoad) {
+        setLoading(true);
+      }
       const token = auth.getToken();
 
       const url = priority && priority !== 'all'
@@ -80,7 +85,9 @@ export default function PatientQueue() {
       setError('Error loading patients');
       console.error('Error loading waiting patients:', error);
     } finally {
-      setLoading(false);
+      if (isInitialLoad) {
+        setLoading(false);
+      }
     }
   };
 
@@ -129,14 +136,34 @@ export default function PatientQueue() {
     setModalOpen(true);
   };
 
+  // View patient history
+  const handleViewHistory = (patient: Patient) => {
+    setHistoryPatientId(patient.patient_id);
+    setHistoryModalOpen(true);
+  };
+
+  // Format wait time to show hours and minutes
+  const formatWaitTime = (minutes: number) => {
+    if (minutes < 60) {
+      return `${minutes}min${minutes !== 1 ? 's' : ''}`;
+    }
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    if (remainingMinutes === 0) {
+      return `${hours}hr${hours !== 1 ? 's' : ''}`;
+    }
+    return `${hours}hr${hours !== 1 ? 's' : ''} ${remainingMinutes}min`;
+  };
+
   // Real-time updates
   useEffect(() => {
-    loadWaitingPatients();
+    loadWaitingPatients(true);
 
-    // Auto-refresh every 15 seconds
+    // Auto-refresh every 10 seconds (fast for real-time queue monitoring)
     const refreshInterval = setInterval(() => {
-      loadWaitingPatients(filterPriority !== 'all' ? filterPriority : undefined);
-    }, 15000);
+      const priority = filterPriority !== 'all' ? filterPriority : undefined;
+      loadWaitingPatients(false, priority);
+    }, 10000);
 
     return () => clearInterval(refreshInterval);
   }, []);
@@ -144,7 +171,7 @@ export default function PatientQueue() {
   // Handle priority filter changes
   useEffect(() => {
     const priority = filterPriority !== 'all' ? filterPriority : undefined;
-    loadWaitingPatients(priority);
+    loadWaitingPatients(true, priority);
   }, [filterPriority]);
 
 
@@ -265,7 +292,7 @@ export default function PatientQueue() {
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="text-red-700">{error}</div>
           <button
-            onClick={() => loadWaitingPatients()}
+            onClick={() => loadWaitingPatients(true)}
             className="mt-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
           >
             Retry
@@ -336,7 +363,7 @@ export default function PatientQueue() {
                     <span className="text-gray-600">Check-in: {checkInTime}</span>
                   </div>
                   <span className="text-orange-600 font-medium">
-                    Wait: {waitTime}min{waitTime !== 1 ? 's' : ''}
+                    Wait: {formatWaitTime(waitTime)}
                   </span>
                 </div>
 
@@ -390,7 +417,7 @@ export default function PatientQueue() {
                   >
                     <UserCheck className="h-4 w-4" />
                     <span>
-                      {startingConsultation === patient.patient_id ? 'Starting...' : 'Start Consultation'}
+                      {startingConsultation === patient.patient_id ? 'Starting...' : 'Consult'}
                     </span>
                   </button>
                   <button
@@ -401,11 +428,11 @@ export default function PatientQueue() {
                     <span>View</span>
                   </button>
                   <button
-                    onClick={() => handleViewPatient(patient)}
+                    onClick={() => handleViewHistory(patient)}
                     className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-50 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors"
                   >
                     <FileText className="h-4 w-4" />
-                    <span>Details</span>
+                    <span>History</span>
                   </button>
                 </div>
               </div>
@@ -428,8 +455,16 @@ export default function PatientQueue() {
         patientId={diagnosisPatientId}
         onSave={() => {
           setDiagnosisModalOpen(false);
-          loadWaitingPatients(filterPriority !== 'all' ? filterPriority : undefined);
+          const priority = filterPriority !== 'all' ? filterPriority : undefined;
+          loadWaitingPatients(true, priority);
         }}
+      />
+
+      {/* Patient History Modal */}
+      <PatientHistoryModal
+        isOpen={historyModalOpen}
+        onClose={() => setHistoryModalOpen(false)}
+        patientId={historyPatientId}
       />
     </div>
   );

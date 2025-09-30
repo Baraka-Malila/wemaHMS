@@ -71,11 +71,13 @@ export default function EditPatientModal({ isOpen, onClose, patientId, onSuccess
 
       if (response.ok) {
         const data = await response.json();
+        // Format date for input field (YYYY-MM-DD)
+        const dobFormatted = data.date_of_birth ? data.date_of_birth.split('T')[0] : '';
         setFormData({
           full_name: data.full_name || '',
           phone_number: data.phone_number || '',
           gender: data.gender || 'MALE',
-          date_of_birth: data.date_of_birth || '',
+          date_of_birth: dobFormatted,
           emergency_contact_name: data.emergency_contact_name || '',
           emergency_contact_phone: data.emergency_contact_phone || '',
           address: data.address || '',

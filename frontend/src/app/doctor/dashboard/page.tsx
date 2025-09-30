@@ -21,6 +21,7 @@ import RealTimeClock from '@/components/ui/RealTimeClock';
 import auth from '@/lib/auth';
 import PatientDetailsModal from '@/components/PatientDetailsModal';
 import EnhancedDiagnosisModal from '@/components/EnhancedDiagnosisModal';
+import PatientHistoryModal from '@/components/PatientHistoryModal';
 
 interface DashboardStats {
   today_consultations: number;
@@ -39,12 +40,17 @@ export default function DoctorDashboard() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [dashboardData, setDashboardData] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
   // Load dashboard data from API
-  const loadDashboardData = async () => {
+  const loadDashboardData = async (isInitialLoad: boolean = false) => {
     try {
-      setLoading(true);
+      if (isInitialLoad) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
       const token = auth.getToken();
 
       const response = await fetch(
@@ -70,7 +76,11 @@ export default function DoctorDashboard() {
       setError('Error loading dashboard');
       console.error('Error loading dashboard:', error);
     } finally {
-      setLoading(false);
+      if (isInitialLoad) {
+        setLoading(false);
+      } else {
+        setRefreshing(false);
+      }
     }
   };
 
@@ -81,15 +91,15 @@ export default function DoctorDashboard() {
       setCurrentUser(user);
     }
 
-    // Load dashboard data
-    loadDashboardData();
-    loadWaitingPatientsQueue();
+    // Load dashboard data initially
+    loadDashboardData(true);
+    loadWaitingPatientsQueue(true);
 
-    // Auto-refresh every 30 seconds
+    // Auto-refresh every 60 seconds (increased from 30 to reduce blinking)
     const refreshInterval = setInterval(() => {
-      loadDashboardData();
-      loadWaitingPatientsQueue();
-    }, 30000);
+      loadDashboardData(false);
+      loadWaitingPatientsQueue(false);
+    }, 60000);
 
     return () => clearInterval(refreshInterval);
   }, []);
@@ -145,13 +155,17 @@ export default function DoctorDashboard() {
   // Modal states
   const [modalOpen, setModalOpen] = useState(false);
   const [modalPatientId, setModalPatientId] = useState('');
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [historyPatientId, setHistoryPatientId] = useState('');
   const [diagnosisModalOpen, setDiagnosisModalOpen] = useState(false);
   const [diagnosisPatientId, setDiagnosisPatientId] = useState('');
   const [startingConsultation, setStartingConsultation] = useState<string>('');
 
-  const loadWaitingPatientsQueue = async () => {
+  const loadWaitingPatientsQueue = async (isInitialLoad: boolean = false) => {
     try {
-      setQueueLoading(true);
+      if (isInitialLoad) {
+        setQueueLoading(true);
+      }
       const token = auth.getToken();
 
       const response = await fetch(
@@ -171,7 +185,9 @@ export default function DoctorDashboard() {
     } catch (error) {
       console.error('Error loading waiting patients:', error);
     } finally {
-      setQueueLoading(false);
+      if (isInitialLoad) {
+        setQueueLoading(false);
+      }
     }
   };
 
@@ -179,34 +195,10 @@ export default function DoctorDashboard() {
   const handleStartConsultation = async (patient: any) => {
     try {
       setStartingConsultation(patient.patient_id);
-      const token = auth.getToken();
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/start-consultation/`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Token ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            patient_id: patient.patient_id,
-            chief_complaint: patient.consultation_info?.chief_complaint || 'General consultation',
-            priority: patient.consultation_info?.priority || 'NORMAL'
-          })
-        }
-      );
-
-      if (response.ok) {
-        // Open the diagnosis modal to record initial consultation details
-        setDiagnosisPatientId(patient.patient_id);
-        setDiagnosisModalOpen(true);
-        // Refresh the queue
-        loadWaitingPatientsQueue();
-      } else {
-        const errorData = await response.json();
-        alert(`Error: ${errorData.error || 'Failed to start consultation'}`);
-      }
+      // Just open the diagnosis modal - no API call to start consultation yet
+      // Patient remains in queue until consultation is actually completed
+      setDiagnosisPatientId(patient.patient_id);
+      setDiagnosisModalOpen(true);
     } catch (error) {
       console.error('Error starting consultation:', error);
       alert('Error starting consultation. Please try again.');
@@ -217,14 +209,12 @@ export default function DoctorDashboard() {
 
   const handleViewPatient = (patient: any) => {
     setModalPatientId(patient.patient_id);
-    setModalMode('view');
     setModalOpen(true);
   };
 
   const handleViewHistory = (patient: any) => {
-    setModalPatientId(patient.patient_id);
-    setModalMode('history');
-    setModalOpen(true);
+    setHistoryPatientId(patient.patient_id);
+    setHistoryModalOpen(true);
   };
 
   // Use real waiting patients as the queue
@@ -429,7 +419,7 @@ export default function DoctorDashboard() {
                     <div className="flex items-center">
                       <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
                         <span className="text-sm font-medium text-green-600">
-                          {(patient.full_name || 'N/A').split(' ').map(n => n[0]).join('')}
+                          {(patient.full_name || 'N/A').split(' ').map((n: string) => n[0]).join('')}
                         </span>
                       </div>
                       <div className="ml-4">
@@ -518,8 +508,15 @@ export default function DoctorDashboard() {
         patientId={diagnosisPatientId}
         onSave={() => {
           setDiagnosisModalOpen(false);
-          loadWaitingPatientsQueue();
+          loadWaitingPatientsQueue(true);
         }}
+      />
+
+      {/* Patient History Modal */}
+      <PatientHistoryModal
+        isOpen={historyModalOpen}
+        onClose={() => setHistoryModalOpen(false)}
+        patientId={historyPatientId}
       />
     </div>
   );
