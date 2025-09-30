@@ -22,6 +22,7 @@ interface Patient {
 }
 
 interface DiagnosisData {
+  chief_complaint: string;
   symptoms: string;
   examination_findings: string;
   diagnosis: string;
@@ -32,6 +33,7 @@ interface DiagnosisData {
   blood_pressure_systolic?: number;
   blood_pressure_diastolic?: number;
   heart_rate?: number;
+  respiratory_rate?: number;
   doctor_notes: string;
 }
 
@@ -111,7 +113,8 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
   const [activeConsultationId, setActiveConsultationId] = useState<string>('');
 
   const [formData, setFormData] = useState<DiagnosisData>({
-    symptoms: 'SYMPTOMS:\n\n\nEXAMINATION:\n',
+    chief_complaint: '',
+    symptoms: '',
     examination_findings: '',
     diagnosis: '',
     treatment_plan: '',
@@ -121,6 +124,7 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
     blood_pressure_systolic: undefined,
     blood_pressure_diastolic: undefined,
     heart_rate: undefined,
+    respiratory_rate: undefined,
     doctor_notes: ''
   });
 
@@ -141,7 +145,8 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
     } else if (!isOpen) {
       // Reset form when modal is closed to prevent flickering on next open
       setFormData({
-        symptoms: 'SYMPTOMS:\n\n\nEXAMINATION:\n',
+        chief_complaint: '',
+        symptoms: '',
         examination_findings: '',
         diagnosis: '',
         treatment_plan: '',
@@ -151,6 +156,7 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
         blood_pressure_systolic: undefined,
         blood_pressure_diastolic: undefined,
         heart_rate: undefined,
+        respiratory_rate: undefined,
         doctor_notes: ''
       });
       setPrescriptions([]);
@@ -182,13 +188,14 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
         setPatient(data);
 
         // Auto-populate vital signs from patient record if available
-        if (data.temperature || data.blood_pressure_systolic || data.pulse_rate) {
+        if (data.temperature || data.blood_pressure_systolic || data.pulse_rate || data.respiratory_rate) {
           setFormData(prev => ({
             ...prev,
             temperature: data.temperature || prev.temperature,
             blood_pressure_systolic: data.blood_pressure_systolic || prev.blood_pressure_systolic,
             blood_pressure_diastolic: data.blood_pressure_diastolic || prev.blood_pressure_diastolic,
             heart_rate: data.pulse_rate || prev.heart_rate,
+            respiratory_rate: data.respiratory_rate || prev.respiratory_rate,
           }));
         }
       }
@@ -217,6 +224,7 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
       if (response.ok) {
         const data = await response.json();
         setFormData({
+          chief_complaint: data.chief_complaint || '',
           symptoms: data.symptoms || '',
           examination_findings: data.examination_findings || '',
           diagnosis: data.diagnosis || '',
@@ -227,6 +235,7 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
           blood_pressure_systolic: data.blood_pressure_systolic || undefined,
           blood_pressure_diastolic: data.blood_pressure_diastolic || undefined,
           heart_rate: data.heart_rate || undefined,
+          respiratory_rate: data.respiratory_rate || undefined,
           doctor_notes: data.doctor_notes || ''
         });
       }
@@ -281,8 +290,12 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
 
   const saveConsultation = async () => {
     // Validate required fields
-    if (!formData.symptoms.trim() || formData.symptoms === 'SYMPTOMS:\n\n\nEXAMINATION:\n') {
-      alert('Please enter patient symptoms and examination findings.');
+    if (!formData.chief_complaint.trim()) {
+      alert('Please enter the chief complaint.');
+      return;
+    }
+    if (!formData.symptoms.trim()) {
+      alert('Please enter patient findings.');
       return;
     }
     if (!formData.diagnosis.trim()) {
@@ -290,12 +303,14 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
       return;
     }
 
-    // Treatment plan is optional if lab requests are made
+    // Check if either lab requests or prescriptions are provided
     const hasLabRequests = labRequest.selected_tests.length > 0;
     const hasPrescriptions = prescriptions.length > 0;
 
-    if (!hasLabRequests && !hasPrescriptions && !formData.treatment_plan.trim()) {
-      alert('Please enter a treatment plan, add prescriptions, or order lab tests.');
+    // Must have at least one: lab requests OR prescriptions
+    // Treatment plan is written in Patient Findings field, not separate
+    if (!hasLabRequests && !hasPrescriptions) {
+      alert('Please add prescriptions or order lab tests to complete the consultation.');
       return;
     }
 
@@ -321,6 +336,7 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
               blood_pressure_systolic: formData.blood_pressure_systolic ? parseInt(formData.blood_pressure_systolic.toString()) : null,
               blood_pressure_diastolic: formData.blood_pressure_diastolic ? parseInt(formData.blood_pressure_diastolic.toString()) : null,
               heart_rate: formData.heart_rate ? parseInt(formData.heart_rate.toString()) : null,
+              respiratory_rate: formData.respiratory_rate ? parseInt(formData.respiratory_rate.toString()) : null,
             })
           }
         );
@@ -342,6 +358,7 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
               blood_pressure_systolic: formData.blood_pressure_systolic ? parseInt(formData.blood_pressure_systolic.toString()) : null,
               blood_pressure_diastolic: formData.blood_pressure_diastolic ? parseInt(formData.blood_pressure_diastolic.toString()) : null,
               heart_rate: formData.heart_rate ? parseInt(formData.heart_rate.toString()) : null,
+              respiratory_rate: formData.respiratory_rate ? parseInt(formData.respiratory_rate.toString()) : null,
             })
           }
         );
@@ -403,13 +420,22 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
           );
         }
 
-        // Update patient status based on what was ordered
-        let newStatus = 'COMPLETED'; // Default if only treatment/prescriptions
+        // Update patient status based on payment gate workflow
+        let newStatus = 'COMPLETED';
+        let statusMessage = 'Consultation completed successfully!';
 
-        if (hasLabRequests) {
-          newStatus = 'LAB_PENDING'; // Needs to pay for lab tests
+        if (hasLabRequests && hasPrescriptions) {
+          // Both labs and prescriptions ordered - pay for labs first
+          newStatus = 'PENDING_LAB_PAYMENT';
+          statusMessage = 'Consultation saved. Patient must proceed to FINANCE to pay for lab tests before going to the lab.';
+        } else if (hasLabRequests) {
+          // Only lab tests ordered - need to pay for labs, then return after results
+          newStatus = 'PENDING_LAB_PAYMENT';
+          statusMessage = 'Consultation saved. Patient must proceed to FINANCE to pay for lab tests. After lab results, patient returns to doctor for treatment plan.';
         } else if (hasPrescriptions) {
-          newStatus = 'RX_PENDING'; // Needs to pay for prescriptions
+          // Only prescriptions - pay for medications
+          newStatus = 'TREATMENT_PRESCRIBED';
+          statusMessage = 'Consultation saved. Patient must proceed to FINANCE to pay for prescriptions before going to pharmacy.';
         }
 
         await fetch(
@@ -425,12 +451,6 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
             })
           }
         );
-
-        const statusMessage = newStatus === 'LAB_PENDING'
-          ? 'Consultation saved. Patient should proceed to Finance for lab payment.'
-          : newStatus === 'RX_PENDING'
-          ? 'Consultation saved. Patient should proceed to Finance for prescription payment.'
-          : 'Consultation completed successfully!';
 
         alert(statusMessage);
         onSave?.();
@@ -535,14 +555,27 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
               {/* Left Column */}
               <div className="space-y-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Chief Complaint *
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+                    value={formData.chief_complaint}
+                    onChange={(e) => handleInputChange('chief_complaint', e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-sm font-medium text-gray-700">
-                      Symptoms & Examination *
+                      Patient Findings *
                     </label>
                     <MedicalFormattingGuide field="symptoms" />
                   </div>
                   <textarea
-                    rows={10}
+                    rows={12}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500 font-mono text-sm"
                     value={formData.symptoms}
                     onChange={(e) => handleInputChange('symptoms', e.target.value)}
@@ -558,34 +591,12 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
                     <MedicalFormattingGuide field="diagnosis" />
                   </div>
                   <textarea
-                    rows={4}
+                    rows={6}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500 font-mono text-sm"
-                    placeholder="Write diagnosis here..."
                     value={formData.diagnosis}
                     onChange={(e) => handleInputChange('diagnosis', e.target.value)}
                     required
                   />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Treatment Plan {labRequest.selected_tests.length === 0 && prescriptions.length === 0 && '*'}
-                    </label>
-                    <MedicalFormattingGuide field="treatment" />
-                  </div>
-                  <textarea
-                    rows={6}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500 font-mono text-sm"
-                    placeholder="Write treatment plan here... (Optional if ordering labs)"
-                    value={formData.treatment_plan}
-                    onChange={(e) => handleInputChange('treatment_plan', e.target.value)}
-                  />
-                  {labRequest.selected_tests.length > 0 && (
-                    <p className="text-xs text-blue-600 mt-1">
-                      Treatment plan can be completed after lab results are available
-                    </p>
-                  )}
                 </div>
               </div>
 
@@ -651,6 +662,16 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
                         onChange={(e) => handleInputChange('blood_pressure_diastolic', e.target.value)}
                       />
                     </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Respiratory Rate (breaths/min)</label>
+                      <input
+                        type="number"
+                        placeholder="16"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500 text-sm"
+                        value={formData.respiratory_rate || ''}
+                        onChange={(e) => handleInputChange('respiratory_rate', e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -673,7 +694,6 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
                   <textarea
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                    placeholder="Private notes for doctor reference..."
                     value={formData.doctor_notes}
                     onChange={(e) => handleInputChange('doctor_notes', e.target.value)}
                   />
@@ -950,7 +970,6 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
                 <textarea
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                  placeholder="Clinical justification for requested tests..."
                   value={labRequest.clinical_notes}
                   onChange={(e) => updateLabRequestField('clinical_notes', e.target.value)}
                 />

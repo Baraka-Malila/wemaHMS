@@ -19,11 +19,11 @@ class PatientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Patient
         fields = [
-            'id', 'patient_id', 'full_name', 'phone_number', 'gender', 'date_of_birth',
-            'patient_type', 'nhif_card_number',
+            'id', 'patient_id', 'first_name', 'middle_name', 'last_name', 'full_name', 'phone_number', 'gender', 'date_of_birth',
+            'patient_type', 'patient_category', 'nhif_card_number',
             'emergency_contact_name', 'emergency_contact_phone', 'address', 'tribe', 'occupation',
             'weight', 'height', 'blood_group', 'allergies', 'chronic_conditions',
-            'temperature', 'blood_pressure_systolic', 'blood_pressure_diastolic', 'pulse_rate',
+            'temperature', 'blood_pressure_systolic', 'blood_pressure_diastolic', 'pulse_rate', 'respiratory_rate',
             'file_fee_paid', 'file_fee_amount', 'file_fee_payment_date',
             'current_status', 'current_location',
             'created_at', 'updated_at', 'created_by_name', 'last_updated_by_name',
@@ -197,17 +197,17 @@ class PatientNoteSerializer(serializers.ModelSerializer):
 
 class PatientCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating new patients (minimal required fields)"""
-    
+
     class Meta:
         model = Patient
         fields = [
-            'full_name', 'phone_number', 'gender', 'date_of_birth',
-            'patient_type', 'nhif_card_number',
+            'first_name', 'middle_name', 'last_name', 'phone_number', 'gender', 'date_of_birth',
+            'patient_type', 'patient_category', 'nhif_card_number',
             'emergency_contact_name', 'emergency_contact_phone', 'address', 'tribe', 'occupation',
             'weight', 'height', 'blood_group', 'allergies', 'chronic_conditions',
-            'temperature', 'blood_pressure_systolic', 'blood_pressure_diastolic', 'pulse_rate'
+            'temperature', 'blood_pressure_systolic', 'blood_pressure_diastolic', 'pulse_rate', 'respiratory_rate'
         ]
-    
+
     def validate_date_of_birth(self, value):
         """Ensure date of birth is not in the future"""
         from datetime import date

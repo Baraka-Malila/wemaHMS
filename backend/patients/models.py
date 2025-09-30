@@ -71,6 +71,11 @@ class Patient(models.Model):
         ('NORMAL', 'Normal Patient'),
         ('NHIF', 'NHIF Insured Patient'),
     ]
+
+    PATIENT_CATEGORY_CHOICES = [
+        ('OUTPATIENT', 'Outpatient'),
+        ('INPATIENT', 'Inpatient'),
+    ]
     
     BLOOD_GROUP_CHOICES = [
         ('A+', 'A Positive'),
@@ -88,9 +93,14 @@ class Patient(models.Model):
         ('REGISTERED', 'Just Registered'),
         ('WAITING_DOCTOR', 'Waiting for Doctor'),
         ('WITH_DOCTOR', 'Currently with Doctor'),
+        ('PENDING_LAB_PAYMENT', 'Pending Lab Payment'),
+        ('LAB_PAID', 'Lab Payment Completed'),
         ('WAITING_LAB', 'Waiting for Lab Tests'),
         ('IN_LAB', 'Currently in Laboratory'),
+        ('LAB_COMPLETED', 'Lab Tests Completed'),
         ('LAB_RESULTS_READY', 'Lab Results Ready'),
+        ('TREATMENT_PRESCRIBED', 'Treatment Prescribed - Pending Pharmacy Payment'),
+        ('PHARMACY_PAID', 'Pharmacy Payment Completed'),
         ('WAITING_PHARMACY', 'Waiting for Pharmacy'),
         ('IN_PHARMACY', 'Currently in Pharmacy'),
         ('PAYMENT_PENDING', 'Payment Required'),
@@ -118,8 +128,12 @@ class Patient(models.Model):
         help_text='Auto-generated format: PAT1, PAT123, or PAT-A1B2C3D4'
     )
     
-    # Required fields
-    full_name = models.CharField(max_length=100)
+    # Required fields - Name split into three parts
+    first_name = models.CharField(max_length=50, default='', help_text='First name (stored in uppercase)')
+    middle_name = models.CharField(max_length=50, default='', help_text='Middle name (stored in uppercase)')
+    last_name = models.CharField(max_length=50, default='', help_text='Last name (stored in uppercase)')
+    full_name = models.CharField(max_length=100, help_text='Auto-generated from first, middle, and last names')
+
     phone_number = models.CharField(
         max_length=15,
         validators=[phone_validator],
@@ -134,6 +148,12 @@ class Patient(models.Model):
         choices=PATIENT_TYPE_CHOICES,
         default='NORMAL',
         help_text='Normal patient pays fees, NHIF patient has insurance coverage'
+    )
+    patient_category = models.CharField(
+        max_length=15,
+        choices=PATIENT_CATEGORY_CHOICES,
+        default='OUTPATIENT',
+        help_text='Whether patient is admitted (inpatient) or visiting (outpatient)'
     )
     nhif_card_number = models.CharField(
         max_length=20,
@@ -215,7 +235,13 @@ class Patient(models.Model):
         null=True,
         help_text='Pulse rate (beats per minute)'
     )
-    
+    respiratory_rate = models.IntegerField(
+        validators=[MinValueValidator(5), MaxValueValidator(60)],
+        blank=True,
+        null=True,
+        help_text='Respiratory rate (breaths per minute)'
+    )
+
     # Administrative fields
     file_fee_paid = models.BooleanField(default=False)
     file_fee_amount = models.DecimalField(
@@ -314,7 +340,13 @@ class Patient(models.Model):
         # Auto-generate patient_id if not provided
         if not self.patient_id:
             self.patient_id = Patient.objects._generate_patient_id()
-        
+
+        # Convert names to uppercase and generate full_name
+        self.first_name = self.first_name.upper().strip()
+        self.middle_name = self.middle_name.upper().strip()
+        self.last_name = self.last_name.upper().strip()
+        self.full_name = f"{self.first_name} {self.middle_name} {self.last_name}".strip()
+
         # Set file fee payment date if fee is marked as paid
         if self.file_fee_paid and not self.file_fee_payment_date:
             self.file_fee_payment_date = timezone.now()
@@ -324,7 +356,7 @@ class Patient(models.Model):
             self.file_fee_paid = True
             self.file_fee_amount = 0.00  # NHIF covers file fee
             self.file_fee_payment_date = timezone.now()
-        
+
         super().save(*args, **kwargs)
 
 

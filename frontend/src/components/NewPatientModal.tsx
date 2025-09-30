@@ -12,11 +12,14 @@ interface NewPatientModalProps {
 export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatientModalProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    full_name: '',
+    first_name: '',
+    middle_name: '',
+    last_name: '',
     phone_number: '',
     gender: 'MALE',
     date_of_birth: '',
     patient_type: 'NORMAL',
+    patient_category: 'OUTPATIENT',
     nhif_card_number: '',
     emergency_contact_name: '',
     emergency_contact_phone: '',
@@ -32,6 +35,7 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
     blood_pressure_systolic: '',
     blood_pressure_diastolic: '',
     pulse_rate: '',
+    respiratory_rate: '',
     file_fee_paid: false,
     file_fee_amount: 2000.00
   });
@@ -84,11 +88,14 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
         onClose();
         // Reset form
         setFormData({
-          full_name: '',
+          first_name: '',
+          middle_name: '',
+          last_name: '',
           phone_number: '',
           gender: 'MALE',
           date_of_birth: '',
           patient_type: 'NORMAL',
+          patient_category: 'OUTPATIENT',
           nhif_card_number: '',
           emergency_contact_name: '',
           emergency_contact_phone: '',
@@ -104,6 +111,7 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
           blood_pressure_systolic: '',
           blood_pressure_diastolic: '',
           pulse_rate: '',
+          respiratory_rate: '',
           file_fee_paid: false,
           file_fee_amount: 2000.00
         });
@@ -146,25 +154,72 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Personal Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label style={{
                 fontFamily: 'Inter, sans-serif',
                 fontSize: '14px',
                 fontWeight: '500',
                 color: '#171A1F'
-              }}>Full Name *</label>
+              }}>First Name *</label>
               <input
                 type="text"
-                name="full_name"
-                value={formData.full_name || ''}
-                onChange={handleInputChange}
+                name="first_name"
+                value={formData.first_name || ''}
+                onChange={(e) => {
+                  const value = e.target.value.toUpperCase();
+                  setFormData(prev => ({ ...prev, first_name: value }));
+                }}
                 required
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
                 style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
               />
             </div>
 
+            <div>
+              <label style={{
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '14px',
+                fontWeight: '500',
+                color: '#171A1F'
+              }}>Middle Name *</label>
+              <input
+                type="text"
+                name="middle_name"
+                value={formData.middle_name || ''}
+                onChange={(e) => {
+                  const value = e.target.value.toUpperCase();
+                  setFormData(prev => ({ ...prev, middle_name: value }));
+                }}
+                required
+                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+                style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
+              />
+            </div>
+
+            <div>
+              <label style={{
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '14px',
+                fontWeight: '500',
+                color: '#171A1F'
+              }}>Last Name *</label>
+              <input
+                type="text"
+                name="last_name"
+                value={formData.last_name || ''}
+                onChange={(e) => {
+                  const value = e.target.value.toUpperCase();
+                  setFormData(prev => ({ ...prev, last_name: value }));
+                }}
+                required
+                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+                style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label style={{
                 fontFamily: 'Inter, sans-serif',
@@ -240,6 +295,26 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
               >
                 <option value="NORMAL">Normal Patient (Pays fees)</option>
                 <option value="NHIF">NHIF Insurance Patient</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '14px',
+                fontWeight: '500',
+                color: '#171A1F'
+              }}>Patient Category *</label>
+              <select
+                name="patient_category"
+                value={formData.patient_category}
+                onChange={handleInputChange}
+                required
+                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
+              >
+                <option value="OUTPATIENT">Outpatient (Visiting)</option>
+                <option value="INPATIENT">Inpatient (Admitted)</option>
               </select>
             </div>
 
@@ -320,7 +395,6 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
                 onChange={handleInputChange}
                 className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
-                placeholder="e.g., Teacher, Engineer, Student"
               />
             </div>
           </div>
@@ -375,7 +449,7 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
               color: '#171A1F',
               marginBottom: '12px'
             }}>Vital Signs</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label style={{
                   fontFamily: 'Inter, sans-serif',
@@ -456,6 +530,26 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
                   placeholder="72"
                 />
               </div>
+
+              <div>
+                <label style={{
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#171A1F'
+                }}>Respiratory Rate (b/m)</label>
+                <input
+                  type="number"
+                  name="respiratory_rate"
+                  value={formData.respiratory_rate || ''}
+                  onChange={handleInputChange}
+                  min="5"
+                  max="60"
+                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
+                  placeholder="16"
+                />
+              </div>
             </div>
           </div>
 
@@ -529,7 +623,6 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
                 value={formData.allergies || ''}
                 onChange={handleInputChange}
                 rows={2}
-                placeholder="Known allergies (medications, foods, etc.)"
                 className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
               />
@@ -547,7 +640,6 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
                 value={formData.chronic_conditions || ''}
                 onChange={handleInputChange}
                 rows={2}
-                placeholder="Diabetes, hypertension, etc."
                 className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
               />
