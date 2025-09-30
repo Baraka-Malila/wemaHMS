@@ -111,7 +111,7 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
   const [activeConsultationId, setActiveConsultationId] = useState<string>('');
 
   const [formData, setFormData] = useState<DiagnosisData>({
-    symptoms: '',
+    symptoms: 'SYMPTOMS:\n\n\nEXAMINATION:\n',
     examination_findings: '',
     diagnosis: '',
     treatment_plan: '',
@@ -141,7 +141,7 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
     } else if (!isOpen) {
       // Reset form when modal is closed to prevent flickering on next open
       setFormData({
-        symptoms: '',
+        symptoms: 'SYMPTOMS:\n\n\nEXAMINATION:\n',
         examination_findings: '',
         diagnosis: '',
         treatment_plan: '',
@@ -281,16 +281,21 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
 
   const saveConsultation = async () => {
     // Validate required fields
-    if (!formData.symptoms.trim()) {
-      alert('Please enter patient symptoms before completing consultation.');
+    if (!formData.symptoms.trim() || formData.symptoms === 'SYMPTOMS:\n\n\nEXAMINATION:\n') {
+      alert('Please enter patient symptoms and examination findings.');
       return;
     }
     if (!formData.diagnosis.trim()) {
       alert('Please enter a diagnosis before completing consultation.');
       return;
     }
-    if (!formData.treatment_plan.trim()) {
-      alert('Please enter a treatment plan before completing consultation.');
+
+    // Treatment plan is optional if lab requests are made
+    const hasLabRequests = labRequest.selected_tests.length > 0;
+    const hasPrescriptions = prescriptions.length > 0;
+
+    if (!hasLabRequests && !hasPrescriptions && !formData.treatment_plan.trim()) {
+      alert('Please enter a treatment plan, add prescriptions, or order lab tests.');
       return;
     }
 
@@ -398,7 +403,15 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
           );
         }
 
-        // Update patient status to completed after successful consultation
+        // Update patient status based on what was ordered
+        let newStatus = 'COMPLETED'; // Default if only treatment/prescriptions
+
+        if (hasLabRequests) {
+          newStatus = 'LAB_PENDING'; // Needs to pay for lab tests
+        } else if (hasPrescriptions) {
+          newStatus = 'RX_PENDING'; // Needs to pay for prescriptions
+        }
+
         await fetch(
           `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/${patientId}/status/`,
           {
@@ -408,12 +421,18 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              status: 'COMPLETED'
+              status: newStatus
             })
           }
         );
 
-        alert('Consultation completed successfully!');
+        const statusMessage = newStatus === 'LAB_PENDING'
+          ? 'Consultation saved. Patient should proceed to Finance for lab payment.'
+          : newStatus === 'RX_PENDING'
+          ? 'Consultation saved. Patient should proceed to Finance for prescription payment.'
+          : 'Consultation completed successfully!';
+
+        alert(statusMessage);
         onSave?.();
         onClose();
       } else {
@@ -485,17 +504,6 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
               Consultation & Diagnosis
             </button>
             <button
-              onClick={() => setCurrentTab('prescriptions')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm ${
-                currentTab === 'prescriptions'
-                  ? 'border-green-500 text-green-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <Pill className="inline h-4 w-4 mr-2" />
-              Prescriptions ({prescriptions.length})
-            </button>
-            <button
               onClick={() => setCurrentTab('lab-requests')}
               className={`py-4 px-2 border-b-2 font-medium text-sm ${
                 currentTab === 'lab-requests'
@@ -505,6 +513,17 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
             >
               <TestTube className="inline h-4 w-4 mr-2" />
               Lab Requests ({labRequest.selected_tests.length})
+            </button>
+            <button
+              onClick={() => setCurrentTab('prescriptions')}
+              className={`py-4 px-2 border-b-2 font-medium text-sm ${
+                currentTab === 'prescriptions'
+                  ? 'border-green-500 text-green-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Pill className="inline h-4 w-4 mr-2" />
+              Prescriptions ({prescriptions.length})
             </button>
           </div>
         </div>
@@ -525,7 +544,6 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
                   <textarea
                     rows={10}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500 font-mono text-sm"
-                    placeholder="SYMPTOMS:&#10;- Chief complaint: &#10;- Duration: &#10;- Severity: &#10;- Associated symptoms: &#10;&#10;EXAMINATION:&#10;- General appearance: &#10;- Vital signs: (see right panel)&#10;- System examination: &#10;- Positive findings: &#10;- Negative findings: "
                     value={formData.symptoms}
                     onChange={(e) => handleInputChange('symptoms', e.target.value)}
                     required
@@ -542,7 +560,7 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
                   <textarea
                     rows={4}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500 font-mono text-sm"
-                    placeholder="PRIMARY DIAGNOSIS:&#10;- &#10;&#10;DIFFERENTIAL DIAGNOSIS:&#10;- &#10;- "
+                    placeholder="Write diagnosis here..."
                     value={formData.diagnosis}
                     onChange={(e) => handleInputChange('diagnosis', e.target.value)}
                     required
@@ -552,18 +570,22 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-sm font-medium text-gray-700">
-                      Treatment Plan *
+                      Treatment Plan {labRequest.selected_tests.length === 0 && prescriptions.length === 0 && '*'}
                     </label>
                     <MedicalFormattingGuide field="treatment" />
                   </div>
                   <textarea
                     rows={6}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500 font-mono text-sm"
-                    placeholder="IMMEDIATE TREATMENT:&#10;- &#10;&#10;MEDICATIONS:&#10;- (use Prescriptions tab for details)&#10;&#10;ADVICE & FOLLOW-UP:&#10;- &#10;- Return if: "
+                    placeholder="Write treatment plan here... (Optional if ordering labs)"
                     value={formData.treatment_plan}
                     onChange={(e) => handleInputChange('treatment_plan', e.target.value)}
-                    required
                   />
+                  {labRequest.selected_tests.length > 0 && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Treatment plan can be completed after lab results are available
+                    </p>
+                  )}
                 </div>
               </div>
 

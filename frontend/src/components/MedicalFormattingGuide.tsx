@@ -9,67 +9,68 @@ interface MedicalFormattingGuideProps {
 
 const FORMATTING_GUIDES = {
   symptoms: {
-    title: "Patient Symptoms Format",
+    title: "Symptoms & Examination Format",
     guidelines: [
-      "Chief Complaint: Start with main reason for visit",
-      "Duration: How long symptoms have been present",
-      "Severity: Rate pain/discomfort (mild, moderate, severe)",
-      "Associated symptoms: Other related symptoms",
-      "Aggravating/Relieving factors: What makes it worse/better"
+      "Write symptoms under SYMPTOMS: section",
+      "Write examination findings under EXAMINATION: section",
+      "Use clear, concise medical terminology",
+      "Document all relevant clinical findings"
     ],
-    example: `Chief Complaint: Severe headache with nausea
-Duration: 3 days, started gradually
-Severity: 8/10 pain, throbbing
-Associated: Photophobia, vomiting (2x), dizziness
-Aggravating: Bright lights, noise, movement
-Relieving: Rest in dark room, minimal relief with paracetamol`
+    example: `SYMPTOMS:
+Severe headache with nausea for 3 days
+Pain 8/10, throbbing, photophobia
+Vomiting 2x, dizziness
+
+EXAMINATION:
+Alert, oriented, appears uncomfortable
+BP 140/90, HR 88, T 37.2°C
+Neck stiffness present, no focal deficits
+Pupils equal and reactive`
   },
   examination: {
-    title: "Physical Examination Format",
+    title: "Symptoms & Examination Format",
     guidelines: [
-      "General appearance: Alert, oriented, in pain/distress",
-      "Vital signs: Record if measured",
-      "Relevant systems: Focus on complaint-related findings",
-      "Positive findings: Abnormal discoveries",
-      "Negative findings: Important normal findings"
+      "Write symptoms under SYMPTOMS: section",
+      "Write examination findings under EXAMINATION: section",
+      "Use clear, concise medical terminology",
+      "Document all relevant clinical findings"
     ],
-    example: `General: Alert, oriented, appears uncomfortable
-Vital signs: BP 140/90, HR 88, T 37.2°C
-Neurological: Neck stiffness present, no focal deficits
-Eyes: Pupils equal and reactive, no papilledema
-Cardiovascular: Regular rhythm, no murmurs
-Skin: No rash, normal color`
+    example: `SYMPTOMS:
+Severe headache with nausea for 3 days
+Pain 8/10, throbbing, photophobia
+Vomiting 2x, dizziness
+
+EXAMINATION:
+Alert, oriented, appears uncomfortable
+BP 140/90, HR 88, T 37.2°C
+Neck stiffness present, no focal deficits
+Pupils equal and reactive`
   },
   diagnosis: {
     title: "Diagnosis Format",
     guidelines: [
-      "Primary diagnosis: Most likely condition",
-      "Differential: Other possible conditions if uncertain",
-      "ICD-10 codes: If known/required",
-      "Severity: Mild, moderate, severe",
-      "Complications: Any present or risk factors"
+      "State the primary diagnosis clearly",
+      "List differential diagnoses if uncertain",
+      "Include severity if applicable",
+      "Use standard medical terminology"
     ],
-    example: `Primary: Migraine headache with aura
+    example: `Migraine headache with aura
 Differential: Tension headache, cluster headache
-Severity: Severe, impacting daily activities
-Risk factors: Stress, irregular sleep pattern
-No complications identified`
+Severity: Severe`
   },
   treatment: {
     title: "Treatment Plan Format",
     guidelines: [
-      "Immediate treatment: What's given/done now",
-      "Medications: Prescribed with dosing",
-      "Non-pharmacological: Rest, diet, lifestyle changes",
-      "Follow-up: When to return, monitoring needed",
-      "Red flags: When to seek immediate care"
+      "Document immediate treatment given",
+      "List medications with dosing (use Prescriptions tab for details)",
+      "Include advice and follow-up instructions",
+      "Note when patient should return"
     ],
-    example: `Immediate: Sumatriptan 50mg given IM
-Medications: Prescribed sumatriptan 50mg tablets PRN
-Non-pharm: Rest in dark quiet room, hydration
-Lifestyle: Regular sleep schedule, stress management
-Follow-up: Return if no improvement in 48hrs
-Red flags: Worst headache ever, fever, confusion`
+    example: `Sumatriptan 50mg given IM
+Prescribed sumatriptan 50mg PRN (see Prescriptions)
+Rest in dark quiet room, hydration
+Regular sleep schedule
+Return if no improvement in 48hrs`
   }
 };
 

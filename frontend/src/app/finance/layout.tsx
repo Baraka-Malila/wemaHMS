@@ -3,15 +3,16 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import auth from '@/lib/auth';
-import { 
-  DollarSign, 
-  Activity, 
-  TrendingUp, 
-  Calculator, 
-  LogOut, 
-  Menu, 
+import {
+  DollarSign,
+  Activity,
+  TrendingUp,
+  Calculator,
+  LogOut,
+  Menu,
   X,
-  Banknote
+  Banknote,
+  Receipt
 } from 'lucide-react';
 
 export default function FinanceLayout({
@@ -151,11 +152,25 @@ export default function FinanceLayout({
               {!sidebarCollapsed && <span>Dashboard</span>}
             </div>
 
-            {/* Daily Operations */}
-            <div 
+            {/* Payment Queue */}
+            <div
               className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-3 rounded-lg font-medium cursor-pointer ${
-                isActive('/finance/daily-ops') 
-                  ? 'text-white' 
+                isActive('/finance/payment-queue')
+                  ? 'text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              style={isActive('/finance/payment-queue') ? { background: '#9CA3AF' } : {}}
+              onClick={() => router.push('/finance/payment-queue')}
+            >
+              <Receipt className="h-5 w-5" />
+              {!sidebarCollapsed && <span>Payment Queue</span>}
+            </div>
+
+            {/* Daily Operations */}
+            <div
+              className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-3 rounded-lg font-medium cursor-pointer ${
+                isActive('/finance/daily-ops')
+                  ? 'text-white'
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
               style={isActive('/finance/daily-ops') ? { background: '#9CA3AF' } : {}}

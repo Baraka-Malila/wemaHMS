@@ -135,12 +135,12 @@ export default function ReceptionLayout({
         >
           <nav className={`flex-1 ${sidebarCollapsed ? 'p-2' : 'p-6'} space-y-2`}>
             {/* Dashboard */}
-            <div 
+            <div
               className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-3 rounded-lg font-medium cursor-pointer ${
-                isActive('/reception/dashboard') 
-                  ? 'text-white' 
+                isActive('/reception/dashboard')
+                  ? 'text-white'
                   : 'text-gray-600 hover:bg-gray-100'
-              }`} 
+              }`}
               style={isActive('/reception/dashboard') ? { background: '#9CA3AF' } : {}}
               onClick={() => router.push('/reception/dashboard')}
             >
@@ -151,23 +151,6 @@ export default function ReceptionLayout({
                 <rect x="3" y="14" width="7" height="7"/>
               </svg>
               {!sidebarCollapsed && <span>Dashboard</span>}
-            </div>
-
-            {/* Payments */}
-            <div 
-              className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-3 rounded-lg font-medium cursor-pointer ${
-                isActive('/reception/payments') 
-                  ? 'text-white' 
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-              style={isActive('/reception/payments') ? { background: '#9CA3AF' } : {}}
-              onClick={() => router.push('/reception/payments')}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
-                <line x1="1" y1="10" x2="23" y2="10"/>
-              </svg>
-              {!sidebarCollapsed && <span>Payments</span>}
             </div>
           </nav>
         </aside>
