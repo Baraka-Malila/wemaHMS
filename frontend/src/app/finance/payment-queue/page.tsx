@@ -28,7 +28,9 @@ interface PendingPayment {
 
 export default function PaymentQueue() {
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'pending' | 'recent'>('pending');
   const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
+  const [recentPayments, setRecentPayments] = useState<PendingPayment[]>([]);
   const [filteredPayments, setFilteredPayments] = useState<PendingPayment[]>([]);
   const [selectedPayment, setSelectedPayment] = useState<PendingPayment | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -43,7 +45,7 @@ export default function PaymentQueue() {
     try {
       const token = auth.getToken();
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/pricing/service-payments/pending_payments/`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/finance/payments/pending/`,
         {
           headers: {
             'Authorization': `Token ${token}`,
@@ -60,7 +62,9 @@ export default function PaymentQueue() {
           ? (Array.isArray(data.pending_payments) ? data.pending_payments : [])
           : [];
         setPendingPayments(paymentsArray);
-        setFilteredPayments(paymentsArray);
+        if (activeTab === 'pending') {
+          setFilteredPayments(paymentsArray);
+        }
       }
     } catch (error) {
       console.error('Error loading payment queue:', error);
@@ -71,20 +75,68 @@ export default function PaymentQueue() {
     }
   };
 
+  const loadRecentPayments = async (isInitialLoad = false) => {
+    if (isInitialLoad) {
+      setLoading(true);
+    }
+
+    try {
+      const token = auth.getToken();
+      // Get all payments (both paid and pending)
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/pricing/payments/?status=PAID&limit=100`,
+        {
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const paymentsArray = Array.isArray(data)
+          ? data
+          : data.results
+          ? (Array.isArray(data.results) ? data.results : [])
+          : [];
+        setRecentPayments(paymentsArray);
+        if (activeTab === 'recent') {
+          setFilteredPayments(paymentsArray);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading recent payments:', error);
+    } finally {
+      if (isInitialLoad) {
+        setLoading(false);
+      }
+    }
+  };
+
   useEffect(() => {
-    loadPaymentQueue(true);
+    if (activeTab === 'pending') {
+      loadPaymentQueue(true);
+    } else {
+      loadRecentPayments(true);
+    }
 
     // Real-time polling every 3 seconds
     const refreshInterval = setInterval(() => {
-      loadPaymentQueue(false);
+      if (activeTab === 'pending') {
+        loadPaymentQueue(false);
+      } else {
+        loadRecentPayments(false);
+      }
     }, 3000);
 
     return () => clearInterval(refreshInterval);
-  }, []);
+  }, [activeTab]);
 
   // Filter and search
   useEffect(() => {
-    let filtered = pendingPayments;
+    const sourceData = activeTab === 'pending' ? pendingPayments : recentPayments;
+    let filtered = sourceData;
 
     // Service type filter
     if (serviceFilter !== 'ALL') {
@@ -95,14 +147,14 @@ export default function PaymentQueue() {
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
       filtered = filtered.filter(p =>
-        p.patient_id.toLowerCase().includes(search) ||
-        p.patient_name.toLowerCase().includes(search) ||
-        p.service_name.toLowerCase().includes(search)
+        p.patient_id?.toLowerCase().includes(search) ||
+        p.patient_name?.toLowerCase().includes(search) ||
+        p.service_name?.toLowerCase().includes(search)
       );
     }
 
     setFilteredPayments(filtered);
-  }, [searchTerm, serviceFilter, pendingPayments]);
+  }, [searchTerm, serviceFilter, pendingPayments, recentPayments, activeTab]);
 
   const handleRecordPayment = (payment: PendingPayment) => {
     setSelectedPayment(payment);
@@ -164,11 +216,13 @@ export default function PaymentQueue() {
       <div className="bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold mb-2">Payment Queue</h1>
+            <h1 className="text-2xl font-bold mb-2">
+              {activeTab === 'pending' ? 'Payment Queue' : 'Recent Payments'}
+            </h1>
             <p className="text-amber-100">
-              {filteredPayments.length} pending payment{filteredPayments.length !== 1 ? 's' : ''}
+              {filteredPayments.length} {activeTab === 'pending' ? 'pending' : 'recent'} payment{filteredPayments.length !== 1 ? 's' : ''}
               {' • Total: TZS '}
-              {filteredPayments.reduce((sum, p) => sum + Number(p.amount), 0).toLocaleString()}
+              {filteredPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0).toLocaleString()}
             </p>
           </div>
           <div className="hidden md:block">
@@ -178,6 +232,48 @@ export default function PaymentQueue() {
               <RealTimeClock className="text-white" />
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="flex border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('pending')}
+            className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
+              activeTab === 'pending'
+                ? 'text-amber-600 border-b-2 border-amber-600 bg-amber-50'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Clock className="h-5 w-5" />
+              <span>Pending Payments</span>
+              <span className={`px-2 py-1 rounded-full text-xs ${
+                activeTab === 'pending' ? 'bg-amber-600 text-white' : 'bg-gray-200 text-gray-700'
+              }`}>
+                {pendingPayments.length}
+              </span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('recent')}
+            className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
+              activeTab === 'recent'
+                ? 'text-green-600 border-b-2 border-green-600 bg-green-50'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <CheckCircle className="h-5 w-5" />
+              <span>Recent Payments</span>
+              <span className={`px-2 py-1 rounded-full text-xs ${
+                activeTab === 'recent' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700'
+              }`}>
+                {recentPayments.length}
+              </span>
+            </div>
+          </button>
         </div>
       </div>
 

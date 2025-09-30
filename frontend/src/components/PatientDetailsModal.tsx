@@ -41,6 +41,7 @@ interface PatientDetails {
   blood_pressure_systolic?: number;
   blood_pressure_diastolic?: number;
   pulse_rate?: number;
+  respiratory_rate?: number;
   blood_pressure?: string;
   created_at: string;
   updated_at: string;
@@ -353,7 +354,7 @@ export default function PatientDetailsModal({ isOpen, onClose, patientId, onEdit
               )}
 
               {/* Vital Signs */}
-              {(patient.temperature || patient.blood_pressure_systolic || patient.blood_pressure_diastolic || patient.pulse_rate) && (
+              {(patient.temperature || patient.blood_pressure_systolic || patient.blood_pressure_diastolic || patient.pulse_rate || patient.respiratory_rate) && (
                 <div>
                   <h3 style={{
                     fontFamily: 'Inter, sans-serif',
@@ -363,11 +364,11 @@ export default function PatientDetailsModal({ isOpen, onClose, patientId, onEdit
                     marginBottom: '16px'
                   }}>Vital Signs</h3>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                     {patient.temperature && (
                       <div>
                         <label style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: '500', color: '#9CA3AF' }}>
-                          Temperature
+                          Temperature (°C)
                         </label>
                         <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', color: '#171A1F', marginTop: '4px' }}>
                           {patient.temperature}°C
@@ -378,10 +379,10 @@ export default function PatientDetailsModal({ isOpen, onClose, patientId, onEdit
                     {(patient.blood_pressure_systolic && patient.blood_pressure_diastolic) && (
                       <div>
                         <label style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: '500', color: '#9CA3AF' }}>
-                          Blood Pressure
+                          Blood Pressure (mmHg)
                         </label>
                         <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', color: '#171A1F', marginTop: '4px' }}>
-                          {patient.blood_pressure_systolic}/{patient.blood_pressure_diastolic} mmHg
+                          {patient.blood_pressure_systolic}/{patient.blood_pressure_diastolic}
                         </p>
                       </div>
                     )}
@@ -389,10 +390,21 @@ export default function PatientDetailsModal({ isOpen, onClose, patientId, onEdit
                     {patient.pulse_rate && (
                       <div>
                         <label style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: '500', color: '#9CA3AF' }}>
-                          Pulse Rate
+                          Pulse Rate (bpm)
                         </label>
                         <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', color: '#171A1F', marginTop: '4px' }}>
-                          {patient.pulse_rate} bpm
+                          {patient.pulse_rate}
+                        </p>
+                      </div>
+                    )}
+
+                    {patient.respiratory_rate && (
+                      <div>
+                        <label style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: '500', color: '#9CA3AF' }}>
+                          Respiratory Rate (b/m)
+                        </label>
+                        <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', color: '#171A1F', marginTop: '4px' }}>
+                          {patient.respiratory_rate}
                         </p>
                       </div>
                     )}

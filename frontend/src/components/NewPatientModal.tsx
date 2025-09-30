@@ -36,8 +36,7 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
     blood_pressure_diastolic: '',
     pulse_rate: '',
     respiratory_rate: '',
-    file_fee_paid: false,
-    file_fee_amount: 2000.00
+    file_fee_paid: false
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -112,8 +111,7 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
           blood_pressure_diastolic: '',
           pulse_rate: '',
           respiratory_rate: '',
-          file_fee_paid: false,
-          file_fee_amount: 2000.00
+          file_fee_paid: false
         });
       } else {
         const errorData = await response.json();
@@ -376,8 +374,11 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
                 type="text"
                 name="tribe"
                 value={formData.tribe}
-                onChange={handleInputChange}
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => {
+                  const value = e.target.value.toUpperCase();
+                  setFormData(prev => ({ ...prev, tribe: value }));
+                }}
+                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
                 style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
               />
             </div>
@@ -392,8 +393,11 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
                 type="text"
                 name="occupation"
                 value={formData.occupation}
-                onChange={handleInputChange}
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => {
+                  const value = e.target.value.toUpperCase();
+                  setFormData(prev => ({ ...prev, occupation: value }));
+                }}
+                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
                 style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
               />
             </div>
@@ -566,8 +570,11 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
                 type="text"
                 name="emergency_contact_name"
                 value={formData.emergency_contact_name || ''}
-                onChange={handleInputChange}
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => {
+                  const value = e.target.value.toUpperCase();
+                  setFormData(prev => ({ ...prev, emergency_contact_name: value }));
+                }}
+                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
                 style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
               />
             </div>
@@ -602,9 +609,12 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
             <textarea
               name="address"
               value={formData.address || ''}
-              onChange={handleInputChange}
+              onChange={(e) => {
+                const value = e.target.value.toUpperCase();
+                setFormData(prev => ({ ...prev, address: value }));
+              }}
               rows={2}
-              className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
               style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
             />
           </div>

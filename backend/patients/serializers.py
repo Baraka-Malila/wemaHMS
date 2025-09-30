@@ -30,7 +30,7 @@ class PatientSerializer(serializers.ModelSerializer):
             'age', 'bmi', 'is_new_patient', 'requires_file_fee', 'is_nhif_patient'
         ]
         read_only_fields = [
-            'id', 'patient_id', 'created_at', 'updated_at', 'file_fee_payment_date',
+            'id', 'patient_id', 'full_name', 'created_at', 'updated_at', 'file_fee_payment_date',
             'age', 'bmi', 'is_new_patient', 'requires_file_fee', 'is_nhif_patient',
             'created_by_name', 'last_updated_by_name'
         ]

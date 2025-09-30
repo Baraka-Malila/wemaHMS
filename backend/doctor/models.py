@@ -107,7 +107,20 @@ class Consultation(models.Model):
         validators=[MinValueValidator(30), MaxValueValidator(200)],
         help_text='Heart rate per minute'
     )
-    
+    respiratory_rate = models.IntegerField(
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(5), MaxValueValidator(60)],
+        help_text='Respiratory rate (breaths per minute)'
+    )
+
+    # Private doctor notes
+    doctor_notes = models.TextField(
+        blank=True,
+        default='',
+        help_text='Private notes for doctor reference only'
+    )
+
     # Timestamps
     consultation_date = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
