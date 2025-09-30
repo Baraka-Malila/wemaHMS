@@ -95,33 +95,10 @@ export default function PatientQueue() {
   const handleStartConsultation = async (patient: Patient) => {
     try {
       setStartingConsultation(patient.patient_id);
-      const token = auth.getToken();
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/start-consultation/`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Token ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            patient_id: patient.patient_id,
-            chief_complaint: patient.consultation_info?.chief_complaint || 'General consultation',
-            priority: patient.consultation_info?.priority || 'NORMAL'
-          })
-        }
-      );
-
-      if (response.ok) {
-        // Open the diagnosis modal to record initial consultation details
-        setDiagnosisPatientId(patient.patient_id);
-        setDiagnosisModalOpen(true);
-        // DON'T refresh queue here - only refresh when consultation is completed/saved
-      } else {
-        const errorData = await response.json();
-        alert(`Error: ${errorData.error || 'Failed to start consultation'}`);
-      }
+      // Just open the diagnosis modal - no API call to start consultation yet
+      // Patient remains in queue until consultation is actually completed and saved
+      setDiagnosisPatientId(patient.patient_id);
+      setDiagnosisModalOpen(true);
     } catch (error) {
       console.error('Error starting consultation:', error);
       alert('Error starting consultation. Please try again.');

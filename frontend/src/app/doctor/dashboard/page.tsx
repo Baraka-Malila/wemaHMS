@@ -123,7 +123,7 @@ export default function DoctorDashboard() {
       bgColor: 'bg-green-50'
     },
     {
-      title: 'Pending Consultations',
+      title: 'Pending Consults',
       value: dashboardData.pending_consultations.toString(),
       change: `${dashboardData.urgent_cases.length} urgent cases`,
       icon: FileText,

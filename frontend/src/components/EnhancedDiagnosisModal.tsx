@@ -518,48 +518,51 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-sm font-medium text-gray-700">
-                      Symptoms & Examination
+                      Symptoms & Examination *
                     </label>
                     <MedicalFormattingGuide field="symptoms" />
                   </div>
                   <textarea
-                    rows={6}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                    placeholder="SYMPTOMS:&#10;Chief Complaint: Main reason for visit&#10;Duration: How long present&#10;Severity: Mild/moderate/severe&#10;&#10;EXAMINATION:&#10;General appearance: Alert, oriented&#10;Relevant systems: Focus on complaint&#10;Positive findings: Abnormalities"
+                    rows={10}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500 font-mono text-sm"
+                    placeholder="SYMPTOMS:&#10;- Chief complaint: &#10;- Duration: &#10;- Severity: &#10;- Associated symptoms: &#10;&#10;EXAMINATION:&#10;- General appearance: &#10;- Vital signs: (see right panel)&#10;- System examination: &#10;- Positive findings: &#10;- Negative findings: "
                     value={formData.symptoms}
                     onChange={(e) => handleInputChange('symptoms', e.target.value)}
+                    required
                   />
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-sm font-medium text-gray-700">
-                      Diagnosis
+                      Diagnosis *
                     </label>
                     <MedicalFormattingGuide field="diagnosis" />
                   </div>
                   <textarea
-                    rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                    placeholder="Primary: Most likely condition&#10;Differential: Other possibilities&#10;Severity: Mild/moderate/severe"
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500 font-mono text-sm"
+                    placeholder="PRIMARY DIAGNOSIS:&#10;- &#10;&#10;DIFFERENTIAL DIAGNOSIS:&#10;- &#10;- "
                     value={formData.diagnosis}
                     onChange={(e) => handleInputChange('diagnosis', e.target.value)}
+                    required
                   />
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-sm font-medium text-gray-700">
-                      Treatment Plan
+                      Treatment Plan *
                     </label>
                     <MedicalFormattingGuide field="treatment" />
                   </div>
                   <textarea
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                    placeholder="Immediate: Current treatment&#10;Medications: Prescribed with dosing&#10;Non-pharm: Lifestyle changes&#10;Follow-up: When to return&#10;Red flags: When to seek immediate care"
+                    rows={6}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500 font-mono text-sm"
+                    placeholder="IMMEDIATE TREATMENT:&#10;- &#10;&#10;MEDICATIONS:&#10;- (use Prescriptions tab for details)&#10;&#10;ADVICE & FOLLOW-UP:&#10;- &#10;- Return if: "
                     value={formData.treatment_plan}
                     onChange={(e) => handleInputChange('treatment_plan', e.target.value)}
+                    required
                   />
                 </div>
               </div>
@@ -953,7 +956,7 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
                 disabled={saving}
                 className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {saving ? 'Saving...' : 'Complete Consultation'}
+                {saving ? 'Completing...' : 'Complete'}
               </button>
             </div>
           </div>
