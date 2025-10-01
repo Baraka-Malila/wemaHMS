@@ -593,13 +593,14 @@ def create_consultation(request):
                 patient_id=patient_id,
                 status='IN_PROGRESS'
             ).first()
-            
+
             if existing_consultation:
-                print(f"⚠️ Consultation already exists for {patient_id}: {existing_consultation.id}")
+                print(f"⚠️ Consultation already exists for {patient_id}: {existing_consultation.id} - Returning it")
                 return Response({
-                    'error': 'A consultation is already in progress for this patient. Please complete or cancel the existing consultation first.',
-                    'existing_consultation_id': str(existing_consultation.id)
-                }, status=status.HTTP_400_BAD_REQUEST)
+                    'message': 'Using existing consultation',
+                    'consultation': ConsultationSerializer(existing_consultation).data,
+                    'existing': True
+                }, status=status.HTTP_200_OK)
 
         serializer = ConsultationSerializer(data=data)
 
@@ -839,6 +840,74 @@ def complete_consultation(request):
                         print(f"✅ Created PENDING medication payment: {med_payment.id} for {total_medication_cost} TZS ({prescriptions.count()} medications)")
                     else:
                         print(f"ℹ️ Medication payment already exists: {existing_med_payment.id}")
+
+            # Create lab test payment if there are lab requests
+            lab_requests = consultation.lab_requests.all()
+            if lab_requests.exists():
+                # Calculate total cost from specific test prices
+                from finance.models import ServicePricing
+
+                # Map test IDs to service codes
+                test_id_to_code = {
+                    'mrdt': 'LAB_MRDT',
+                    'bs': 'LAB_BS',
+                    'stool_macro': 'LAB_STOOL_ANALYSIS',
+                    'stool_micro': 'LAB_STOOL_ANALYSIS',
+                    'urine_sed_macro': 'LAB_URINE_SED',
+                    'urine_sed_micro': 'LAB_URINE_SED',
+                    'urinalysis': 'LAB_URINALYSIS',
+                    'rpr': 'LAB_RPR',
+                    'h_pylori': 'LAB_H_PYLORI',
+                    'hepatitis_b': 'LAB_HEPATITIS_B',
+                    'hepatitis_c': 'LAB_HEPATITIS_C',
+                    'ssat': 'LAB_SSAT',
+                    'upt': 'LAB_UPT',
+                    'glucose': 'LAB_BLOOD_SUGAR',
+                    'esr': 'LAB_ESR',
+                    'b_grouping': 'LAB_BLOOD_GROUPING',
+                    'hb': 'LAB_HB',
+                    'rheumatoid_factor': 'LAB_RF',
+                    'rbg': 'LAB_RBG',
+                    'fbg': 'LAB_FBG',
+                    'sickling_test': 'LAB_SICKLING_TEST',
+                }
+
+                total_lab_cost = Decimal('0')
+                test_names = []
+
+                for lab_request in lab_requests:
+                    if lab_request.selected_tests:
+                        for test_id in lab_request.selected_tests:
+                            service_code = test_id_to_code.get(test_id)
+                            if service_code:
+                                pricing = ServicePricing.objects.filter(service_code=service_code).first()
+                                if pricing:
+                                    total_lab_cost += pricing.standard_price
+                                    test_names.append(pricing.service_name)
+                                else:
+                                    # Fallback price if not in database
+                                    total_lab_cost += Decimal('15000.00')
+                                    test_names.append(test_id)
+
+                if total_lab_cost > 0:
+                    # Check if lab payment already exists
+                    existing_lab_payment = get_pending_payment_for_service(
+                        patient=patient,
+                        service_type='LAB_TEST',
+                        reference_id=consultation.id
+                    )
+                    if not existing_lab_payment:
+                        lab_payment = create_pending_payment(
+                            patient=patient,
+                            service_type='LAB_TEST',
+                            service_name=f'Lab Tests ({len(test_names)} tests)',
+                            amount=total_lab_cost,
+                            reference_id=consultation.id,
+                            user=request.user
+                        )
+                        print(f"✅ Created PENDING lab test payment: {lab_payment.id} for {total_lab_cost} TZS ({len(test_names)} tests: {', '.join(test_names[:3])}{'...' if len(test_names) > 3 else ''})")
+                    else:
+                        print(f"ℹ️ Lab test payment already exists: {existing_lab_payment.id}")
 
             # Update patient status to indicate pending consultation payment
             patient.current_status = 'PENDING_CONSULTATION_PAYMENT'

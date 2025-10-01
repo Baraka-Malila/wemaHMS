@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   DollarSign,
   FileText,
@@ -34,7 +34,6 @@ interface Payment {
 export default function PaymentHistory() {
   const [loading, setLoading] = useState(true);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [serviceFilter, setServiceFilter] = useState('ALL');
   const [dateFilter, setDateFilter] = useState(''); // Empty = show all dates (no filter)
@@ -43,10 +42,6 @@ export default function PaymentHistory() {
 
   const loadPaymentHistory = async () => {
     try {
-      // Don't show loading spinner on refresh (only on initial load)
-      if (payments.length === 0) {
-        setLoading(true);
-      }
       const token = auth.getToken();
 
       // Fetch all PAID payments with pagination
@@ -64,35 +59,44 @@ export default function PaymentHistory() {
         const data = await response.json();
         // Handle paginated response (DRF pagination wraps data in "results")
         const paymentsArray = Array.isArray(data) ? data : (data.results || []);
-        
-        // Only log on initial load or if count changed
-        if (payments.length === 0 || payments.length !== paymentsArray.length) {
-          console.log('💰 Loaded payment history:', {
-            total: paymentsArray.length,
-            previousCount: payments.length
-          });
-        }
-        
-        setPayments(paymentsArray);
-      } else {
-        console.error('❌ Failed to load payments:', response.status, response.statusText);
+
+        // Only update state if IDs or count changed (prevents blinking)
+        setPayments(prev => {
+          const prevIds = new Set(prev.map(p => p.id));
+          const currentIds = new Set(paymentsArray.map((p: any) => p.id));
+
+          // Check if anything changed
+          const countChanged = prev.length !== paymentsArray.length;
+          const idsChanged = Array.from(currentIds).some(id => !prevIds.has(id)) ||
+                            Array.from(prevIds).some(id => !currentIds.has(id));
+
+          if (countChanged || idsChanged || prev.length === 0) {
+            return paymentsArray;
+          }
+
+          return prev; // No change, keep previous state (prevents re-render)
+        });
       }
     } catch (error) {
-      console.error('Error loading payment history:', error);
+      // Silent fail for polling - don't show errors during background updates
+      console.debug('Polling update skipped:', error);
     } finally {
-      setLoading(false);
+      // Only stop loading on initial load
+      if (loading) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
     loadPaymentHistory();
-    // Refresh every 30 seconds (reduced from 10) - less aggressive polling
-    const interval = setInterval(loadPaymentHistory, 30000);
+    // Refresh every 2 seconds for real-time updates (matches pending payments)
+    const interval = setInterval(loadPaymentHistory, 2000);
     return () => clearInterval(interval);
   }, []);
 
-  // Apply filters
-  useEffect(() => {
+  // Apply filters using useMemo (prevents re-renders)
+  const filteredPayments = useMemo(() => {
     let filtered = [...payments];
 
     // Search filter (patient ID or name)
@@ -124,7 +128,7 @@ export default function PaymentHistory() {
       });
     }
 
-    setFilteredPayments(filtered);
+    return filtered;
   }, [searchTerm, serviceFilter, patientFilter, dateFilter, payments]);
 
   const getServiceBadgeColor = (serviceType: string) => {
@@ -138,22 +142,28 @@ export default function PaymentHistory() {
     return colors[serviceType] || colors['OTHER'];
   };
 
-  const totalAmount = filteredPayments.reduce((sum, p) => sum + parseFloat(String(p.amount || '0')), 0);
+  const totalAmount = useMemo(() =>
+    filteredPayments.reduce((sum, p) => sum + parseFloat(String(p.amount || '0')), 0),
+    [filteredPayments]
+  );
 
-  // Group by patient
-  const paymentsByPatient = filteredPayments.reduce((acc: any, payment) => {
-    if (!acc[payment.patient_id]) {
-      acc[payment.patient_id] = {
-        patient_name: payment.patient_name,
-        patient_id: payment.patient_id,
-        payments: [],
-        total: 0
-      };
-    }
-    acc[payment.patient_id].payments.push(payment);
-    acc[payment.patient_id].total += parseFloat(String(payment.amount || '0'));
-    return acc;
-  }, {});
+  // Group by patient (memoized to prevent re-renders)
+  const paymentsByPatient = useMemo(() =>
+    filteredPayments.reduce((acc: any, payment) => {
+      if (!acc[payment.patient_id]) {
+        acc[payment.patient_id] = {
+          patient_name: payment.patient_name,
+          patient_id: payment.patient_id,
+          payments: [],
+          total: 0
+        };
+      }
+      acc[payment.patient_id].payments.push(payment);
+      acc[payment.patient_id].total += parseFloat(String(payment.amount || '0'));
+      return acc;
+    }, {}),
+    [filteredPayments]
+  );
 
   return (
     <div className="space-y-6">

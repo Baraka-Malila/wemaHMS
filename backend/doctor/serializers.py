@@ -118,6 +118,8 @@ class LabTestRequestSerializer(serializers.ModelSerializer):
 class LabTestRequestCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating comprehensive lab test requests"""
 
+    consultation_id = serializers.UUIDField(write_only=True, required=False)
+
     class Meta:
         model = LabTestRequest
         fields = [
@@ -152,6 +154,20 @@ class LabTestRequestCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("At least one test must be requested.")
 
         return data
+
+    def create(self, validated_data):
+        """Handle consultation_id conversion to consultation ForeignKey"""
+        consultation_id = validated_data.pop('consultation_id', None)
+
+        if consultation_id:
+            from .models import Consultation
+            try:
+                consultation = Consultation.objects.get(id=consultation_id)
+                validated_data['consultation'] = consultation
+            except Consultation.DoesNotExist:
+                raise serializers.ValidationError({"consultation_id": "Consultation not found"})
+
+        return super().create(validated_data)
 
 
 class PrescriptionSerializer(serializers.ModelSerializer):

@@ -65,7 +65,6 @@ interface MedicationSearchResult {
 interface LabRequestData {
   selected_tests: string[];
   urgency: string;
-  clinical_notes: string;
 }
 
 const FREQUENCY_OPTIONS = [
@@ -151,7 +150,6 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
   const [labRequest, setLabRequest] = useState<LabRequestData>({
     selected_tests: [],
     urgency: 'NORMAL',
-    clinical_notes: '',
   });
 
   useEffect(() => {
@@ -183,8 +181,8 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
       setLabRequest({
         selected_tests: [],
         urgency: 'NORMAL',
-        clinical_notes: '',
       });
+      setActiveConsultationId('');
       setCurrentTab('consultation');
     }
   }, [isOpen, patientId]);
@@ -217,6 +215,62 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
             heart_rate: data.pulse_rate || prev.heart_rate,
             respiratory_rate: data.respiratory_rate || prev.respiratory_rate,
           }));
+        }
+
+        // Check if patient has an existing IN_PROGRESS consultation
+        if (!consultationId) {
+          console.log('🔍 Checking for existing IN_PROGRESS consultation for:', patientId);
+          try {
+            const consultationsResponse = await fetch(
+              `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/consultations/?patient_id=${patientId}&status=IN_PROGRESS`,
+              {
+                headers: {
+                  'Authorization': `Token ${token}`,
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+
+            console.log('Consultations API response status:', consultationsResponse.status);
+
+            if (consultationsResponse.ok) {
+              const consultationsData = await consultationsResponse.json();
+              const consultations = Array.isArray(consultationsData) ? consultationsData : (consultationsData.results || []);
+
+              console.log('Found consultations:', consultations.length);
+
+              if (consultations.length > 0) {
+                // Found existing IN_PROGRESS consultation - load it
+                const existingConsultation = consultations[0];
+                console.log('✅ Found existing IN_PROGRESS consultation:', existingConsultation.id);
+                setActiveConsultationId(existingConsultation.id);
+
+                // Load consultation data
+                setFormData({
+                  chief_complaint: existingConsultation.chief_complaint || '',
+                  symptoms: existingConsultation.symptoms || '',
+                  examination_findings: existingConsultation.examination_findings || '',
+                  diagnosis: existingConsultation.diagnosis || '',
+                  treatment_plan: existingConsultation.treatment_plan || '',
+                  general_advice: existingConsultation.general_advice || '',
+                  follow_up_date: existingConsultation.follow_up_date || '',
+                  priority: existingConsultation.priority || 'NORMAL',
+                  temperature: existingConsultation.temperature || undefined,
+                  blood_pressure_systolic: existingConsultation.blood_pressure_systolic || undefined,
+                  blood_pressure_diastolic: existingConsultation.blood_pressure_diastolic || undefined,
+                  heart_rate: existingConsultation.heart_rate || undefined,
+                  respiratory_rate: existingConsultation.respiratory_rate || undefined,
+                  doctor_notes: existingConsultation.doctor_notes || ''
+                });
+              } else {
+                console.log('ℹ️ No existing IN_PROGRESS consultation found for patient');
+              }
+            } else {
+              console.error('Failed to fetch consultations:', consultationsResponse.status);
+            }
+          } catch (error) {
+            console.error('Error checking for existing consultation:', error);
+          }
         }
       }
     } catch (error) {
@@ -432,8 +486,11 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
 
       let consultationResponse;
 
+      console.log('💾 Saving consultation - activeConsultationId:', activeConsultationId);
+
       if (activeConsultationId) {
         // Update existing consultation
+        console.log('Updating existing consultation:', activeConsultationId);
         consultationResponse = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/consultations/${activeConsultationId}/update/`,
           {
@@ -454,6 +511,7 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
         );
       } else {
         // Create new consultation
+        console.log('Creating new consultation for patient:', patientId);
         // Ensure patient_name is not empty
         const patientName = patient?.full_name || 'Unknown Patient';
         if (!patient?.full_name) {
@@ -584,7 +642,70 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
             .filter(Boolean)
             .join(', ');
 
-          await fetch(
+          // Convert selected_tests array to individual boolean fields for backend
+          const testBooleans: any = {
+            mrdt_requested: false,
+            bs_requested: false,
+            stool_analysis_requested: false,
+            urine_sed_requested: false,
+            urinalysis_requested: false,
+            rpr_requested: false,
+            h_pylori_requested: false,
+            hepatitis_b_requested: false,
+            hepatitis_c_requested: false,
+            ssat_requested: false,
+            upt_requested: false,
+            esr_requested: false,
+            blood_grouping_requested: false,
+            hb_requested: false,
+            rheumatoid_factor_requested: false,
+            rbg_requested: false,
+            fbg_requested: false,
+            sickling_test_requested: false,
+          };
+
+          // Map frontend test IDs to backend field names
+          const testIdMapping: { [key: string]: string } = {
+            'mrdt': 'mrdt_requested',
+            'bs': 'bs_requested',
+            'stool_macro': 'stool_analysis_requested',
+            'stool_micro': 'stool_analysis_requested',
+            'urine_sed_macro': 'urine_sed_requested',
+            'urine_sed_micro': 'urine_sed_requested',
+            'urinalysis': 'urinalysis_requested',
+            'rpr': 'rpr_requested',
+            'h_pylori': 'h_pylori_requested',
+            'hepatitis_b': 'hepatitis_b_requested',
+            'hepatitis_c': 'hepatitis_c_requested',
+            'ssat': 'ssat_requested',
+            'upt': 'upt_requested',
+            'esr': 'esr_requested',
+            'b_grouping': 'blood_grouping_requested',
+            'hb': 'hb_requested',
+            'rheumatoid_factor': 'rheumatoid_factor_requested',
+            'rbg': 'rbg_requested',
+            'fbg': 'fbg_requested',
+            'sickling_test': 'sickling_test_requested',
+          };
+
+          labRequest.selected_tests.forEach(testId => {
+            const backendField = testIdMapping[testId];
+            if (backendField) {
+              testBooleans[backendField] = true;
+            }
+          });
+
+          console.log('Creating lab request:', {
+            consultation_id: finalConsultationId,
+            patient_id: patientId,
+            patient_name: patient?.full_name,
+            patient_age: patient?.age,
+            patient_sex: patient?.gender,
+            tests: testBooleans,
+            urgency: labRequest.urgency
+          });
+
+          const labResponse = await fetch(
             `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/lab-requests/`,
             {
               method: 'POST',
@@ -593,16 +714,39 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                consultation: finalConsultationId,
-                patient: patientId,
-                test_type: 'MULTIPLE',
-                test_description: selectedTestNames,
-                urgency: labRequest.urgency,
-                clinical_notes: labRequest.clinical_notes,
-                selected_tests: labRequest.selected_tests,
+                consultation_id: finalConsultationId,
+                patient_id: patientId,
+                patient_name: patient?.full_name || 'Unknown',
+                patient_age: patient?.age || 0,
+                patient_sex: patient?.gender || 'UNKNOWN',
+                short_clinical_notes: formData.chief_complaint || '',
+                ...testBooleans,
+                lab_fee_required: true,
+                status: 'REQUESTED',
               })
             }
           );
+
+          if (!labResponse.ok) {
+            const errorText = await labResponse.text();
+            console.error('❌ Failed to create lab request:', {
+              status: labResponse.status,
+              statusText: labResponse.statusText,
+              error: errorText,
+              sentData: {
+                consultation_id: finalConsultationId,
+                patient_id: patientId,
+                patient_name: patient?.full_name || 'Unknown',
+                patient_age: patient?.age || 0,
+                patient_sex: patient?.gender || 'UNKNOWN',
+                tests: testBooleans
+              }
+            });
+            throw new Error(`Lab request failed: ${errorText}`);
+          } else {
+            const savedLabRequest = await labResponse.json();
+            console.log('✅ Lab request created successfully:', savedLabRequest);
+          }
         }
 
         // ===== COMPLETE CONSULTATION AND AUTO-CREATE PAYMENT =====
@@ -647,13 +791,13 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
         let statusMessage = 'Consultation completed successfully!';
 
         if (hasLabRequests && hasPrescriptions) {
-          statusMessage = 'Consultation completed. Patient must proceed to FINANCE to:\n1. Pay consultation fee (5,000 TZS)\n2. Pay for lab tests\n3. After labs, pay for medications';
+          statusMessage = 'Consultation completed.\nPatient → FINANCE (pay consultation + labs + medications)';
         } else if (hasLabRequests) {
-          statusMessage = 'Consultation completed. Patient must proceed to FINANCE to:\n1. Pay consultation fee (5,000 TZS)\n2. Pay for lab tests\n3. After lab results, return to doctor for treatment plan';
+          statusMessage = 'Consultation completed.\nPatient → FINANCE (pay consultation + lab tests)';
         } else if (hasPrescriptions) {
-          statusMessage = 'Consultation completed. Patient must proceed to FINANCE to:\n1. Pay consultation fee (5,000 TZS)\n2. Pay for medications\n3. Proceed to pharmacy';
+          statusMessage = 'Consultation completed.\nPatient → FINANCE (pay consultation + medications)';
         } else {
-          statusMessage = 'Consultation completed. Patient must proceed to FINANCE to pay consultation fee (5,000 TZS)';
+          statusMessage = 'Consultation completed.\nPatient → FINANCE (pay consultation fee: 5,000 TZS)';
         }
 
         alert(statusMessage);
@@ -1236,8 +1380,8 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
                 </div>
               </div>
 
-              {/* Urgency and Clinical Notes */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+              {/* Urgency Level */}
+              <div className="mt-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Urgency Level
@@ -1263,18 +1407,6 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
                     }
                   </div>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Clinical Notes / Short Clinical Notes
-                </label>
-                <textarea
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                  value={labRequest.clinical_notes}
-                  onChange={(e) => updateLabRequestField('clinical_notes', e.target.value)}
-                />
               </div>
             </div>
           )}
