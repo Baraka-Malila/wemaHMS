@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Stethoscope, Pill, TestTube, User, AlertCircle, Plus, Trash2 } from 'lucide-react';
+import { X, Stethoscope, Pill, TestTube, AlertCircle, Trash2 } from 'lucide-react';
 import auth from '@/lib/auth';
 import MedicalFormattingGuide from './MedicalFormattingGuide';
 
@@ -39,8 +39,10 @@ interface DiagnosisData {
 }
 
 interface PrescriptionData {
+  medication_id?: string;  // Link to Medication database
   medication_name: string;
   generic_name: string;
+  unit_price?: number;  // From medication database
   strength: string;
   dosage_form: string;
   frequency: string;
@@ -48,6 +50,16 @@ interface PrescriptionData {
   duration: string;
   quantity_prescribed: number;
   special_instructions: string;
+}
+
+interface MedicationSearchResult {
+  id: string;
+  name: string;
+  generic_name: string;
+  category: string;
+  current_stock: number;
+  unit_price: string;
+  stock_status: string;
 }
 
 interface LabRequestData {
@@ -131,6 +143,11 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
   });
 
   const [prescriptions, setPrescriptions] = useState<PrescriptionData[]>([]);
+  const [medicationSearch, setMedicationSearch] = useState('');
+  const [searchResults, setSearchResults] = useState<MedicationSearchResult[]>([]);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [searchingMeds, setSearchingMeds] = useState(false);
+
   const [labRequest, setLabRequest] = useState<LabRequestData>({
     selected_tests: [],
     urgency: 'NORMAL',
@@ -279,6 +296,93 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
     setPrescriptions(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Medication search function
+  const searchMedications = async (query: string) => {
+    if (query.length < 2) {
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      return;
+    }
+
+    try {
+      setSearchingMeds(true);
+      const token = auth.getToken();
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/pharmacy/medications/available/?search=${encodeURIComponent(query)}`,
+        {
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setSearchResults(data.medications || []);
+        setShowSearchDropdown(true);
+      }
+    } catch (error) {
+      console.error('Error searching medications:', error);
+    } finally {
+      setSearchingMeds(false);
+    }
+  };
+
+  // Add medication from search results
+  // Extract strength from medication name (e.g., "Amoxil 500mg" → "500mg")
+  const extractStrength = (name: string): string => {
+    const strengthMatch = name.match(/(\d+\s*(mg|ml|g|mcg|%|iu|units?))/i);
+    return strengthMatch ? strengthMatch[0] : '';
+  };
+
+  // Determine dosage form from medication name or category
+  const guessDosageForm = (name: string, category: string): string => {
+    const nameLower = name.toLowerCase();
+    if (nameLower.includes('syrup') || nameLower.includes('suspension')) return 'syrup';
+    if (nameLower.includes('injection') || nameLower.includes('vial')) return 'injection';
+    if (nameLower.includes('cream') || nameLower.includes('ointment')) return 'cream';
+    if (nameLower.includes('capsule')) return 'capsule';
+    if (nameLower.includes('drops')) return 'drops';
+    if (nameLower.includes('inhaler')) return 'inhaler';
+    return 'tablet'; // Default
+  };
+
+  const addMedicationFromSearch = (med: MedicationSearchResult) => {
+    // Check if already added
+    const alreadyAdded = prescriptions.some(p => p.medication_id === med.id);
+    if (alreadyAdded) {
+      alert(`${med.name} is already in the prescription list. Please adjust the quantity instead.`);
+      setMedicationSearch('');
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      return;
+    }
+
+    // Extract strength and guess form
+    const strength = extractStrength(med.name);
+    const dosageForm = guessDosageForm(med.name, med.category);
+
+    setPrescriptions(prev => [...prev, {
+      medication_id: med.id,
+      medication_name: med.name,
+      generic_name: med.generic_name,
+      unit_price: parseFloat(med.unit_price),
+      strength: strength || '500mg', // Default if not found
+      dosage_form: dosageForm,
+      frequency: 'THREE_TIMES_DAILY',
+      dosage_instructions: 'Take with water after meals',
+      duration: '7 days',
+      quantity_prescribed: 1,
+      special_instructions: ''
+    }]);
+
+    // Clear search
+    setMedicationSearch('');
+    setSearchResults([]);
+    setShowSearchDropdown(false);
+  };
+
   const toggleLabTest = (testId: string) => {
     setLabRequest(prev => ({
       ...prev,
@@ -404,7 +508,42 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
         // Create prescriptions
         for (const prescription of prescriptions) {
           if (prescription.medication_name.trim()) {
-            await fetch(
+            // Validate required fields
+            if (!prescription.strength || !prescription.strength.trim()) {
+              console.error('Skipping prescription - missing strength:', prescription.medication_name);
+              continue;
+            }
+            if (!prescription.dosage_form || !prescription.dosage_form.trim()) {
+              console.error('Skipping prescription - missing dosage form:', prescription.medication_name);
+              continue;
+            }
+            if (!prescription.dosage_instructions || !prescription.dosage_instructions.trim()) {
+              console.error('Skipping prescription - missing dosage instructions:', prescription.medication_name);
+              continue;
+            }
+            if (!prescription.duration || !prescription.duration.trim()) {
+              console.error('Skipping prescription - missing duration:', prescription.medication_name);
+              continue;
+            }
+
+            const prescriptionData = {
+              consultation: finalConsultationId,
+              medication_id: prescription.medication_id || null,
+              medication_name: prescription.medication_name.trim(),
+              generic_name: prescription.generic_name?.trim() || '',
+              unit_price: prescription.unit_price || null,
+              strength: prescription.strength.trim(),
+              dosage_form: prescription.dosage_form.trim(),
+              frequency: prescription.frequency,
+              dosage_instructions: prescription.dosage_instructions.trim(),
+              duration: prescription.duration.trim(),
+              quantity_prescribed: parseInt(prescription.quantity_prescribed.toString()),
+              special_instructions: prescription.special_instructions?.trim() || ''
+            };
+
+            console.log('Creating prescription:', prescriptionData);
+
+            const prescriptionResponse = await fetch(
               `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/prescriptions/`,
               {
                 method: 'POST',
@@ -412,13 +551,27 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
                   'Authorization': `Token ${token}`,
                   'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                  consultation: finalConsultationId,
-                  ...prescription,
-                  quantity_prescribed: parseInt(prescription.quantity_prescribed.toString())
-                })
+                body: JSON.stringify(prescriptionData)
               }
             );
+
+            if (!prescriptionResponse.ok) {
+              const errorText = await prescriptionResponse.text();
+              console.error('Failed to create prescription:', {
+                status: prescriptionResponse.status,
+                statusText: prescriptionResponse.statusText,
+                error: errorText
+              });
+              try {
+                const errorData = JSON.parse(errorText);
+                console.error('Parsed error:', errorData);
+              } catch (e) {
+                console.error('Could not parse error as JSON');
+              }
+            } else {
+              const savedPrescription = await prescriptionResponse.json();
+              console.log('✅ Prescription created successfully:', savedPrescription);
+            }
           }
         }
 
@@ -817,91 +970,132 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
                 </div>
 
                 <div className="space-y-6">
-                  <div className="flex justify-end">
-                    <button
-                      onClick={addPrescription}
-                      className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                    >
-                      <Plus className="h-4 w-4" />
-                      <span>Add Medication</span>
-                    </button>
+                  {/* Medication Search */}
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Search Medications
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={medicationSearch}
+                        onChange={(e) => {
+                          setMedicationSearch(e.target.value);
+                          searchMedications(e.target.value);
+                        }}
+                        onFocus={() => {
+                          if (searchResults.length > 0) setShowSearchDropdown(true);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+                        placeholder="Search by medication name, generic name, or barcode..."
+                      />
+                      {searchingMeds && (
+                        <div className="absolute right-3 top-2.5">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-600"></div>
+                        </div>
+                      )}
+
+                      {/* Search Results Dropdown */}
+                      {showSearchDropdown && searchResults.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                          {searchResults.map((med) => (
+                            <button
+                              key={med.id}
+                              onClick={() => addMedicationFromSearch(med)}
+                              className="w-full px-4 py-3 text-left hover:bg-green-50 border-b border-gray-100 last:border-b-0"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-medium text-gray-900">{med.name}</p>
+                                  <p className="text-sm text-gray-600">{med.generic_name}</p>
+                                  <p className="text-xs text-gray-500 mt-1">{med.category}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-medium text-green-600">{parseFloat(med.unit_price).toLocaleString()} TZS</p>
+                                  <p className="text-xs text-gray-500">Stock: {med.current_stock}</p>
+                                  <span className={`text-xs px-2 py-0.5 rounded ${
+                                    med.stock_status === 'available' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                                  }`}>
+                                    {med.stock_status}
+                                  </span>
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Prescription Summary */}
+                  {prescriptions.length > 0 && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex justify-between items-center">
+                        <p className="text-sm font-medium text-blue-900">
+                          Total Medications: {prescriptions.length}
+                        </p>
+                        <p className="text-lg font-bold text-blue-900">
+                          Total Cost: {prescriptions.reduce((sum, p) => sum + ((p.unit_price || 0) * p.quantity_prescribed), 0).toLocaleString()} TZS
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {prescriptions.length === 0 ? (
                     <div className="text-center py-8 text-gray-500 bg-white rounded-lg border-2 border-dashed border-gray-300">
                       <Pill className="h-12 w-12 mx-auto mb-2 text-gray-400" />
                       <p>No medications prescribed yet.</p>
-                      <p className="text-sm mt-1">Click "Add Medication" to prescribe medication.</p>
+                      <p className="text-sm mt-1">Search and select medications from the database above.</p>
                     </div>
                   ) : (
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                       {prescriptions.map((prescription, index) => (
                         <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-                          <div className="flex justify-between items-start mb-4">
-                            <h4 className="font-medium text-gray-900">Medication {index + 1}</h4>
+                          {/* Medication Header */}
+                          <div className="flex justify-between items-start mb-3 pb-3 border-b border-gray-200">
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-gray-900 text-lg">{prescription.medication_name}</h4>
+                              <p className="text-sm text-gray-600">{prescription.generic_name}</p>
+                              {prescription.unit_price && (
+                                <p className="text-sm text-green-600 font-medium mt-1">
+                                  {prescription.unit_price.toLocaleString()} TZS × {prescription.quantity_prescribed} = {(prescription.unit_price * prescription.quantity_prescribed).toLocaleString()} TZS
+                                </p>
+                              )}
+                            </div>
                             <button
                               onClick={() => removePrescription(index)}
-                              className="text-red-600 hover:text-red-800"
+                              className="text-red-600 hover:text-red-800 ml-4"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-5 w-5" />
                             </button>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Prescription Details - Compact Grid */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Medication Name *
-                              </label>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Strength *</label>
                               <input
                                 type="text"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                                placeholder="e.g. Paracetamol"
-                                value={prescription.medication_name}
-                                onChange={(e) => updatePrescription(index, 'medication_name', e.target.value)}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Generic Name
-                              </label>
-                              <input
-                                type="text"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                                placeholder="e.g. Acetaminophen"
-                                value={prescription.generic_name}
-                                onChange={(e) => updatePrescription(index, 'generic_name', e.target.value)}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Strength *
-                              </label>
-                              <input
-                                type="text"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                                placeholder="e.g. 500mg"
+                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-green-500 focus:border-green-500"
+                                placeholder="500mg"
                                 value={prescription.strength}
                                 onChange={(e) => updatePrescription(index, 'strength', e.target.value)}
                               />
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Form *
-                              </label>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Form *</label>
                               <input
                                 type="text"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                                placeholder="e.g. tablet, capsule, syrup"
+                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-green-500 focus:border-green-500"
+                                placeholder="tablet"
                                 value={prescription.dosage_form}
                                 onChange={(e) => updatePrescription(index, 'dosage_form', e.target.value)}
                               />
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Frequency *
-                              </label>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Frequency *</label>
                               <select
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-green-500 focus:border-green-500"
                                 value={prescription.frequency}
                                 onChange={(e) => updatePrescription(index, 'frequency', e.target.value)}
                               >
@@ -911,53 +1105,45 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
                               </select>
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Duration *
-                              </label>
-                              <input
-                                type="text"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                                placeholder="e.g. 5 days, 2 weeks"
-                                value={prescription.duration}
-                                onChange={(e) => updatePrescription(index, 'duration', e.target.value)}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Quantity *
-                              </label>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Quantity *</label>
                               <input
                                 type="number"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-green-500 focus:border-green-500"
                                 placeholder="15"
                                 value={prescription.quantity_prescribed || ''}
                                 onChange={(e) => updatePrescription(index, 'quantity_prescribed', parseInt(e.target.value) || 0)}
                               />
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Instructions *
-                              </label>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Duration *</label>
                               <input
                                 type="text"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                                placeholder="e.g. Take after meals with water"
+                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-green-500 focus:border-green-500"
+                                placeholder="5 days"
+                                value={prescription.duration}
+                                onChange={(e) => updatePrescription(index, 'duration', e.target.value)}
+                              />
+                            </div>
+                            <div className="col-span-2 md:col-span-3">
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Instructions *</label>
+                              <input
+                                type="text"
+                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-green-500 focus:border-green-500"
+                                placeholder="Take after meals with water"
                                 value={prescription.dosage_instructions}
                                 onChange={(e) => updatePrescription(index, 'dosage_instructions', e.target.value)}
                               />
                             </div>
-                          </div>
-                          <div className="mt-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Special Instructions
-                            </label>
-                            <textarea
-                              rows={2}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-                              placeholder="Additional instructions for patient or pharmacist..."
-                              value={prescription.special_instructions}
-                              onChange={(e) => updatePrescription(index, 'special_instructions', e.target.value)}
-                            />
+                            <div className="col-span-2 md:col-span-1">
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Special Notes</label>
+                              <input
+                                type="text"
+                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-green-500 focus:border-green-500"
+                                placeholder="Optional"
+                                value={prescription.special_instructions}
+                                onChange={(e) => updatePrescription(index, 'special_instructions', e.target.value)}
+                              />
+                            </div>
                           </div>
                         </div>
                       ))}

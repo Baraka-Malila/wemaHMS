@@ -318,58 +318,16 @@ def create_prescription(request):
     Prescription will be available to pharmacy for dispensing.
     """
     try:
-        from finance.utils import create_pending_payment, get_pending_payment_for_service, get_medication_price
-        from patients.models import Patient
-        from decimal import Decimal
-
         serializer = PrescriptionCreateSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         prescription = serializer.save(prescribed_by=request.user)
 
-        # Auto-create PENDING payment for medication
+        # PAYMENT CREATION MOVED TO complete_consultation VIEW
+        # Payment is now created ONCE for ALL prescriptions when consultation is completed
+        # This prevents duplicate payments and incorrect pricing
         payment_created = False
-        try:
-            patient = Patient.objects.get(patient_id=prescription.consultation.patient_id)
-
-            # Check if payment already exists for this prescription
-            existing_payment = get_pending_payment_for_service(
-                patient=patient,
-                service_type='MEDICATION',
-                reference_id=prescription.id
-            )
-
-            if not existing_payment:
-                # Try to get medication price from ServicePricing
-                medication_price = get_medication_price(prescription.medication_name)
-
-                # Calculate total cost (quantity * unit price)
-                if medication_price:
-                    total_cost = medication_price * prescription.quantity_prescribed
-                else:
-                    # Default medication cost if not found in pricing
-                    total_cost = Decimal('10000.00') * prescription.quantity_prescribed
-
-                # Create PENDING payment
-                payment = create_pending_payment(
-                    patient=patient,
-                    service_type='MEDICATION',
-                    service_name=f'Prescription - {prescription.medication_name} (x{prescription.quantity_prescribed})',
-                    amount=total_cost,
-                    reference_id=prescription.id,
-                    user=request.user
-                )
-                payment_created = True
-
-                # Update patient status
-                patient.current_status = 'TREATMENT_PRESCRIBED'
-                patient.current_location = 'Finance - Pharmacy Payment'
-                patient.last_updated_by = request.user
-                patient.save()
-
-        except Exception as payment_error:
-            print(f"Error creating prescription payment: {payment_error}")
 
         return Response({
             'message': 'Prescription created successfully',
@@ -377,9 +335,7 @@ def create_prescription(request):
             'medication': prescription.medication_name,
             'patient_id': prescription.consultation.patient_id,
             'quantity': prescription.quantity_prescribed,
-            'created_at': prescription.prescribed_at.isoformat(),
-            'payment_created': payment_created,
-            'note': 'Patient must proceed to Finance for payment before pharmacy dispensing' if payment_created else None
+            'created_at': prescription.prescribed_at.isoformat()
         }, status=status.HTTP_201_CREATED)
 
     except Exception as e:
@@ -859,6 +815,30 @@ def complete_consultation(request):
                 print(f"✅ Created PENDING consultation payment: {payment.id} for {consultation_amount} TZS")
             else:
                 print(f"ℹ️ Consultation payment already exists: {existing_payment.id}")
+
+            # Create medication payment if there are prescriptions with costs
+            prescriptions = consultation.prescriptions.all()
+            if prescriptions.exists():
+                total_medication_cost = sum(p.total_cost for p in prescriptions)
+                if total_medication_cost > 0:
+                    # Check if medication payment already exists
+                    existing_med_payment = get_pending_payment_for_service(
+                        patient=patient,
+                        service_type='MEDICATION',
+                        reference_id=consultation.id
+                    )
+                    if not existing_med_payment:
+                        med_payment = create_pending_payment(
+                            patient=patient,
+                            service_type='MEDICATION',
+                            service_name=f'Medications ({prescriptions.count()} items)',
+                            amount=total_medication_cost,
+                            reference_id=consultation.id,
+                            user=request.user
+                        )
+                        print(f"✅ Created PENDING medication payment: {med_payment.id} for {total_medication_cost} TZS ({prescriptions.count()} medications)")
+                    else:
+                        print(f"ℹ️ Medication payment already exists: {existing_med_payment.id}")
 
             # Update patient status to indicate pending consultation payment
             patient.current_status = 'PENDING_CONSULTATION_PAYMENT'

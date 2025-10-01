@@ -490,12 +490,24 @@ class Prescription(models.Model):
     )
     
     # Medication details
+    medication_id = models.UUIDField(
+        blank=True,
+        null=True,
+        help_text='Link to pharmacy.Medication model if from database'
+    )
     medication_name = models.CharField(max_length=200)
     generic_name = models.CharField(
         max_length=200,
         blank=True,
         null=True,
         help_text='Generic medication name'
+    )
+    unit_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text='Price per unit in TZS (from Medication database)'
     )
     strength = models.CharField(
         max_length=50,
@@ -571,9 +583,16 @@ class Prescription(models.Model):
             models.Index(fields=['status', '-prescribed_at']),
             models.Index(fields=['medication_name']),
         ]
-    
+
     def __str__(self):
         return f"{self.medication_name} for {self.consultation.patient_id}"
+
+    @property
+    def total_cost(self):
+        """Calculate total cost of prescription (unit_price × quantity)"""
+        if self.unit_price:
+            return self.unit_price * self.quantity_prescribed
+        return 0
     
     @property
     def remaining_quantity(self):

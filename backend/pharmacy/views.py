@@ -264,25 +264,40 @@ def available_medications(request):
     """
     Get available medications for doctors to use in prescriptions.
     Shows only active medications with stock > 0.
+    Excludes lab equipment and medical supplies (OTHER category).
+    Supports search query parameter: ?search=paracetamol
     """
     try:
         medications = Medication.objects.filter(
             is_active=True,
             current_stock__gt=0
-        ).order_by('name')
-        
+        ).exclude(
+            category='OTHER'  # Exclude lab equipment, medical supplies, consumables
+        )
+
+        # Add search filter if query parameter provided
+        search_query = request.GET.get('search', '').strip()
+        if search_query:
+            medications = medications.filter(
+                Q(name__icontains=search_query) |
+                Q(generic_name__icontains=search_query) |
+                Q(barcode__icontains=search_query)
+            )
+
+        medications = medications.order_by('name')
+
         # Simplified view for doctors, detailed for pharmacy staff
         if hasattr(request.user, 'role') and request.user.role == 'PHARMACY':
             serializer = MedicationSerializer(medications, many=True)
         else:
             serializer = MedicationListSerializer(medications, many=True)
-        
+
         return Response({
             'success': True,
             'count': medications.count(),
             'medications': serializer.data
         })
-        
+
     except Exception as e:
         return Response({
             'success': False,

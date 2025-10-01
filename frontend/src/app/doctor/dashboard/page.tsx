@@ -95,11 +95,11 @@ export default function DoctorDashboard() {
     loadDashboardData(true);
     loadWaitingPatientsQueue(true);
 
-    // Auto-refresh every 60 seconds (increased from 30 to reduce blinking)
+    // Auto-refresh every 10 seconds for real-time updates (matches queue page)
     const refreshInterval = setInterval(() => {
       loadDashboardData(false);
       loadWaitingPatientsQueue(false);
-    }, 60000);
+    }, 10000);
 
     return () => clearInterval(refreshInterval);
   }, []);

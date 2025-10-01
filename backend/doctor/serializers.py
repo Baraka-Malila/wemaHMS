@@ -163,13 +163,14 @@ class PrescriptionSerializer(serializers.ModelSerializer):
     patient_name = serializers.CharField(source='consultation.patient_name', read_only=True)
     remaining_quantity = serializers.ReadOnlyField()
     frequency_display = serializers.ReadOnlyField()
-    
+    total_cost = serializers.ReadOnlyField()
+
     class Meta:
         model = Prescription
         fields = [
             'id', 'consultation', 'patient_id', 'patient_name',
-            'medication_name', 'generic_name', 'strength', 'dosage_form',
-            'frequency', 'frequency_display', 'custom_frequency', 
+            'medication_id', 'medication_name', 'generic_name', 'unit_price', 'total_cost',
+            'strength', 'dosage_form', 'frequency', 'frequency_display', 'custom_frequency',
             'dosage_instructions', 'duration', 'quantity_prescribed',
             'quantity_dispensed', 'remaining_quantity', 'status',
             'special_instructions', 'prescribed_at', 'updated_at',
@@ -178,22 +179,22 @@ class PrescriptionSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id', 'prescribed_at', 'updated_at', 'dispensed_at',
             'quantity_dispensed', 'patient_id', 'patient_name',
-            'remaining_quantity', 'frequency_display',
+            'remaining_quantity', 'frequency_display', 'total_cost',
             'prescribed_by_name', 'dispensed_by_name'
         ]
 
 
 class PrescriptionCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating prescriptions"""
-    
+
     class Meta:
         model = Prescription
         fields = [
-            'consultation', 'medication_name', 'generic_name', 'strength',
-            'dosage_form', 'frequency', 'custom_frequency', 'dosage_instructions',
-            'duration', 'quantity_prescribed', 'special_instructions'
+            'consultation', 'medication_id', 'medication_name', 'generic_name',
+            'unit_price', 'strength', 'dosage_form', 'frequency', 'custom_frequency',
+            'dosage_instructions', 'duration', 'quantity_prescribed', 'special_instructions'
         ]
-    
+
     def validate(self, data):
         """Validate prescription data"""
         if data.get('frequency') == 'CUSTOM' and not data.get('custom_frequency'):
