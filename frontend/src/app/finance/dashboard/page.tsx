@@ -36,6 +36,8 @@ export default function FinanceDashboard() {
   const [pendingPayments, setPendingPayments] = useState<any[]>([]);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [newPaymentIds, setNewPaymentIds] = useState<Set<string>>(new Set());
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   useEffect(() => {
     // Get current user data using auth manager
@@ -44,8 +46,15 @@ export default function FinanceDashboard() {
       setCurrentUser(user);
     }
 
-    // Fetch dashboard data
+    // Initial fetch
     fetchDashboardData();
+
+    // Set up polling for pending payments (every 2 seconds)
+    const pollInterval = setInterval(() => {
+      fetchPendingPaymentsOnly();
+    }, 2000);
+
+    return () => clearInterval(pollInterval);
   }, [selectedDate]);
 
   const fetchDashboardData = async () => {
@@ -141,6 +150,69 @@ export default function FinanceDashboard() {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPendingPaymentsOnly = async () => {
+    try {
+      const token = auth.getToken();
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+      // Fetch only pending payments (lightweight, fast query)
+      const pendingResponse = await fetch(
+        `${API_URL}/api/finance/payments/?status=PENDING&page_size=1000`,
+        {
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+
+      if (pendingResponse.ok) {
+        const pendingData = await pendingResponse.json();
+        const pendingPayments = Array.isArray(pendingData) ? pendingData : (pendingData.results || []);
+
+        // Only update if count changed (avoid unnecessary re-renders)
+        setPendingPayments(prev => {
+          const prevIds = new Set(prev.map(p => p.id));
+          const currentIds = new Set(pendingPayments.map((p: any) => p.id));
+
+          // Find new payment IDs
+          const newIds = pendingPayments
+            .filter((p: any) => !prevIds.has(p.id))
+            .map((p: any) => p.id);
+
+          if (newIds.length > 0) {
+            // Mark new payments for highlighting
+            setNewPaymentIds(new Set(newIds));
+            setLastUpdate(new Date());
+
+            // Clear highlighting after 5 seconds
+            setTimeout(() => {
+              setNewPaymentIds(new Set());
+            }, 5000);
+          }
+
+          // Update if count or IDs changed
+          if (prev.length !== pendingPayments.length || newIds.length > 0) {
+            return pendingPayments;
+          }
+
+          return prev; // No change, keep previous state
+        });
+
+        // Update pending stats
+        const totalPending = pendingPayments.reduce((sum: number, p: any) => sum + parseFloat(p.amount || 0), 0);
+        setStats(prev => ({
+          ...prev,
+          totalPending: totalPending,
+          pendingCount: pendingPayments.length
+        }));
+      }
+    } catch (error) {
+      // Silent fail for polling - don't show errors during background updates
+      console.debug('Polling update skipped:', error);
     }
   };
 
@@ -360,11 +432,16 @@ export default function FinanceDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold text-gray-900">Pending Payments - Processing Queue</h3>
-              <p className="text-sm text-gray-600 mt-1">Process payments quickly from here</p>
+              <p className="text-sm text-gray-600 mt-1">
+                Auto-updates every 2 seconds • Last update: {lastUpdate.toLocaleTimeString()}
+              </p>
             </div>
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
-              {pendingPayments.length} Pending
-            </span>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+                {pendingPayments.length} Pending
+              </span>
+            </div>
           </div>
         </div>
 
@@ -401,8 +478,14 @@ export default function FinanceDashboard() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {pendingPayments.map((payment) => {
                   const badge = getServiceTypeBadge(payment.service_type);
+                  const isNew = newPaymentIds.has(payment.id);
                   return (
-                    <tr key={payment.id} className="hover:bg-gray-50">
+                    <tr
+                      key={payment.id}
+                      className={`hover:bg-gray-50 transition-colors ${
+                        isNew ? 'bg-green-50 animate-pulse' : ''
+                      }`}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900">{payment.patient_name}</div>
