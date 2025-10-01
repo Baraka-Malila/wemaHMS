@@ -56,7 +56,7 @@ export default function FinanceDashboard() {
 
       // Fetch paid payments for the selected date
       const paidResponse = await fetch(
-        `${API_URL}/api/finance/payments/?status=PAID&date=${selectedDate}`,
+        `${API_URL}/api/finance/payments/?status=PAID&date=${selectedDate}&page_size=1000`,
         {
           headers: {
             'Authorization': `Token ${token}`,
@@ -67,7 +67,7 @@ export default function FinanceDashboard() {
 
       // Fetch pending payments
       const pendingResponse = await fetch(
-        `${API_URL}/api/finance/payments/?status=PENDING`,
+        `${API_URL}/api/finance/payments/?status=PENDING&page_size=1000`,
         {
           headers: {
             'Authorization': `Token ${token}`,
@@ -80,8 +80,9 @@ export default function FinanceDashboard() {
         const paidData = await paidResponse.json();
         const pendingData = await pendingResponse.json();
 
-        const paidPayments = Array.isArray(paidData) ? paidData : [];
-        const pendingPayments = Array.isArray(pendingData) ? pendingData : [];
+        // Handle DRF pagination - response can be {count, results} or plain array
+        const paidPayments = Array.isArray(paidData) ? paidData : (paidData.results || []);
+        const pendingPayments = Array.isArray(pendingData) ? pendingData : (pendingData.results || []);
 
         // Calculate totals
         const totalPaid = paidPayments.reduce((sum: number, p: any) => sum + parseFloat(p.amount || 0), 0);

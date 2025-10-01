@@ -37,18 +37,21 @@ export default function PaymentHistory() {
   const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [serviceFilter, setServiceFilter] = useState('ALL');
-  const [dateFilter, setDateFilter] = useState(''); // Empty by default to show all dates
+  const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]); // Today by default
   const [patientFilter, setPatientFilter] = useState('');
   const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set());
 
   const loadPaymentHistory = async () => {
     try {
-      setLoading(true);
+      // Don't show loading spinner on refresh (only on initial load)
+      if (payments.length === 0) {
+        setLoading(true);
+      }
       const token = auth.getToken();
 
-      // Fetch all PAID payments
+      // Fetch all PAID payments with pagination
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/finance/payments/?status=PAID`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/finance/payments/?status=PAID&page_size=1000`,
         {
           headers: {
             'Authorization': `Token ${token}`,
@@ -61,12 +64,16 @@ export default function PaymentHistory() {
         const data = await response.json();
         // Handle paginated response (DRF pagination wraps data in "results")
         const paymentsArray = Array.isArray(data) ? data : (data.results || []);
-        console.log('💰 Loaded payment history:', {
-          total: paymentsArray.length,
-          payments: paymentsArray
-        });
+        
+        // Only log on initial load or if count changed
+        if (payments.length === 0 || payments.length !== paymentsArray.length) {
+          console.log('💰 Loaded payment history:', {
+            total: paymentsArray.length,
+            previousCount: payments.length
+          });
+        }
+        
         setPayments(paymentsArray);
-        setFilteredPayments(paymentsArray);
       } else {
         console.error('❌ Failed to load payments:', response.status, response.statusText);
       }
@@ -79,8 +86,8 @@ export default function PaymentHistory() {
 
   useEffect(() => {
     loadPaymentHistory();
-    // Refresh every 10 seconds
-    const interval = setInterval(loadPaymentHistory, 10000);
+    // Refresh every 30 seconds (reduced from 10) - less aggressive polling
+    const interval = setInterval(loadPaymentHistory, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -116,15 +123,6 @@ export default function PaymentHistory() {
         return paymentDate === dateFilter;
       });
     }
-
-    console.log('🔍 Filters applied:', {
-      searchTerm,
-      serviceFilter,
-      patientFilter,
-      dateFilter,
-      totalPayments: payments.length,
-      filteredCount: filtered.length
-    });
 
     setFilteredPayments(filtered);
   }, [searchTerm, serviceFilter, patientFilter, dateFilter, payments]);
@@ -162,19 +160,25 @@ export default function PaymentHistory() {
       {/* Header */}
       <div className="bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl p-6 text-white">
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex-grow">
             <h1 className="text-2xl font-bold mb-2">Payment History & Transactions</h1>
-            <p className="text-amber-100">
-              Complete payment ledger - {filteredPayments.length} transaction{filteredPayments.length !== 1 ? 's' : ''}
-              {' • Total: TZS '}
-              {totalAmount.toLocaleString()}
-            </p>
+            <div className="flex items-center gap-6">
+              <p className="text-amber-100">
+                {filteredPayments.length} transaction{filteredPayments.length !== 1 ? 's' : ''}
+              </p>
+              <div className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-lg">
+                <DollarSign className="h-5 w-5" />
+                <div>
+                  <p className="text-xs text-amber-100">Total Amount</p>
+                  <p className="text-lg font-bold">TZS {totalAmount.toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
           </div>
           <div className="hidden md:block">
             <div className="bg-white/10 rounded-lg p-4">
-              <DollarSign className="h-8 w-8 text-white mb-2" />
               <p className="text-sm text-amber-100">Current Time</p>
-              <RealTimeClock className="text-white font-semibold" />
+              <RealTimeClock className="text-white font-semibold text-xl" />
             </div>
           </div>
         </div>
@@ -262,7 +266,7 @@ export default function PaymentHistory() {
             onClick={() => {
               setSearchTerm('');
               setServiceFilter('ALL');
-              setDateFilter('');
+              setDateFilter(new Date().toISOString().split('T')[0]); // Reset to today
               setPatientFilter('');
             }}
             className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
@@ -418,7 +422,7 @@ export default function PaymentHistory() {
                 onClick={() => {
                   setSearchTerm('');
                   setServiceFilter('ALL');
-                  setDateFilter('');
+                  setDateFilter(new Date().toISOString().split('T')[0]); // Reset to today
                   setPatientFilter('');
                 }}
                 className="mt-4 inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700"

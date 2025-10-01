@@ -606,10 +606,27 @@ def create_consultation(request):
     try:
         data = request.data.copy()
         data['doctor'] = request.user.id
+        
+        patient_id = data.get('patient_id')
+        
+        # Check if there's already a consultation IN_PROGRESS for this patient
+        if patient_id:
+            existing_consultation = Consultation.objects.filter(
+                patient_id=patient_id,
+                status='IN_PROGRESS'
+            ).first()
+            
+            if existing_consultation:
+                print(f"⚠️ Consultation already exists for {patient_id}: {existing_consultation.id}")
+                return Response({
+                    'error': 'A consultation is already in progress for this patient. Please complete or cancel the existing consultation first.',
+                    'existing_consultation_id': str(existing_consultation.id)
+                }, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = ConsultationSerializer(data=data)
 
         if not serializer.is_valid():
+            print(f"❌ Consultation validation errors: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         consultation = serializer.save()
@@ -621,6 +638,9 @@ def create_consultation(request):
         }, status=status.HTTP_201_CREATED)
 
     except Exception as e:
+        print(f"❌ Failed to create consultation: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return Response(
             {'error': f'Failed to create consultation: {str(e)}'},
             status=status.HTTP_400_BAD_REQUEST
