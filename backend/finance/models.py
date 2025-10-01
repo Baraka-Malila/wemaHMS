@@ -587,7 +587,7 @@ class ServicePayment(models.Model):
         ('CASH', 'Cash'),
         ('MOBILE_MONEY', 'Mobile Money'),
         ('BANK_TRANSFER', 'Bank Transfer'),
-        ('INSURANCE', 'Insurance'),
+        ('NHIF', 'NHIF'),
         ('CREDIT', 'Credit/Deferred'),
     ]
 

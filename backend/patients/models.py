@@ -93,6 +93,8 @@ class Patient(models.Model):
         ('REGISTERED', 'Just Registered'),
         ('WAITING_DOCTOR', 'Waiting for Doctor'),
         ('WITH_DOCTOR', 'Currently with Doctor'),
+        ('PENDING_CONSULTATION_PAYMENT', 'Pending Consultation Payment'),
+        ('CONSULTATION_PAID', 'Consultation Payment Completed'),
         ('PENDING_LAB_PAYMENT', 'Pending Lab Payment'),
         ('LAB_PAID', 'Lab Payment Completed'),
         ('WAITING_LAB', 'Waiting for Lab Tests'),
@@ -254,7 +256,7 @@ class Patient(models.Model):
     
     # Status tracking
     current_status = models.CharField(
-        max_length=20,
+        max_length=40,
         choices=STATUS_CHOICES,
         default='REGISTERED'
     )
@@ -370,12 +372,12 @@ class PatientStatusHistory(models.Model):
         related_name='status_history'
     )
     previous_status = models.CharField(
-        max_length=20,
+        max_length=40,
         choices=Patient.STATUS_CHOICES,
         null=True,
         blank=True
     )
-    new_status = models.CharField(max_length=20, choices=Patient.STATUS_CHOICES)
+    new_status = models.CharField(max_length=40, choices=Patient.STATUS_CHOICES)
     previous_location = models.CharField(max_length=100, blank=True, null=True)
     new_location = models.CharField(max_length=100, blank=True, null=True)
     

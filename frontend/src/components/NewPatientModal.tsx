@@ -49,7 +49,7 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate patient type and requirements
     if (formData.patient_type === 'NHIF' && !formData.nhif_card_number.trim()) {
       alert('NHIF card number is required for NHIF patients.');
@@ -66,10 +66,22 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
     if (formData.patient_type === 'NHIF') {
       formData.file_fee_paid = true;
     }
-    
+
     setLoading(true);
 
     try {
+      // Clean up data - convert empty strings to undefined for optional numeric fields
+      const cleanedData = {
+        ...formData,
+        weight: formData.weight === '' ? undefined : formData.weight,
+        height: formData.height === '' ? undefined : formData.height,
+        temperature: formData.temperature === '' ? undefined : formData.temperature,
+        blood_pressure_systolic: formData.blood_pressure_systolic === '' ? undefined : formData.blood_pressure_systolic,
+        blood_pressure_diastolic: formData.blood_pressure_diastolic === '' ? undefined : formData.blood_pressure_diastolic,
+        pulse_rate: formData.pulse_rate === '' ? undefined : formData.pulse_rate,
+        respiratory_rate: formData.respiratory_rate === '' ? undefined : formData.respiratory_rate,
+      };
+
       const token = auth.getToken();
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/reception/register-patient/`, {
         method: 'POST',
@@ -77,7 +89,7 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
           'Authorization': `Token ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(cleanedData)
       });
 
       if (response.ok) {
@@ -115,7 +127,8 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
         });
       } else {
         const errorData = await response.json();
-        alert(`Error: ${errorData.message || 'Failed to register patient'}`);
+        console.error('Registration error:', errorData);
+        alert(`Error: ${errorData.error || errorData.message || JSON.stringify(errorData)}`);
       }
     } catch (error) {
       console.error('Error registering patient:', error);
@@ -693,46 +706,23 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
               </div>
             ) : (
               // Normal Patient - Fee required
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label style={{
-                    fontFamily: 'Inter, sans-serif',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    color: '#171A1F'
-                  }}>File Fee Amount (TZS)</label>
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <label className="flex items-center gap-2 cursor-pointer">
                   <input
-                    type="number"
-                    name="file_fee_amount"
-                    value={formData.file_fee_amount}
+                    type="checkbox"
+                    name="file_fee_paid"
+                    checked={formData.file_fee_paid}
                     onChange={handleInputChange}
-                    min="0"
-                    step="0.01"
-                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                    style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px' }}
-                    readOnly
+                    className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
                   />
-                </div>
+                  <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', fontWeight: '500', color: '#92400E' }}>
+                    Mark File Fee as Paid (2000 TZS - Required)
+                  </span>
+                </label>
 
-                <div className="flex items-center">
-                  <label className="flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="file_fee_paid"
-                      checked={formData.file_fee_paid}
-                      onChange={handleInputChange}
-                      className="mr-3 h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                    />
-                    <span style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontSize: '14px',
-                      fontWeight: '500',
-                      color: '#171A1F'
-                    }}>
-                      Mark as Paid
-                    </span>
-                  </label>
-                </div>
+                <p className="mt-2 text-xs text-amber-700">
+                  ⚠️ File fee (2000 TZS) must be paid before registering a normal patient
+                </p>
               </div>
             )}
 
@@ -743,7 +733,7 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
                   fontSize: '14px',
                   color: '#16A34A'
                 }}>
-                  ✅ File Fee Status: Paid - Amount: {formData.file_fee_amount.toFixed(2)} TZS
+                  ✅ File Fee Status: Paid - Amount: 2000.00 TZS
                 </p>
               </div>
             )}

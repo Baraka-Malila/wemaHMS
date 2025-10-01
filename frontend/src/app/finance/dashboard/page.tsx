@@ -22,6 +22,19 @@ import auth from '@/lib/auth';
 export default function FinanceDashboard() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalRevenue: 0,
+    totalPaid: 0,
+    totalPending: 0,
+    paidCount: 0,
+    pendingCount: 0
+  });
+  const [revenueByService, setRevenueByService] = useState<any[]>([]);
+  const [revenueByMethod, setRevenueByMethod] = useState<any[]>([]);
+  const [pendingPayments, setPendingPayments] = useState<any[]>([]);
+  const [selectedPayment, setSelectedPayment] = useState<any>(null);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
   useEffect(() => {
     // Get current user data using auth manager
@@ -29,7 +42,127 @@ export default function FinanceDashboard() {
     if (user) {
       setCurrentUser(user);
     }
-  }, []);
+
+    // Fetch dashboard data
+    fetchDashboardData();
+  }, [selectedDate]);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const token = auth.getToken();
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+      // Fetch paid payments for the selected date
+      const paidResponse = await fetch(
+        `${API_URL}/api/finance/payments/?status=PAID&date=${selectedDate}`,
+        {
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+
+      // Fetch pending payments
+      const pendingResponse = await fetch(
+        `${API_URL}/api/finance/payments/?status=PENDING`,
+        {
+          headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+
+      if (paidResponse.ok && pendingResponse.ok) {
+        const paidData = await paidResponse.json();
+        const pendingData = await pendingResponse.json();
+
+        const paidPayments = Array.isArray(paidData) ? paidData : [];
+        const pendingPayments = Array.isArray(pendingData) ? pendingData : [];
+
+        // Calculate totals
+        const totalPaid = paidPayments.reduce((sum: number, p: any) => sum + parseFloat(p.amount || 0), 0);
+        const totalPending = pendingPayments.reduce((sum: number, p: any) => sum + parseFloat(p.amount || 0), 0);
+
+        setStats({
+          totalRevenue: totalPaid,
+          totalPaid: totalPaid,
+          totalPending: totalPending,
+          paidCount: paidPayments.length,
+          pendingCount: pendingPayments.length
+        });
+
+        // Group by service type
+        const serviceGroups: any = {};
+        paidPayments.forEach((payment: any) => {
+          const service = payment.service_type || 'OTHER';
+          if (!serviceGroups[service]) {
+            serviceGroups[service] = { amount: 0, count: 0 };
+          }
+          serviceGroups[service].amount += parseFloat(payment.amount || 0);
+          serviceGroups[service].count += 1;
+        });
+
+        const serviceArray = Object.entries(serviceGroups).map(([name, data]: [string, any]) => ({
+          department: name.replace('_', ' '),
+          amount: data.amount,
+          percentage: totalPaid > 0 ? ((data.amount / totalPaid) * 100).toFixed(1) : 0,
+          color: getServiceColor(name)
+        }));
+        setRevenueByService(serviceArray);
+
+        // Group by payment method
+        const methodGroups: any = {};
+        paidPayments.forEach((payment: any) => {
+          const method = payment.payment_method || 'CASH';
+          if (!methodGroups[method]) {
+            methodGroups[method] = { amount: 0, count: 0 };
+          }
+          methodGroups[method].amount += parseFloat(payment.amount || 0);
+          methodGroups[method].count += 1;
+        });
+
+        const methodArray = Object.entries(methodGroups).map(([name, data]: [string, any]) => ({
+          method: name.replace('_', ' '),
+          amount: data.amount,
+          percentage: totalPaid > 0 ? ((data.amount / totalPaid) * 100).toFixed(1) : 0,
+          icon: getMethodIcon(name)
+        }));
+        setRevenueByMethod(methodArray);
+
+        // Store pending payments for display
+        setPendingPayments(pendingPayments.slice(0, 5)); // Show top 5
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getServiceColor = (serviceType: string) => {
+    const colors: any = {
+      'CONSULTATION': '#059669',
+      'MEDICATION': '#1E40AF',
+      'LAB_TEST': '#7C3AED',
+      'FILE_FEE': '#DC2626',
+      'OTHER': '#6B7280'
+    };
+    return colors[serviceType] || '#6B7280';
+  };
+
+  const getMethodIcon = (method: string) => {
+    const icons: any = {
+      'CASH': Banknote,
+      'MOBILE_MONEY': CreditCard,
+      'BANK_TRANSFER': TrendingUp,
+      'NHIF': Users,
+      'CREDIT': Clock
+    };
+    return icons[method] || Banknote;
+  };
 
   // Dynamic greeting based on time
   const getGreeting = () => {
@@ -39,39 +172,39 @@ export default function FinanceDashboard() {
     return 'Good Evening';
   };
 
-  // Mock data - replace with API calls
+  // Dynamic stats based on real data
   const todayStats = [
     {
       title: 'Total Revenue',
-      value: 'TZS 847,500',
-      change: '+12.5%',
+      value: loading ? 'Loading...' : `TZS ${stats.totalRevenue.toLocaleString()}`,
+      change: `${stats.paidCount} payments`,
       changeType: 'increase',
       icon: DollarSign,
       color: 'text-green-600',
       bgColor: 'bg-green-50'
     },
     {
-      title: 'Bills Created',
-      value: '23',
-      change: '+3 from yesterday',
+      title: 'Payments Collected',
+      value: loading ? 'Loading...' : stats.paidCount.toString(),
+      change: 'Completed today',
       changeType: 'increase',
-      icon: FileText,
+      icon: CheckCircle,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50'
     },
     {
-      title: 'Outstanding',
-      value: 'TZS 125,000',
-      change: '-8.2%',
+      title: 'Pending Payments',
+      value: loading ? 'Loading...' : `TZS ${stats.totalPending.toLocaleString()}`,
+      change: `${stats.pendingCount} awaiting`,
       changeType: 'decrease',
       icon: Clock,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50'
     },
     {
-      title: 'Collections',
-      value: 'TZS 722,500',
-      change: '+15.3%',
+      title: 'Total Collections',
+      value: loading ? 'Loading...' : `TZS ${stats.totalPaid.toLocaleString()}`,
+      change: 'All methods',
       changeType: 'increase',
       icon: Banknote,
       color: 'text-purple-600',
@@ -79,66 +212,15 @@ export default function FinanceDashboard() {
     }
   ];
 
-  const revenueBreakdown = [
-    { department: 'Doctor Consultation', amount: 385000, percentage: 45.5, color: '#059669' },
-    { department: 'Pharmacy', amount: 254000, percentage: 30.0, color: '#1E40AF' },
-    { department: 'Laboratory', amount: 135500, percentage: 16.0, color: '#7C3AED' },
-    { department: 'Nursing/Ward', amount: 73000, percentage: 8.5, color: '#DC2626' }
-  ];
-
-  const paymentMethods = [
-    { method: 'Cash', amount: 456000, percentage: 63.1, icon: Banknote },
-    { method: 'Mobile Money', amount: 189500, percentage: 26.2, icon: CreditCard },
-    { method: 'Bank Transfer', amount: 77000, percentage: 10.7, icon: TrendingUp }
-  ];
-
-  const pendingActions = [
-    {
-      id: 1,
-      type: 'expense_approval',
-      title: 'Medical Supplies Purchase',
-      amount: 'TZS 125,000',
-      status: 'Pending Approval',
-      urgency: 'high',
-      description: 'Emergency stock replenishment - surgical supplies',
-      requestedBy: 'Dr. Sarah Johnson',
-      date: '2024-09-07'
-    },
-    {
-      id: 2,
-      type: 'daily_balance',
-      title: 'Close Daily Balance',
-      amount: 'TZS 847,500',
-      status: 'Ready to Close',
-      urgency: 'medium',
-      description: 'Daily financial reconciliation for Sep 7, 2024',
-      requestedBy: 'System',
-      date: '2024-09-07'
-    },
-    {
-      id: 3,
-      type: 'overdue_bill',
-      title: 'Overdue Patient Bill',
-      amount: 'TZS 45,000',
-      status: 'Overdue',
-      urgency: 'high',
-      description: 'Patient PAT001 - Bill #BILL20240901001',
-      requestedBy: 'Auto-Generated',
-      date: '2024-09-01'
-    }
-  ];
-
-  const getUrgencyColor = (urgency: string) => {
-    switch (urgency) {
-      case 'high':
-        return 'text-red-600 bg-red-50 border-red-200';
-      case 'medium':
-        return 'text-orange-600 bg-orange-50 border-orange-200';
-      case 'low':
-        return 'text-green-600 bg-green-50 border-green-200';
-      default:
-        return 'text-gray-600 bg-gray-50 border-gray-200';
-    }
+  const getServiceTypeBadge = (serviceType: string) => {
+    const badges: any = {
+      'CONSULTATION': { color: 'bg-green-100 text-green-800', icon: Users },
+      'LAB_TEST': { color: 'bg-purple-100 text-purple-800', icon: FileText },
+      'MEDICATION': { color: 'bg-blue-100 text-blue-800', icon: CreditCard },
+      'FILE_FEE': { color: 'bg-amber-100 text-amber-800', icon: DollarSign },
+      'OTHER': { color: 'bg-gray-100 text-gray-800', icon: FileText }
+    };
+    return badges[serviceType] || badges['OTHER'];
   };
 
   return (
@@ -150,7 +232,10 @@ export default function FinanceDashboard() {
             <h1 className="text-2xl font-bold mb-2">
               {getGreeting()}, {currentUser?.first_name || 'Finance Manager'}!
             </h1>
-            <p className="text-amber-100">Today's revenue: TZS 847,500 | Outstanding: TZS 125,000</p>
+            <p className="text-amber-100">
+              Today's revenue: TZS {stats.totalRevenue.toLocaleString()} |
+              Pending: TZS {stats.totalPending.toLocaleString()}
+            </p>
           </div>
           <div className="hidden md:block">
             <div className="bg-white/10 rounded-lg p-4">
@@ -212,124 +297,157 @@ export default function FinanceDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Revenue Breakdown */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Revenue by Department</h3>
-          <div className="space-y-4">
-            {revenueBreakdown.map((item, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div 
-                    className="w-4 h-4 rounded-full" 
-                    style={{ backgroundColor: item.color }}
-                  ></div>
-                  <span className="text-sm font-medium text-gray-700">{item.department}</span>
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Revenue by Service Type</h3>
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">Loading revenue data...</div>
+          ) : revenueByService.length > 0 ? (
+            <div className="space-y-4">
+              {revenueByService.map((item, index) => (
+                <div key={index} className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: item.color }}
+                    ></div>
+                    <span className="text-sm font-medium text-gray-700">{item.department}</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-gray-900">TZS {item.amount.toLocaleString()}</p>
+                    <p className="text-xs text-gray-500">{item.percentage}%</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-gray-900">TZS {item.amount.toLocaleString()}</p>
-                  <p className="text-xs text-gray-500">{item.percentage}%</p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">No revenue data for selected date</div>
+          )}
         </div>
 
         {/* Payment Methods */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-6">Payment Methods</h3>
-          <div className="space-y-4">
-            {paymentMethods.map((method, index) => {
-              const Icon = method.icon;
-              return (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <Icon className="h-5 w-5 text-gray-400" />
-                    <span className="text-sm font-medium text-gray-700">{method.method}</span>
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">Loading payment methods...</div>
+          ) : revenueByMethod.length > 0 ? (
+            <div className="space-y-4">
+              {revenueByMethod.map((method, index) => {
+                const Icon = method.icon;
+                return (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <Icon className="h-5 w-5 text-gray-400" />
+                      <span className="text-sm font-medium text-gray-700">{method.method}</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-gray-900">TZS {method.amount.toLocaleString()}</p>
+                      <p className="text-xs text-gray-500">{method.percentage}%</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-gray-900">TZS {method.amount.toLocaleString()}</p>
-                    <p className="text-xs text-gray-500">{method.percentage}%</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">No payment data for selected date</div>
+          )}
         </div>
       </div>
 
-      {/* Pending Actions */}
+      {/* Pending Payments Queue */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Pending Actions</h3>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-              {pendingActions.filter(action => action.urgency === 'high').length} High Priority
+            <h3 className="text-lg font-semibold text-gray-900">Pending Payments Queue</h3>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+              {pendingPayments.length} Awaiting Approval
             </span>
           </div>
         </div>
 
         <div className="divide-y divide-gray-200">
-          {pendingActions.map((action) => (
-            <div key={action.id} className="p-6 hover:bg-gray-50">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-3">
-                  <h4 className="text-lg font-medium text-gray-900">{action.title}</h4>
-                  <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${getUrgencyColor(action.urgency)}`}>
-                    {action.urgency.toUpperCase()}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-semibold text-gray-900">{action.amount}</p>
-                  <p className="text-sm text-gray-500">{action.date}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <p className="text-sm text-gray-600">Status</p>
-                  <p className="text-sm font-medium text-gray-900">{action.status}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Requested by</p>
-                  <p className="text-sm font-medium text-gray-900">{action.requestedBy}</p>
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <p className="text-sm text-gray-700">{action.description}</p>
-              </div>
-
-              <div className="flex space-x-2">
-                <button className="flex items-center space-x-1 px-3 py-2 bg-amber-50 text-amber-600 text-sm font-medium rounded-md hover:bg-amber-100 transition-colors">
-                  <Eye className="h-4 w-4" />
-                  <span>View Details</span>
-                </button>
-                {action.type === 'expense_approval' && (
-                  <>
-                    <button className="flex items-center space-x-1 px-3 py-2 bg-green-50 text-green-600 text-sm font-medium rounded-md hover:bg-green-100 transition-colors">
-                      <CheckCircle className="h-4 w-4" />
-                      <span>Approve</span>
-                    </button>
-                    <button className="flex items-center space-x-1 px-3 py-2 bg-red-50 text-red-600 text-sm font-medium rounded-md hover:bg-red-100 transition-colors">
-                      <AlertTriangle className="h-4 w-4" />
-                      <span>Reject</span>
-                    </button>
-                  </>
-                )}
-                {action.type === 'daily_balance' && (
-                  <button className="flex items-center space-x-1 px-3 py-2 bg-blue-50 text-blue-600 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors">
-                    <Calculator className="h-4 w-4" />
-                    <span>Close Balance</span>
-                  </button>
-                )}
-              </div>
+          {loading ? (
+            <div className="p-12 text-center text-gray-500">
+              <Clock className="mx-auto h-12 w-12 text-gray-400 animate-spin mb-3" />
+              <p className="text-sm">Loading pending payments...</p>
             </div>
-          ))}
+          ) : pendingPayments.length > 0 ? (
+            pendingPayments.map((payment) => {
+              const badge = getServiceTypeBadge(payment.service_type);
+              const BadgeIcon = badge.icon;
+
+              return (
+                <div key={payment.id} className="p-6 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="flex-shrink-0">
+                        <BadgeIcon className="h-8 w-8 text-orange-500" />
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-medium text-gray-900">{payment.service_name}</h4>
+                        <p className="text-sm text-gray-600">Patient: {payment.patient_name} ({payment.patient_id})</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-gray-900">TZS {parseFloat(payment.amount).toLocaleString()}</p>
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${badge.color}`}>
+                        {payment.service_type.replace('_', ' ')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
+                    <div>
+                      <p className="text-gray-600">Payment Method</p>
+                      <p className="font-medium text-gray-900">{payment.payment_method || 'CASH'}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-600">Status</p>
+                      <p className="font-medium text-orange-600">PENDING</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-600">Created</p>
+                      <p className="font-medium text-gray-900">
+                        {new Date(payment.created_at).toLocaleTimeString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-600">Reference</p>
+                      <p className="font-medium text-gray-900">{payment.reference_id ? `#${payment.reference_id.slice(0, 8)}` : 'N/A'}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-2">
+                    <a
+                      href="/finance/payment-history"
+                      className="flex items-center space-x-1 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-medium rounded-md hover:from-amber-600 hover:to-orange-700 transition-all"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                      <span>Process Payment</span>
+                    </a>
+                    <button className="flex items-center space-x-1 px-3 py-2 bg-gray-50 text-gray-600 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors">
+                      <Eye className="h-4 w-4" />
+                      <span>View Details</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-center py-12">
+              <CheckCircle className="mx-auto h-12 w-12 text-green-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">All payments processed!</h3>
+              <p className="mt-1 text-sm text-gray-500">No pending payments at the moment.</p>
+            </div>
+          )}
         </div>
 
-        {pendingActions.length === 0 && (
-          <div className="text-center py-12">
-            <CheckCircle className="mx-auto h-12 w-12 text-green-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">All caught up!</h3>
-            <p className="mt-1 text-sm text-gray-500">No pending financial actions at the moment.</p>
+        {pendingPayments.length > 0 && (
+          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+            <a
+              href="/finance/payment-history"
+              className="text-sm font-medium text-amber-600 hover:text-amber-700 flex items-center justify-center"
+            >
+              View all pending payments →
+            </a>
           </div>
         )}
       </div>

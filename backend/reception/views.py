@@ -76,7 +76,7 @@ def register_patient(request):
             patient.save()
 
             # Create revenue record for finance tracking
-            from finance.models import RevenueRecord
+            from finance.models import RevenueRecord, ServicePayment
             RevenueRecord.objects.create(
                 patient=patient,
                 revenue_type='FILE_FEE',
@@ -86,6 +86,21 @@ def register_patient(request):
                 collected_by=request.user,
                 revenue_date=timezone.now().date()
             )
+
+            # Also create ServicePayment record for payment queue visibility
+            ServicePayment.objects.create(
+                patient_id=patient.patient_id,
+                patient_name=patient.full_name,
+                service_type='FILE_FEE',
+                service_name='Patient File Fee (New Registration)',
+                amount=2000.00,
+                payment_method='CASH',
+                status='PAID',
+                payment_date=timezone.now(),
+                processed_by=request.user,
+                notes=f'File fee paid during registration by {request.user.full_name}'
+            )
+
             note_text = f"Normal patient registered with file fee paid by {request.user.full_name}"
         else:
             return Response({

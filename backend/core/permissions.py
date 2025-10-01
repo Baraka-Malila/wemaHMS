@@ -96,13 +96,13 @@ class IsStaffMember(BasePermission):
     Permission for any staff member (not patients).
     Allows access to users with any staff role.
     """
-    
-    STAFF_ROLES = ['ADMIN', 'DOCTOR', 'LAB', 'PHARMACY', 'RECEPTION']
-    
+
+    STAFF_ROLES = ['ADMIN', 'DOCTOR', 'LAB', 'PHARMACY', 'RECEPTION', 'FINANCE', 'NURSE']
+
     def has_permission(self, request, view):
         return (
-            request.user and 
-            request.user.is_authenticated and 
+            request.user and
+            request.user.is_authenticated and
             hasattr(request.user, 'role') and
             request.user.role in self.STAFF_ROLES
         )

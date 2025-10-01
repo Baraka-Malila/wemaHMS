@@ -83,6 +83,18 @@ export default function PatientDetailsModal({ isOpen, onClose, patientId, onEdit
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Patient data received:', {
+          patient_id: data.patient_id,
+          temperature: data.temperature,
+          respiratory_rate: data.respiratory_rate,
+          all_vitals: {
+            temperature: data.temperature,
+            bp_sys: data.blood_pressure_systolic,
+            bp_dia: data.blood_pressure_diastolic,
+            pulse: data.pulse_rate,
+            resp: data.respiratory_rate
+          }
+        });
         setPatient(data);
       } else {
         alert('Error loading patient details');

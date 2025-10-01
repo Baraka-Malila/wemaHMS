@@ -394,7 +394,7 @@ class ServicePaymentViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def mark_paid(self, request, pk=None):
-        """Mark a service payment as paid"""
+        """Mark a service payment as paid and update patient status"""
         payment = self.get_object()
 
         if payment.status == 'PAID':
@@ -417,32 +417,79 @@ class ServicePaymentViewSet(viewsets.ModelViewSet):
         payment.processed_by = request.user
         payment.save()
 
-        # Update related service payment status based on service type
-        if payment.service_type == 'CONSULTATION' and payment.reference_id:
-            try:
-                from doctor.models import Consultation
-                consultation = Consultation.objects.get(id=payment.reference_id)
-                consultation.consultation_fee_paid = True
-                consultation.consultation_fee_payment_date = payment_date
-                consultation.save()
-            except Consultation.DoesNotExist:
-                pass
+        # Update patient status based on payment service type
+        try:
+            from patients.models import Patient, PatientStatusHistory
+            patient = Patient.objects.get(patient_id=payment.patient_id)
+            previous_status = patient.current_status
+            previous_location = patient.current_location
+            new_status = previous_status  # Default: no change
+            new_location = previous_location
 
-        elif payment.service_type == 'LAB_TEST' and payment.reference_id:
-            try:
-                from doctor.models import LabTestRequest
-                lab_request = LabTestRequest.objects.get(id=payment.reference_id)
-                lab_request.lab_fee_paid = True
-                lab_request.lab_fee_payment_date = payment_date
-                lab_request.save()
-            except LabTestRequest.DoesNotExist:
-                pass
+            # Update status based on service type
+            if payment.service_type == 'CONSULTATION':
+                new_status = 'CONSULTATION_PAID'
+                new_location = 'Ready for Next Service'
+
+                # Update consultation record
+                if payment.reference_id:
+                    try:
+                        from doctor.models import Consultation
+                        consultation = Consultation.objects.get(id=payment.reference_id)
+                        consultation.consultation_fee_paid = True
+                        consultation.consultation_fee_payment_date = payment_date
+                        consultation.save()
+                    except Consultation.DoesNotExist:
+                        pass
+
+            elif payment.service_type == 'LAB_TEST':
+                new_status = 'LAB_PAID'
+                new_location = 'Laboratory - Ready for Testing'
+
+                # Update lab request record
+                if payment.reference_id:
+                    try:
+                        from doctor.models import LabTestRequest
+                        lab_request = LabTestRequest.objects.get(id=payment.reference_id)
+                        lab_request.lab_fee_paid = True
+                        lab_request.lab_fee_payment_date = payment_date
+                        lab_request.save()
+                    except LabTestRequest.DoesNotExist:
+                        pass
+
+            elif payment.service_type == 'MEDICATION':
+                new_status = 'PHARMACY_PAID'
+                new_location = 'Pharmacy - Ready for Dispensing'
+
+            # Update patient status if it changed
+            if new_status != previous_status:
+                patient.current_status = new_status
+                patient.current_location = new_location
+                patient.last_updated_by = request.user
+                patient.save()
+
+                # Create status history
+                PatientStatusHistory.objects.create(
+                    patient=patient,
+                    previous_status=previous_status,
+                    new_status=new_status,
+                    previous_location=previous_location,
+                    new_location=new_location,
+                    changed_by=request.user,
+                    notes=f'Payment cleared for {payment.service_type} - {payment.service_name}'
+                )
+
+        except Patient.DoesNotExist:
+            pass  # Payment processed but patient status not updated
+        except Exception as e:
+            print(f"Error updating patient status after payment: {str(e)}")
 
         serializer = self.get_serializer(payment)
         return Response({
             'message': 'Payment marked as paid successfully',
             'payment': serializer.data,
-            'receipt_number': payment.receipt_number
+            'receipt_number': payment.receipt_number,
+            'patient_status_updated': True
         })
 
     @action(detail=False, methods=['get'])

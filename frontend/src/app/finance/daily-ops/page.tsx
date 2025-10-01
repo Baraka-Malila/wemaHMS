@@ -224,6 +224,16 @@ export default function DailyOperations() {
             >
               Outstanding Bills
             </button>
+            <button
+              onClick={() => setActiveTab('payment-ledger')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'payment-ledger'
+                  ? 'border-amber-500 text-amber-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Payment Ledger
+            </button>
           </nav>
         </div>
 
@@ -490,6 +500,89 @@ export default function DailyOperations() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Payment Ledger Tab */}
+        {activeTab === 'payment-ledger' && (
+          <div className="p-6">
+            <div className="mb-6 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">All Payments - {new Date(selectedDate).toLocaleDateString()}</h3>
+              <button className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:from-amber-600 hover:to-orange-700 transition-all">
+                <FileText className="h-4 w-4" />
+                <span>Export to Excel</span>
+              </button>
+            </div>
+
+            {/* Payment Ledger Table */}
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Time
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Receipt #
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Patient
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Service
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Amount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Method
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Processed By
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    <tr>
+                      <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                        <FileText className="mx-auto h-12 w-12 text-gray-400 mb-3" />
+                        <p className="text-sm font-medium">Payment Ledger Coming Soon</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          This feature will display all payments with detailed information
+                        </p>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Daily Summary */}
+            <div className="mt-6 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border-2 border-amber-200 p-6">
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">Daily Summary</h4>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-white rounded-lg p-4">
+                  <p className="text-sm text-gray-600 mb-1">Total Revenue</p>
+                  <p className="text-2xl font-bold text-green-600">TZS 0</p>
+                </div>
+                <div className="bg-white rounded-lg p-4">
+                  <p className="text-sm text-gray-600 mb-1">Total Expenses</p>
+                  <p className="text-2xl font-bold text-red-600">TZS 0</p>
+                </div>
+                <div className="bg-white rounded-lg p-4">
+                  <p className="text-sm text-gray-600 mb-1">Net Income</p>
+                  <p className="text-2xl font-bold text-blue-600">TZS 0</p>
+                </div>
+                <div className="bg-white rounded-lg p-4">
+                  <p className="text-sm text-gray-600 mb-1">Closing Balance</p>
+                  <p className="text-2xl font-bold text-amber-600">TZS 0</p>
+                </div>
+              </div>
             </div>
           </div>
         )}

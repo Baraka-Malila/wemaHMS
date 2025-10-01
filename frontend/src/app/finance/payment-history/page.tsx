@@ -26,7 +26,7 @@ interface PendingPayment {
   created_at: string;
 }
 
-export default function PaymentQueue() {
+export default function PaymentHistory() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'pending' | 'recent'>('pending');
   const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
@@ -56,15 +56,19 @@ export default function PaymentQueue() {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Pending payments response:', data);
         const paymentsArray = Array.isArray(data)
           ? data
           : data.pending_payments
           ? (Array.isArray(data.pending_payments) ? data.pending_payments : [])
           : [];
+        console.log('Pending payments array:', paymentsArray);
         setPendingPayments(paymentsArray);
         if (activeTab === 'pending') {
           setFilteredPayments(paymentsArray);
         }
+      } else {
+        console.error('Pending payments error:', response.status, await response.text());
       }
     } catch (error) {
       console.error('Error loading payment queue:', error);
@@ -84,7 +88,7 @@ export default function PaymentQueue() {
       const token = auth.getToken();
       // Get all payments (both paid and pending)
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/pricing/payments/?status=PAID&limit=100`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/finance/payments/?status=PAID&limit=100`,
         {
           headers: {
             'Authorization': `Token ${token}`,
@@ -95,15 +99,19 @@ export default function PaymentQueue() {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Recent payments response:', data);
         const paymentsArray = Array.isArray(data)
           ? data
           : data.results
           ? (Array.isArray(data.results) ? data.results : [])
           : [];
+        console.log('Recent payments array:', paymentsArray);
         setRecentPayments(paymentsArray);
         if (activeTab === 'recent') {
           setFilteredPayments(paymentsArray);
         }
+      } else {
+        console.error('Recent payments error:', response.status, await response.text());
       }
     } catch (error) {
       console.error('Error loading recent payments:', error);
@@ -217,7 +225,7 @@ export default function PaymentQueue() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold mb-2">
-              {activeTab === 'pending' ? 'Payment Queue' : 'Recent Payments'}
+              {activeTab === 'pending' ? 'Payment History - Pending' : 'Payment History - Completed'}
             </h1>
             <p className="text-amber-100">
               {filteredPayments.length} {activeTab === 'pending' ? 'pending' : 'recent'} payment{filteredPayments.length !== 1 ? 's' : ''}

@@ -152,18 +152,18 @@ export default function FinanceLayout({
               {!sidebarCollapsed && <span>Dashboard</span>}
             </div>
 
-            {/* Payment Queue */}
+            {/* Payment History */}
             <div
               className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-3 rounded-lg font-medium cursor-pointer ${
-                isActive('/finance/payment-queue')
+                isActive('/finance/payment-history')
                   ? 'text-white'
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
-              style={isActive('/finance/payment-queue') ? { background: '#9CA3AF' } : {}}
-              onClick={() => router.push('/finance/payment-queue')}
+              style={isActive('/finance/payment-history') ? { background: '#9CA3AF' } : {}}
+              onClick={() => router.push('/finance/payment-history')}
             >
               <Receipt className="h-5 w-5" />
-              {!sidebarCollapsed && <span>Payment Queue</span>}
+              {!sidebarCollapsed && <span>Payment History</span>}
             </div>
 
             {/* Daily Operations */}

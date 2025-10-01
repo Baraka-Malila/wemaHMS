@@ -24,7 +24,6 @@ export default function PaymentRecordModal({ isOpen, onClose, payment, onSuccess
   const [success, setSuccess] = useState(false);
   const [receiptNumber, setReceiptNumber] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('CASH');
-  const [notes, setNotes] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +32,7 @@ export default function PaymentRecordModal({ isOpen, onClose, payment, onSuccess
     try {
       const token = auth.getToken();
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/pricing/service-payments/${payment.id}/mark_paid/`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/finance/payments/${payment.id}/mark-paid/`,
         {
           method: 'POST',
           headers: {
@@ -42,8 +41,7 @@ export default function PaymentRecordModal({ isOpen, onClose, payment, onSuccess
           },
           body: JSON.stringify({
             payment_date: new Date().toISOString(),
-            payment_method: paymentMethod,
-            notes: notes.trim()
+            payment_method: paymentMethod
           })
         }
       );
@@ -191,23 +189,9 @@ export default function PaymentRecordModal({ isOpen, onClose, payment, onSuccess
               <option value="CASH">Cash</option>
               <option value="MOBILE_MONEY">Mobile Money</option>
               <option value="BANK_TRANSFER">Bank Transfer</option>
-              <option value="INSURANCE">Insurance</option>
+              <option value="NHIF">NHIF</option>
               <option value="CREDIT">Credit/Deferred</option>
             </select>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Notes (Optional)
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              placeholder="Add any additional payment notes..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-            />
           </div>
 
           {/* Submit Buttons */}

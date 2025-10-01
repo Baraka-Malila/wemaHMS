@@ -292,25 +292,74 @@ def update_consultation(request, consultation_id):
 def create_prescription(request):
     """
     Create medication prescription for a patient.
-    
+
     Prescription will be available to pharmacy for dispensing.
     """
     try:
+        from finance.utils import create_pending_payment, get_pending_payment_for_service, get_medication_price
+        from patients.models import Patient
+        from decimal import Decimal
+
         serializer = PrescriptionCreateSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
         prescription = serializer.save(prescribed_by=request.user)
-        
+
+        # Auto-create PENDING payment for medication
+        payment_created = False
+        try:
+            patient = Patient.objects.get(patient_id=prescription.consultation.patient_id)
+
+            # Check if payment already exists for this prescription
+            existing_payment = get_pending_payment_for_service(
+                patient=patient,
+                service_type='MEDICATION',
+                reference_id=prescription.id
+            )
+
+            if not existing_payment:
+                # Try to get medication price from ServicePricing
+                medication_price = get_medication_price(prescription.medication_name)
+
+                # Calculate total cost (quantity * unit price)
+                if medication_price:
+                    total_cost = medication_price * prescription.quantity_prescribed
+                else:
+                    # Default medication cost if not found in pricing
+                    total_cost = Decimal('10000.00') * prescription.quantity_prescribed
+
+                # Create PENDING payment
+                payment = create_pending_payment(
+                    patient=patient,
+                    service_type='MEDICATION',
+                    service_name=f'Prescription - {prescription.medication_name} (x{prescription.quantity_prescribed})',
+                    amount=total_cost,
+                    reference_id=prescription.id,
+                    user=request.user
+                )
+                payment_created = True
+
+                # Update patient status
+                patient.current_status = 'TREATMENT_PRESCRIBED'
+                patient.current_location = 'Finance - Pharmacy Payment'
+                patient.last_updated_by = request.user
+                patient.save()
+
+        except Exception as payment_error:
+            print(f"Error creating prescription payment: {payment_error}")
+
         return Response({
             'message': 'Prescription created successfully',
             'prescription_id': str(prescription.id),
             'medication': prescription.medication_name,
             'patient_id': prescription.consultation.patient_id,
             'quantity': prescription.quantity_prescribed,
-            'created_at': prescription.prescribed_at.isoformat()
+            'created_at': prescription.prescribed_at.isoformat(),
+            'payment_created': payment_created,
+            'note': 'Patient must proceed to Finance for payment before pharmacy dispensing' if payment_created else None
         }, status=status.HTTP_201_CREATED)
-        
+
     except Exception as e:
         return Response(
             {'error': f'Failed to create prescription: {str(e)}'},
@@ -339,6 +388,10 @@ def request_lab_test(request):
     Test request will be available to lab technicians for processing.
     """
     try:
+        from finance.utils import create_pending_payment, get_pending_payment_for_service
+        from patients.models import Patient
+        from decimal import Decimal
+
         # Add the requesting doctor to the data
         data = request.data.copy()
         data['requested_by'] = request.user.id
@@ -362,6 +415,43 @@ def request_lab_test(request):
         requested_tests = [field.replace('_requested', '').upper().replace('_', ' ')
                           for field in test_fields if getattr(lab_request, field, False)]
 
+        # Auto-create PENDING payment for lab tests if fee is required
+        payment_created = False
+        if lab_request.lab_fee_required:
+            try:
+                patient = Patient.objects.get(patient_id=lab_request.patient_id)
+
+                # Check if payment already exists
+                existing_payment = get_pending_payment_for_service(
+                    patient=patient,
+                    service_type='LAB_TEST',
+                    reference_id=lab_request.id
+                )
+
+                if not existing_payment:
+                    # Get lab fee amount
+                    lab_fee = lab_request.lab_fee_amount or Decimal('25000.00')
+
+                    # Create PENDING payment
+                    payment = create_pending_payment(
+                        patient=patient,
+                        service_type='LAB_TEST',
+                        service_name=f'Laboratory Tests ({len(requested_tests)} tests)',
+                        amount=lab_fee,
+                        reference_id=lab_request.id,
+                        user=request.user
+                    )
+                    payment_created = True
+
+                    # Update patient status
+                    patient.current_status = 'PENDING_LAB_PAYMENT'
+                    patient.current_location = 'Finance - Lab Payment'
+                    patient.last_updated_by = request.user
+                    patient.save()
+
+            except Exception as payment_error:
+                print(f"Error creating lab payment: {payment_error}")
+
         return Response({
             'message': 'Lab tests requested successfully',
             'request_id': str(lab_request.id),
@@ -372,7 +462,9 @@ def request_lab_test(request):
             'lab_fee_required': lab_request.lab_fee_required,
             'lab_fee_amount': float(lab_request.lab_fee_amount) if lab_request.lab_fee_amount else 0,
             'status': lab_request.status,
-            'requested_at': lab_request.requested_at.isoformat()
+            'requested_at': lab_request.requested_at.isoformat(),
+            'payment_created': payment_created,
+            'note': 'Patient must proceed to Finance for payment before lab processing' if payment_created else None
         }, status=status.HTTP_201_CREATED)
 
     except Exception as e:
@@ -666,6 +758,9 @@ def get_consultation_detail(request, consultation_id):
 def complete_consultation(request):
     """Mark consultation as completed and update patient status."""
     try:
+        from finance.utils import create_pending_payment, get_pending_payment_for_service, get_consultation_price
+        from decimal import Decimal
+
         consultation_id = request.data.get('consultation_id')
         if not consultation_id:
             return Response(
@@ -682,19 +777,12 @@ def complete_consultation(request):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # Check if consultation fee is paid (if required)
-        if consultation.consultation_fee_required and not consultation.consultation_fee_paid:
-            return Response(
-                {'error': 'Consultation fee must be paid before completing consultation'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
         # Mark consultation as completed
         consultation.status = 'COMPLETED'
         consultation.completed_at = timezone.now()
         consultation.save()
 
-        # Update patient status
+        # Update patient status and create payment
         try:
             from patients.models import Patient, PatientStatusHistory
             patient = Patient.objects.get(patient_id=consultation.patient_id)
@@ -702,8 +790,34 @@ def complete_consultation(request):
             previous_status = patient.current_status
             previous_location = patient.current_location
 
-            patient.current_status = 'COMPLETED'
-            patient.current_location = 'Consultation Completed'
+            # Auto-create PENDING payment for consultation if fee is required
+            payment_created = False
+            if consultation.consultation_fee_required:
+                # Check if payment already exists
+                existing_payment = get_pending_payment_for_service(
+                    patient=patient,
+                    service_type='CONSULTATION',
+                    reference_id=consultation.id
+                )
+
+                if not existing_payment:
+                    # Get consultation price
+                    consultation_amount = consultation.consultation_fee_amount or get_consultation_price() or Decimal('50000.00')
+
+                    # Create PENDING payment
+                    payment = create_pending_payment(
+                        patient=patient,
+                        service_type='CONSULTATION',
+                        service_name=f'Doctor Consultation - {consultation.diagnosis or "General"}',
+                        amount=consultation_amount,
+                        reference_id=consultation.id,
+                        user=request.user
+                    )
+                    payment_created = True
+
+            # Update patient status to indicate pending consultation payment
+            patient.current_status = 'PENDING_CONSULTATION_PAYMENT'
+            patient.current_location = 'Finance - Consultation Payment'
             patient.last_updated_by = request.user
             patient.save()
 
@@ -711,11 +825,11 @@ def complete_consultation(request):
             PatientStatusHistory.objects.create(
                 patient=patient,
                 previous_status=previous_status,
-                new_status='COMPLETED',
+                new_status='PENDING_CONSULTATION_PAYMENT',
                 previous_location=previous_location,
                 new_location=patient.current_location,
                 changed_by=request.user,
-                notes=f"Consultation completed by Dr. {request.user.full_name}"
+                notes=f"Consultation completed by Dr. {request.user.full_name}. Payment pending."
             )
         except Exception as patient_error:
             # Log the error but don't fail the consultation completion
@@ -726,7 +840,9 @@ def complete_consultation(request):
             'consultation_id': str(consultation.id),
             'patient_id': consultation.patient_id,
             'completed_at': consultation.completed_at.isoformat(),
-            'patient_status_updated': 'COMPLETED'
+            'patient_status_updated': 'PENDING_CONSULTATION_PAYMENT',
+            'payment_created': payment_created,
+            'note': 'Patient must proceed to Finance for payment before next service'
         })
 
     except Exception as e:
