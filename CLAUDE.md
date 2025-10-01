@@ -6,7 +6,61 @@
 
 **Tech Stack**: Django REST + Next.js 15 + PostgreSQL + Redis + Docker
 **Architecture**: Containerized microservices with role-based authentication
-**Current Status**: 70% complete - Core patient workflow functional, expanding to all departments
+**Current Status**: 75% complete - Core patient workflow functional, **CRITICAL BUG blocking production**
+
+---
+
+## 🚨 **CRITICAL BUG - READ FIRST**
+
+### Active Bug (Highest Priority)
+**Consultation Payment Not Appearing in Finance Portal**
+
+**Status**: BLOCKING Scenario A testing and production deployment
+
+**Problem**:
+1. Doctor completes consultation successfully ✅
+2. Backend creates PENDING payment (5,000 TZS) ✅
+3. Payment exists in database with correct data ✅
+4. Frontend shows error: "Warning: Consultation saved but payment creation failed" ❌
+5. Finance portal doesn't show payment in pending queue ❌
+
+**Current Test Patient**:
+- ID: PAT1 (ROBERT JOHN ZABRON)
+- Status: `PENDING_CONSULTATION_PAYMENT`
+- Consultation: COMPLETED
+- Payment: In database but invisible to Finance portal
+
+**What Works**:
+- ✅ Backend endpoint `/api/doctor/consultations/complete/` verified working
+- ✅ Payment record created: `service_type=CONSULTATION`, `amount=5000`, `status=PENDING`
+- ✅ Patient status updated correctly
+- ✅ Test script confirms backend functionality
+
+**What's Broken**:
+- ❌ Frontend shows error even though backend succeeds
+- ❌ Payment doesn't appear in Finance pending payments list
+- ❌ Workflow cannot continue to payment processing
+
+**Files to Investigate**:
+1. `/frontend/src/app/finance/` - Find pending payments page
+2. `/frontend/src/components/EnhancedDiagnosisModal.tsx` (lines 445-485)
+3. `/backend/doctor/views.py` (lines 800-898 - complete_consultation)
+4. `/backend/finance/views.py` - Payment list endpoint
+5. `/backend/finance/utils.py` - create_pending_payment function
+
+**Debugging Scripts Available**:
+```bash
+# Test consultation completion
+docker compose exec backend python test_complete_consultation.py
+
+# Check payments in database
+docker compose exec backend python check_all_payments.py
+
+# Full system audit
+docker compose exec backend python test_complete_flow.py
+```
+
+**This bug MUST be fixed before any other development work!**
 
 ---
 
@@ -106,6 +160,171 @@ With stable foundation, follow patient journey workflow:
 - **API-First**: Real backend integration, no mock data
 - **Component Reuse**: Leverage existing modals and UI components
 - **Progressive Enhancement**: Start with core workflow, add features iteratively
+
+---
+
+## 🛠️ **UTILITY SCRIPTS & DATABASE MANAGEMENT**
+
+The project includes several Python scripts in `/backend/` for testing, debugging, and database management.
+
+### 🗄️ **Database Management**
+
+#### **reset_database.py** - Complete Database Wipe
+**When to use**: Start fresh testing, database corrupted with old data
+
+```bash
+cd /home/cyberpunk/WEMA-HMS/backend
+docker compose exec backend python reset_database.py
+# Type: YES DELETE EVERYTHING
+```
+
+**What it does**:
+- Deletes: All patients, consultations, prescriptions, lab requests, payments, revenue records
+- Keeps: User accounts, service pricing, medications
+- Resets: Auto-increment sequences for clean IDs
+
+**Use case**: Database had mixed test data from multiple code versions causing conflicts
+
+---
+
+#### **cleanup_stuck_patients.py** - Fix Workflow Issues
+**When to use**: Patients stuck in wrong status, incomplete consultations
+
+```bash
+docker compose exec backend python cleanup_stuck_patients.py
+```
+
+**What it does**:
+- Finds consultations with `IN_PROGRESS` status but no diagnosis
+- Resets patient status from `WITH_DOCTOR` → `WAITING_DOCTOR`
+- Deletes empty/incomplete consultation records
+- Restores proper queue state
+
+---
+
+### 📊 **Data Population**
+
+#### **populate_comprehensive_data.py** - Full System Setup
+**When to use**: Fresh database needs medications and service pricing
+
+```bash
+docker compose exec backend python populate_comprehensive_data.py
+```
+
+**What it populates**:
+- 22 medications with prices and stock levels
+- 49 service types (consultations, lab tests, nursing)
+- Complete pricing structure (FILE_FEE: 2000, CONSULTATION: 5000, etc.)
+
+---
+
+### 🧪 **Testing & Debugging**
+
+#### **test_complete_consultation.py** - Debug Consultation Flow
+**When to use**: Consultation completion issues, payment creation problems
+
+```bash
+docker compose exec backend python test_complete_consultation.py
+```
+
+**What it shows**:
+- Current consultation state (status, diagnosis)
+- Patient state before/after completion
+- Payment creation verification
+- Complete API response
+
+**Current use**: Debugging why consultation payment doesn't appear in Finance portal
+
+---
+
+#### **test_complete_flow.py** - Full System Audit
+**When to use**: Check overall system state, find workflow issues
+
+```bash
+docker compose exec backend python test_complete_flow.py
+```
+
+**What it reports**:
+- All consultations and their status
+- Patients in each status state
+- Incomplete consultations (missing diagnosis)
+- Payment records
+
+---
+
+#### **check_all_payments.py** - Payment Audit
+```bash
+docker compose exec backend python check_all_payments.py
+```
+
+Lists all payments with details (patient, amount, status, service type)
+
+---
+
+#### **test_date_filter.py** - Finance Date Filter Debug
+```bash
+docker compose exec backend python test_date_filter.py
+```
+
+Tests payment date filtering logic (fixed timezone issues)
+
+---
+
+### 📝 **Quick Database Queries**
+
+**Check current system state**:
+```bash
+docker compose exec backend python -c "
+import os, django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+django.setup()
+
+from patients.models import Patient
+from doctor.models import Consultation
+from finance.models import ServicePayment
+
+print(f'\n📊 SYSTEM STATUS:')
+print(f'Patients: {Patient.objects.count()}')
+print(f'Consultations: {Consultation.objects.count()}')
+print(f'Payments: {ServicePayment.objects.count()}\n')
+
+for p in Patient.objects.all():
+    print(f'Patient: {p.patient_id} - {p.full_name}')
+    print(f'  Status: {p.current_status}')
+    print(f'  Location: {p.current_location}')
+    
+for pay in ServicePayment.objects.all():
+    print(f'\n{pay.service_type}: {pay.amount} TZS ({pay.status})')
+    print(f'  Patient: {pay.patient_id}')
+    if pay.reference_id:
+        print(f'  Reference: {pay.reference_id}')
+"
+```
+
+**Find specific patient**:
+```bash
+docker compose exec backend python -c "
+import os, django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+django.setup()
+
+from patients.models import Patient
+from doctor.models import Consultation
+from finance.models import ServicePayment
+
+patient = Patient.objects.get(patient_id='PAT1')
+print(f'Patient: {patient.full_name}')
+print(f'Status: {patient.current_status}')
+
+consultations = Consultation.objects.filter(patient_id=patient.patient_id)
+print(f'Consultations: {consultations.count()}')
+
+payments = ServicePayment.objects.filter(patient_id=patient.patient_id)
+print(f'Payments: {payments.count()}')
+for p in payments:
+    print(f'  - {p.service_type}: {p.amount} TZS ({p.status})')
+"
+```
 
 ---
 
@@ -220,12 +439,21 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - **Authentication**: Role-based login with employee ID auto-generation
 - **Patient Management**: Auto-ID (PAT1, PAT2...), status tracking, cross-portal sharing
 - **Modals**: Reusable patient components across all portals
+- **Consultation Workflow**: Consultation creation, completion, diagnosis recording
+- **Payment Creation**: Backend auto-creates PENDING payments on consultation completion
+
+### **🐛 Broken & Needs Fix (BLOCKING PRODUCTION)**
+1. **Consultation Payment Not Visible in Finance Portal** - CRITICAL BUG
+   - Backend creates payment ✅
+   - Frontend doesn't show it ❌
+   - Blocking complete workflow testing
 
 ### **🔄 Next Priorities**
-1. **Doctor Workflow**: Complete prescription/lab request pages with API integration
-2. **Pharmacy Portal**: Connect existing backend APIs to frontend interface
-3. **Lab Portal**: Test results and supply order management
-4. **Finance Portal**: Daily operations and billing dashboard
+1. **FIX THE BUG ABOVE** - Highest priority, blocking everything
+2. **Doctor Workflow**: Complete prescription/lab request pages with API integration
+3. **Pharmacy Portal**: Connect existing backend APIs to frontend interface
+4. **Lab Portal**: Test results and supply order management
+5. **Finance Portal**: Complete daily operations and billing dashboard
 
 ### **⚠️ Common Issues & Solutions**
 - **TypeScript errors**: Use proper typing, check for null values

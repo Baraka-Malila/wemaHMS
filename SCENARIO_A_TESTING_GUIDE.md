@@ -1,8 +1,98 @@
 # 🧪 WEMA HMS - Scenario A Testing Guide
 
-**Date**: 2025-10-01  
+**Date**: 2025-10-01 (Updated: 15:50 EAT)
 **Test Type**: End-to-End Patient Workflow (No Lab Tests)  
-**Status**: Ready to Execute
+**Status**: ⚠️ **BLOCKED** - Critical bug in consultation payment flow
+
+---
+
+## 🚨 **CURRENT STATUS - READ FIRST**
+
+### Database Status
+- ✅ **Clean Slate**: All old data wiped (2025-10-01 15:20)
+- ✅ **Test Patient**: PAT1 (ROBERT JOHN ZABRON) registered
+- ✅ **File Fee**: 2,000 TZS paid successfully
+- ✅ **Consultation**: Completed with diagnosis
+- ⚠️ **BLOCKED**: Payment created but not visible in Finance portal
+
+### Active Bug (Blocking Testing)
+**Bug**: Consultation payment doesn't appear in Finance pending payments queue
+
+**What's Broken**:
+- Doctor completes consultation ✅
+- Backend creates payment (5,000 TZS PENDING) ✅
+- Frontend shows error message ❌
+- Finance portal doesn't show payment ❌
+
+**Current Patient State**:
+- Patient ID: PAT1
+- Name: ROBERT JOHN ZABRON
+- Status: `PENDING_CONSULTATION_PAYMENT`
+- Location: Finance - Consultation Payment
+- Consultation: COMPLETED
+- Payment: EXISTS in database (verified) but NOT VISIBLE in frontend
+
+**Testing Progress**:
+- ✅ Step 1: Reception - Register Patient
+- ✅ Step 2: Reception - Pay File Fee (2,000 TZS)
+- ✅ Step 3: Doctor - Start Consultation
+- ✅ Step 4: Doctor - Complete Consultation
+- ❌ Step 5: Finance - Process Payment **<-- BLOCKED HERE**
+
+---
+
+## 🛠️ **For Next Developer (Bug Fix Instructions)**
+
+### Problem Summary
+Backend correctly creates ServicePayment with:
+- `patient_id`: PAT1
+- `service_type`: CONSULTATION
+- `service_name`: Doctor Consultation - Probably typhoid or malaria symptoms
+- `amount`: 5000.00
+- `status`: PENDING
+- `reference_id`: 9c2f8b55-5ab3-4947-aaad-2461d649db7b (consultation_id)
+
+But Finance portal pending payments page doesn't show it.
+
+### Files to Check
+1. **Finance Pending Payments Frontend**:
+   - `/frontend/src/app/finance/???` (find pending payments page)
+   - Check API endpoint being called
+   - Verify query parameters include `service_type=CONSULTATION`
+   - Add console.log to debug what's being fetched
+
+2. **Backend Payment API**:
+   - `/backend/finance/views.py` - Payment list endpoint
+   - Check if CONSULTATION is included in ServicePayment.SERVICE_TYPES
+   - Verify filtering logic
+
+3. **Test Query**:
+```bash
+# Check if payment exists in database
+docker compose exec backend python -c "
+import os, django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+django.setup()
+from finance.models import ServicePayment
+payments = ServicePayment.objects.filter(patient_id='PAT1', status='PENDING')
+print(f'Found {payments.count()} pending payments for PAT1')
+for p in payments:
+    print(f'  - {p.service_type}: {p.amount} TZS (ref: {p.reference_id})')
+"
+```
+
+4. **Test API Endpoint**:
+```bash
+# Get auth token first, then:
+curl -H "Authorization: Token YOUR_TOKEN" \
+  http://localhost:8000/api/finance/payments/?status=PENDING
+```
+
+### Expected Fix
+Either:
+- Finance frontend not querying CONSULTATION type payments
+- API filtering out CONSULTATION payments
+- React state not refreshing after consultation completion
 
 ---
 
@@ -17,7 +107,57 @@ Patient visits hospital, sees doctor, gets prescription, pays, and collects medi
 
 ---
 
-## 🚀 Pre-Test Setup
+## �️ **UTILITY SCRIPTS FOR TESTING**
+
+### Database Reset (Start Fresh)
+```bash
+cd /home/cyberpunk/WEMA-HMS/backend
+docker compose exec backend python reset_database.py
+# Type: YES DELETE EVERYTHING
+```
+Deletes all patients, consultations, payments. Keeps users and pricing.
+
+### Check Current State
+```bash
+docker compose exec backend python -c "
+import os, django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+django.setup()
+
+from patients.models import Patient
+from doctor.models import Consultation
+from finance.models import ServicePayment
+
+print('\n📊 CURRENT DATABASE STATE:')
+print(f'Patients: {Patient.objects.count()}')
+print(f'Consultations: {Consultation.objects.count()}')
+print(f'Payments: {ServicePayment.objects.count()}\n')
+
+for p in Patient.objects.all():
+    print(f'Patient: {p.patient_id} - {p.full_name}')
+    print(f'  Status: {p.current_status}')
+    
+for pay in ServicePayment.objects.all():
+    print(f'\nPayment: {pay.service_type} - {pay.amount} TZS')
+    print(f'  Status: {pay.status}, Patient: {pay.patient_id}')
+"
+```
+
+### Test Consultation Completion
+```bash
+docker compose exec backend python test_complete_consultation.py
+```
+Tests if consultation completion endpoint works correctly.
+
+### Clean Up Stuck Patients
+```bash
+docker compose exec backend python cleanup_stuck_patients.py
+```
+Fixes patients stuck in wrong status.
+
+---
+
+## �🚀 Pre-Test Setup
 
 ### 1. Start Frontend Server
 ```bash

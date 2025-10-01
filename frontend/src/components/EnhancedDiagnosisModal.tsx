@@ -306,6 +306,10 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
       alert('Please enter a diagnosis before completing consultation.');
       return;
     }
+    if (!formData.follow_up_date) {
+      alert('Please select a follow-up date. This is required for nursing follow-up calls.');
+      return;
+    }
 
     // Check if either lab requests, prescriptions, or general advice are provided
     const hasLabRequests = labRequest.selected_tests.length > 0;
@@ -327,7 +331,7 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
       if (activeConsultationId) {
         // Update existing consultation
         consultationResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/consultations/${activeConsultationId}/`,
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/consultations/${activeConsultationId}/update/`,
           {
             method: 'PATCH',
             headers: {
@@ -346,6 +350,12 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
         );
       } else {
         // Create new consultation
+        // Ensure patient_name is not empty
+        const patientName = patient?.full_name || 'Unknown Patient';
+        if (!patient?.full_name) {
+          console.warn('Patient full_name not available, using fallback');
+        }
+
         consultationResponse = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/consultations/create/`,
           {
@@ -356,7 +366,7 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
             },
             body: JSON.stringify({
               patient_id: patientId,
-              patient_name: patient?.full_name || '',
+              patient_name: patientName,
               ...formData,
               temperature: formData.temperature ? parseFloat(formData.temperature.toString()) : null,
               blood_pressure_systolic: formData.blood_pressure_systolic ? parseInt(formData.blood_pressure_systolic.toString()) : null,
@@ -463,8 +473,21 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
 
         if (!completeResponse.ok) {
           console.error('Failed to complete consultation and create payment');
-          const errorData = await completeResponse.json();
-          alert(`Warning: Consultation saved but payment creation failed: ${errorData.error || 'Unknown error'}`);
+          console.error('Response status:', completeResponse.status);
+          console.error('Response statusText:', completeResponse.statusText);
+          
+          try {
+            const errorData = await completeResponse.json();
+            console.error('Error data:', errorData);
+            alert(`Warning: Consultation saved but payment creation failed: ${errorData.error || errorData.detail || 'Unknown error'}`);
+          } catch (jsonError) {
+            // If response is not JSON, try text
+            const errorText = await completeResponse.text();
+            console.error('Error text:', errorText);
+            alert(`Warning: Consultation saved but payment creation failed: ${completeResponse.status} ${completeResponse.statusText}`);
+          }
+        } else {
+          console.log('✅ Consultation completed and payment created successfully');
         }
 
         // Determine success message based on what was ordered
@@ -485,7 +508,23 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
         onClose();
       } else {
         const errorData = await consultationResponse.json();
-        alert(`Error saving consultation: ${errorData.error || 'Please try again'}`);
+        console.error('Consultation save error:', errorData);
+
+        // Format validation errors
+        let errorMessage = 'Error saving consultation:\n';
+        if (typeof errorData === 'object') {
+          Object.keys(errorData).forEach(key => {
+            if (Array.isArray(errorData[key])) {
+              errorMessage += `${key}: ${errorData[key].join(', ')}\n`;
+            } else {
+              errorMessage += `${key}: ${errorData[key]}\n`;
+            }
+          });
+        } else {
+          errorMessage += errorData.error || 'Please try again';
+        }
+
+        alert(errorMessage);
       }
     } catch (error) {
       console.error('Error saving consultation:', error);
@@ -705,13 +744,16 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Follow-up Date (Optional)
+                    Follow-up Date <span className="text-red-500">*</span>
+                    <span className="text-xs text-gray-500 ml-2">(Required for nursing follow-up calls)</span>
                   </label>
                   <input
                     type="date"
+                    required
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
                     value={formData.follow_up_date}
                     onChange={(e) => handleInputChange('follow_up_date', e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
                   />
                 </div>
 

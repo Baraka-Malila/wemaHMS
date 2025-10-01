@@ -27,6 +27,12 @@ export default function PaymentRecordModal({ isOpen, onClose, payment, onSuccess
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Prevent duplicate submissions
+    if (processing) {
+      return;
+    }
+
     setProcessing(true);
 
     try {
@@ -58,12 +64,12 @@ export default function PaymentRecordModal({ isOpen, onClose, payment, onSuccess
       } else {
         const errorData = await response.json();
         alert(`Error: ${errorData.error || 'Failed to record payment'}`);
+        setProcessing(false); // Re-enable on error
       }
     } catch (error) {
       console.error('Error recording payment:', error);
       alert('Error recording payment. Please try again.');
-    } finally {
-      setProcessing(false);
+      setProcessing(false); // Re-enable on error
     }
   };
 
