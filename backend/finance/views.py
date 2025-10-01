@@ -360,8 +360,9 @@ class StaffSalaryViewSet(viewsets.ModelViewSet):
 # Service Payment Views
 
 class ServicePaymentFilter(django_filters.FilterSet):
-    payment_date_from = django_filters.DateFilter(field_name='payment_date', lookup_expr='gte')
-    payment_date_to = django_filters.DateFilter(field_name='payment_date', lookup_expr='lte')
+    # Use __date lookup to filter by date only (ignores time component)
+    payment_date_from = django_filters.DateFilter(field_name='payment_date__date', lookup_expr='gte')
+    payment_date_to = django_filters.DateFilter(field_name='payment_date__date', lookup_expr='lte')
     amount_min = django_filters.NumberFilter(field_name='amount', lookup_expr='gte')
     amount_max = django_filters.NumberFilter(field_name='amount', lookup_expr='lte')
 
