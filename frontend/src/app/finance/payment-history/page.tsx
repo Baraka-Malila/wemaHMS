@@ -67,8 +67,8 @@ export default function PaymentHistory() {
 
           // Check if anything changed
           const countChanged = prev.length !== paymentsArray.length;
-          const idsChanged = Array.from(currentIds).some((id: string) => !prevIds.has(id)) ||
-                            Array.from(prevIds).some((id: string) => !currentIds.has(id));
+          const idsChanged = Array.from(currentIds).some(id => !prevIds.has(id as string)) ||
+                            Array.from(prevIds).some(id => !currentIds.has(id as string));
 
           if (countChanged || idsChanged || prev.length === 0) {
             return paymentsArray;

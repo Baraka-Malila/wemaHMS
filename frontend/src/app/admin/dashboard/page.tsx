@@ -2,6 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  Users,
+  UserCheck,
+  Calendar,
+  TrendingUp,
+  AlertTriangle,
+  Activity,
+  Server
+} from 'lucide-react';
+import RealTimeClock from '@/components/ui/RealTimeClock';
 import auth from '@/lib/auth';
 
 interface DashboardStats {
@@ -248,14 +258,22 @@ export default function AdminDashboard() {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold mb-6" style={{ 
-        fontFamily: 'Open Sans, sans-serif',
-        fontSize: '24px',
-        lineHeight: '32px',
-        fontWeight: '600',
-        color: '#171A1F'
-      }}>Dashboard Overview</h1>
-          
+      {/* Header with Clock */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">Admin Dashboard</h1>
+            <p className="text-sm text-gray-600 mt-1">System Overview & Management</p>
+          </div>
+          <div className="hidden md:block">
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <p className="text-xs text-gray-500 mb-1">Current Time</p>
+              <RealTimeClock className="text-gray-900 font-semibold text-xl" />
+            </div>
+          </div>
+        </div>
+      </div>
+
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-gray-500">Loading dashboard data...</div>
@@ -264,128 +282,62 @@ export default function AdminDashboard() {
             <div className="space-y-6">
               {/* Top Row - Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Total Patients Today - Special Blue Card */}
-                <div 
-                  className="p-6 rounded-xl"
-                  style={{ 
-                    background: '#F2F7FD',
-                    border: '1px solid rgba(229, 231, 235, 0.6)',
-                    boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
-                  }}
-                >
-                  <h3 className="mb-2" style={{
-                    fontFamily: 'Roboto, sans-serif',
-                    fontSize: '14px',
-                    lineHeight: '20px',
-                    fontWeight: '600',
-                    color: '#565D6D'
-                  }}>Total Patients Today</h3>
-                  <div className="mb-1" style={{
-                    fontFamily: 'Open Sans, sans-serif',
-                    fontSize: '48px',
-                    lineHeight: '56px',
-                    fontWeight: '700',
-                    color: '#171A1F'
-                  }}>145</div>
-                  <div style={{
-                    fontFamily: 'Roboto, sans-serif',
-                    fontSize: '14px',
-                    lineHeight: '20px',
-                    fontWeight: '400',
-                    color: '#10B981'
-                  }}>↑ 18% than yesterday</div>
+                {/* Total Patients Today */}
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-600">Total Patients Today</h3>
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                      <Users className="h-5 w-5 text-blue-600" />
+                    </div>
+                  </div>
+                  <div className="text-4xl font-bold text-gray-900 mb-1">
+                    {stats?.patients_today || 145}
+                  </div>
+                  <div className="flex items-center text-sm text-green-600 font-medium">
+                    <TrendingUp className="h-4 w-4 mr-1" />
+                    {stats?.patients_change_percentage || 18}% than yesterday
+                  </div>
                 </div>
 
                 {/* Active Staff Members */}
-                <div className="p-6 rounded-xl" style={{ 
-                  background: '#F8F9FA',
-                  border: '1px solid rgba(229, 231, 235, 0.6)',
-                  boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
-                }}>
-                  <h3 className="mb-2" style={{
-                    fontFamily: 'Roboto, sans-serif',
-                    fontSize: '14px',
-                    lineHeight: '20px',
-                    fontWeight: '600',
-                    color: '#565D6D'
-                  }}>Active Staff Members</h3>
-                  <div className="mb-1" style={{
-                    fontFamily: 'Roboto, sans-serif',
-                    fontSize: '32px',
-                    lineHeight: '40px',
-                    fontWeight: '700',
-                    color: '#171A1F'
-                  }}>89</div>
-                  <div className="mb-3" style={{
-                    fontFamily: 'Roboto, sans-serif',
-                    fontSize: '14px',
-                    lineHeight: '20px',
-                    fontWeight: '400',
-                    color: '#565D6D'
-                  }}>out of 120 total</div>
-                  <div className="space-y-1" style={{
-                    fontFamily: 'Roboto, sans-serif',
-                    fontSize: '12px',
-                    lineHeight: '16px',
-                    fontWeight: '400',
-                    color: '#565D6D'
-                  }}>
-                    <div>• Doctors (25)</div>
-                    <div>• Nurses (40)</div>
-                    <div>• Admin (24)</div>
+                <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-600">Active Staff Members</h3>
+                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                      <UserCheck className="h-5 w-5 text-green-600" />
+                    </div>
+                  </div>
+                  <div className="text-3xl font-bold text-gray-900 mb-1">
+                    {stats?.active_staff || 89}
+                  </div>
+                  <div className="text-sm text-gray-600 mb-3">
+                    out of {stats?.total_staff || 120} total
+                  </div>
+                  <div className="space-y-1 text-xs text-gray-600">
+                    <div>• Doctors ({stats?.staff_breakdown?.DOCTOR || 25})</div>
+                    <div>• Nurses ({stats?.staff_breakdown?.NURSE || 40})</div>
+                    <div>• Admin ({stats?.staff_breakdown?.ADMIN || 24})</div>
                   </div>
                 </div>
 
-                {/* Upcoming Appointments - Donut Chart */}
-                <div className="p-4 rounded-xl flex flex-col items-center justify-center" style={{ 
-                  background: '#F8F9FA',
-                  border: '1px solid rgba(229, 231, 235, 0.6)',
-                  boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
-                }}>
-                  <div className="mb-3" style={{
-                    fontFamily: 'Roboto, sans-serif',
-                    fontSize: '14px',
-                    lineHeight: '20px',
-                    fontWeight: '600',
-                    color: '#565D6D'
-                  }}>Appointments</div>
-                  <div className="relative w-40 h-40 mb-3">
+                {/* Appointments */}
+                <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex flex-col items-center justify-center">
+                  <div className="flex items-center justify-between w-full mb-4">
+                    <h3 className="text-sm font-semibold text-gray-600">Appointments</h3>
+                    <Calendar className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div className="relative w-40 h-40 mb-4">
                     <svg className="w-40 h-40 transform -rotate-90" viewBox="0 0 120 120">
-                      <circle
-                        cx="60"
-                        cy="60"
-                        r="35"
-                        fill="none"
-                        stroke="#C7D2FE"
-                        strokeWidth="14"
-                      />
-                      <circle
-                        cx="60"
-                        cy="60"
-                        r="35"
-                        fill="none"
-                        stroke="#4A90E2"
-                        strokeWidth="14"
-                        strokeDasharray="175 50"
-                      />
+                      <circle cx="60" cy="60" r="35" fill="none" stroke="#E0E7FF" strokeWidth="14" />
+                      <circle cx="60" cy="60" r="35" fill="none" stroke="#4F46E5" strokeWidth="14" strokeDasharray="175 50" />
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span style={{
-                        fontFamily: 'Roboto, sans-serif',
-                        fontSize: '28px',
-                        lineHeight: '32px',
-                        fontWeight: '700',
-                        color: '#171A1F'
-                      }}>23</span>
+                      <span className="text-3xl font-bold text-gray-900">
+                        {stats?.appointments_today || 23}
+                      </span>
                     </div>
                   </div>
-                  <button className="px-4 py-2 text-white text-sm rounded-md hover:opacity-90" style={{
-                    fontFamily: 'Roboto, sans-serif',
-                    fontSize: '12px',
-                    lineHeight: '16px',
-                    fontWeight: '500',
-                    background: '#4A90E2'
-                  }}>
+                  <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
                     View Schedule
                   </button>
                 </div>
@@ -394,18 +346,11 @@ export default function AdminDashboard() {
               {/* Middle Row - Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Daily Revenue Summary - Line Chart */}
-                <div className="lg:col-span-2 p-6 rounded-xl" style={{ 
-                  background: '#F8F9FA',
-                  border: '1px solid rgba(229, 231, 235, 0.6)',
-                  boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
-                }}>
-                  <h3 className="mb-3" style={{
-                    fontFamily: 'Roboto, sans-serif',
-                    fontSize: '14px',
-                    lineHeight: '20px',
-                    fontWeight: '600',
-                    color: '#565D6D'
-                  }}>Daily Revenue Summary</h3>
+                <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <TrendingUp className="h-5 w-5 text-blue-600" />
+                    <h3 className="text-sm font-semibold text-gray-600">Daily Revenue Summary</h3>
+                  </div>
                   <div className="relative h-[320px] w-full">
                     <svg className="w-full h-full" viewBox="0 0 700 320">
                       {/* Grid lines - Horizontal */}
@@ -458,163 +403,50 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Pharmacy Inventory Alerts */}
-                <div className="p-6 rounded-xl" style={{ 
-                  background: '#F8F9FA',
-                  border: '1px solid rgba(229, 231, 235, 0.6)',
-                  boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
-                }}>
-                  <h3 className="mb-4" style={{
-                    fontFamily: 'Roboto, sans-serif',
-                    fontSize: '14px',
-                    lineHeight: '20px',
-                    fontWeight: '600',
-                    color: '#565D6D'
-                  }}>Pharmacy Inventory Alerts</h3>
+                <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <AlertTriangle className="h-5 w-5 text-orange-600" />
+                    <h3 className="text-sm font-semibold text-gray-600">Pharmacy Inventory Alerts</h3>
+                  </div>
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center p-3 rounded-lg" style={{ background: '#F3F4F6' }}>
+                    <div className="flex justify-between items-center p-3 rounded-lg bg-gray-50">
                       <div>
-                        <div style={{
-                          fontFamily: 'Roboto, sans-serif',
-                          fontSize: '16px',
-                          lineHeight: '24px',
-                          fontWeight: '500',
-                          color: '#171A1F'
-                        }}>Paracetamol</div>
-                        <div style={{
-                          fontFamily: 'Roboto, sans-serif',
-                          fontSize: '14px',
-                          lineHeight: '20px',
-                          fontWeight: '400',
-                          color: '#565D6D'
-                        }}>Stock: 15 (Threshold: 20)</div>
+                        <div className="text-base font-medium text-gray-900">Paracetamol</div>
+                        <div className="text-sm text-gray-600">Stock: 15 (Threshold: 20)</div>
                       </div>
-                      <span 
-                        className="rounded-full"
-                        style={{
-                          height: '22px',
-                          paddingLeft: '6px',
-                          paddingRight: '6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontFamily: 'Roboto, sans-serif',
-                          fontSize: '12px',
-                          lineHeight: '20px',
-                          fontWeight: '600',
-                          background: '#F3F4F6',
-                          color: '#171A1F',
-                          borderRadius: '10px'
-                        }}
-                      >Low Stock</span>
+                      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">
+                        Low Stock
+                      </span>
                     </div>
-                    
-                    <div className="flex justify-between items-center p-3 rounded-lg" style={{ background: '#F3F4F6' }}>
+
+                    <div className="flex justify-between items-center p-3 rounded-lg bg-gray-50">
                       <div>
-                        <div style={{
-                          fontFamily: 'Roboto, sans-serif',
-                          fontSize: '16px',
-                          lineHeight: '24px',
-                          fontWeight: '500',
-                          color: '#171A1F'
-                        }}>Amoxicillin</div>
-                        <div style={{
-                          fontFamily: 'Roboto, sans-serif',
-                          fontSize: '14px',
-                          lineHeight: '20px',
-                          fontWeight: '400',
-                          color: '#565D6D'
-                        }}>Stock: 8 (Threshold: 10)</div>
+                        <div className="text-base font-medium text-gray-900">Amoxicillin</div>
+                        <div className="text-sm text-gray-600">Stock: 8 (Threshold: 10)</div>
                       </div>
-                      <span 
-                        className="text-white rounded-full"
-                        style={{
-                          height: '22px',
-                          paddingLeft: '6px',
-                          paddingRight: '6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontFamily: 'Roboto, sans-serif',
-                          fontSize: '12px',
-                          lineHeight: '20px',
-                          fontWeight: '600',
-                          background: '#D0021B',
-                          borderRadius: '10px'
-                        }}
-                      >Critical</span>
+                      <span className="px-2 py-1 bg-red-600 text-white text-xs font-semibold rounded-full">
+                        Critical
+                      </span>
                     </div>
-                    
-                    <div className="flex justify-between items-center p-3 rounded-lg" style={{ background: '#F3F4F6' }}>
+
+                    <div className="flex justify-between items-center p-3 rounded-lg bg-gray-50">
                       <div>
-                        <div style={{
-                          fontFamily: 'Roboto, sans-serif',
-                          fontSize: '16px',
-                          lineHeight: '24px',
-                          fontWeight: '500',
-                          color: '#171A1F'
-                        }}>Insulin</div>
-                        <div style={{
-                          fontFamily: 'Roboto, sans-serif',
-                          fontSize: '14px',
-                          lineHeight: '20px',
-                          fontWeight: '400',
-                          color: '#565D6D'
-                        }}>Stock: 5 (Threshold: 10)</div>
+                        <div className="text-base font-medium text-gray-900">Insulin</div>
+                        <div className="text-sm text-gray-600">Stock: 5 (Threshold: 10)</div>
                       </div>
-                      <span 
-                        className="text-white rounded-full"
-                        style={{
-                          height: '22px',
-                          paddingLeft: '6px',
-                          paddingRight: '6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontFamily: 'Roboto, sans-serif',
-                          fontSize: '12px',
-                          lineHeight: '20px',
-                          fontWeight: '600',
-                          background: '#D0021B',
-                          borderRadius: '10px'
-                        }}
-                      >Critical</span>
+                      <span className="px-2 py-1 bg-red-600 text-white text-xs font-semibold rounded-full">
+                        Critical
+                      </span>
                     </div>
-                    
-                    <div className="flex justify-between items-center p-3 rounded-lg" style={{ background: '#F3F4F6' }}>
+
+                    <div className="flex justify-between items-center p-3 rounded-lg bg-gray-50">
                       <div>
-                        <div style={{
-                          fontFamily: 'Roboto, sans-serif',
-                          fontSize: '16px',
-                          lineHeight: '24px',
-                          fontWeight: '500',
-                          color: '#171A1F'
-                        }}>Bandages</div>
-                        <div style={{
-                          fontFamily: 'Roboto, sans-serif',
-                          fontSize: '14px',
-                          lineHeight: '20px',
-                          fontWeight: '400',
-                          color: '#565D6D'
-                        }}>Stock: 9 (Threshold: 30)</div>
+                        <div className="text-base font-medium text-gray-900">Bandages</div>
+                        <div className="text-sm text-gray-600">Stock: 9 (Threshold: 30)</div>
                       </div>
-                      <span 
-                        className="rounded-full"
-                        style={{
-                          height: '22px',
-                          paddingLeft: '6px',
-                          paddingRight: '6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontFamily: 'Roboto, sans-serif',
-                          fontSize: '12px',
-                          lineHeight: '20px',
-                          fontWeight: '600',
-                          background: '#F3F4F6',
-                          color: '#171A1F',
-                          borderRadius: '10px'
-                        }}
-                      >Low Stock</span>
+                      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">
+                        Low Stock
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -623,22 +455,15 @@ export default function AdminDashboard() {
               {/* Bottom Row - Activities and Status */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Recent Activities */}
-                <div className="lg:col-span-2 p-6 rounded-xl" style={{ 
-                  background: '#F8F9FA',
-                  border: '1px solid rgba(229, 231, 235, 0.6)',
-                  boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
-                }}>
-                  <h3 className="mb-4" style={{
-                    fontFamily: 'Roboto, sans-serif',
-                    fontSize: '14px',
-                    lineHeight: '20px',
-                    fontWeight: '600',
-                    color: '#565D6D'
-                  }}>Recent Activities</h3>
+                <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Activity className="h-5 w-5 text-purple-600" />
+                    <h3 className="text-sm font-semibold text-gray-600">Recent Activities</h3>
+                  </div>
                   <div className="space-y-4">
                     {activities.map((activity) => (
                       <div key={activity.id} className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ background: '#F3F4F6' }}>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100">
                           {activity.type === 'patient_admission' ? (
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="1.5">
                               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
@@ -670,20 +495,8 @@ export default function AdminDashboard() {
                           )}
                         </div>
                         <div className="flex-1">
-                          <div style={{
-                            fontFamily: 'Roboto, sans-serif',
-                            fontSize: '16px',
-                            lineHeight: '24px',
-                            fontWeight: '500',
-                            color: '#171A1F'
-                          }}>{activity.message}</div>
-                          <div style={{
-                            fontFamily: 'Roboto, sans-serif',
-                            fontSize: '14px',
-                            lineHeight: '20px',
-                            fontWeight: '400',
-                            color: '#565D6D'
-                          }}>{activity.time_ago}</div>
+                          <div className="text-base font-medium text-gray-900">{activity.message}</div>
+                          <div className="text-sm text-gray-600">{activity.time_ago}</div>
                         </div>
                       </div>
                     ))}
@@ -691,122 +504,35 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* System Status */}
-                <div className="p-6 rounded-xl" style={{ 
-                  background: '#F8F9FA',
-                  border: '1px solid rgba(229, 231, 235, 0.6)',
-                  boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
-                }}>
-                  <h3 className="mb-4" style={{
-                    fontFamily: 'Roboto, sans-serif',
-                    fontSize: '14px',
-                    lineHeight: '20px',
-                    fontWeight: '600',
-                    color: '#565D6D'
-                  }}>System Status</h3>
+                <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Server className="h-5 w-5 text-green-600" />
+                    <h3 className="text-sm font-semibold text-gray-600">System Status</h3>
+                  </div>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span style={{
-                        fontFamily: 'Roboto, sans-serif',
-                        fontSize: '16px',
-                        lineHeight: '24px',
-                        fontWeight: '500',
-                        color: '#171A1F'
-                      }}>Main Servers</span>
-                      <span 
-                        className="text-white rounded-full"
-                        style={{
-                          height: '22px',
-                          paddingLeft: '6px',
-                          paddingRight: '6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontFamily: 'Roboto, sans-serif',
-                          fontSize: '12px',
-                          lineHeight: '20px',
-                          fontWeight: '600',
-                          background: '#10B981',
-                          borderRadius: '10px'
-                        }}
-                      >Online</span>
+                      <span className="text-base font-medium text-gray-900">Main Servers</span>
+                      <span className="px-2 py-1 bg-green-600 text-white text-xs font-semibold rounded-full">
+                        Online
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span style={{
-                        fontFamily: 'Roboto, sans-serif',
-                        fontSize: '16px',
-                        lineHeight: '24px',
-                        fontWeight: '500',
-                        color: '#171A1F'
-                      }}>Network Connectivity</span>
-                      <span 
-                        className="text-white rounded-full"
-                        style={{
-                          height: '22px',
-                          paddingLeft: '6px',
-                          paddingRight: '6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontFamily: 'Roboto, sans-serif',
-                          fontSize: '12px',
-                          lineHeight: '20px',
-                          fontWeight: '600',
-                          background: '#10B981',
-                          borderRadius: '10px'
-                        }}
-                      >Online</span>
+                      <span className="text-base font-medium text-gray-900">Network Connectivity</span>
+                      <span className="px-2 py-1 bg-green-600 text-white text-xs font-semibold rounded-full">
+                        Online
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span style={{
-                        fontFamily: 'Roboto, sans-serif',
-                        fontSize: '16px',
-                        lineHeight: '24px',
-                        fontWeight: '500',
-                        color: '#171A1F'
-                      }}>Pharmacy Scanners</span>
-                      <span 
-                        className="text-white rounded-full"
-                        style={{
-                          height: '22px',
-                          paddingLeft: '6px',
-                          paddingRight: '6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontFamily: 'Roboto, sans-serif',
-                          fontSize: '12px',
-                          lineHeight: '20px',
-                          fontWeight: '600',
-                          background: '#F59E0B',
-                          borderRadius: '10px'
-                        }}
-                      >Warning</span>
+                      <span className="text-base font-medium text-gray-900">Pharmacy Scanners</span>
+                      <span className="px-2 py-1 bg-yellow-500 text-white text-xs font-semibold rounded-full">
+                        Warning
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span style={{
-                        fontFamily: 'Roboto, sans-serif',
-                        fontSize: '16px',
-                        lineHeight: '24px',
-                        fontWeight: '500',
-                        color: '#171A1F'
-                      }}>Lab Equipment Interface</span>
-                      <span 
-                        className="text-white rounded-full"
-                        style={{
-                          height: '22px',
-                          paddingLeft: '6px',
-                          paddingRight: '6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontFamily: 'Roboto, sans-serif',
-                          fontSize: '12px',
-                          lineHeight: '20px',
-                          fontWeight: '600',
-                          background: '#EF4444',
-                          borderRadius: '10px'
-                        }}
-                      >Offline</span>
+                      <span className="text-base font-medium text-gray-900">Lab Equipment Interface</span>
+                      <span className="px-2 py-1 bg-red-500 text-white text-xs font-semibold rounded-full">
+                        Offline
+                      </span>
                     </div>
                   </div>
                 </div>

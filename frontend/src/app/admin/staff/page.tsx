@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Edit, Trash2, Key, Check, X, Copy } from 'lucide-react';
+import { Edit, Trash2, Key, X, Users, UserCog, Stethoscope, Activity as ActivityIcon } from 'lucide-react';
 import auth from '@/lib/auth';
 
 interface Staff {
@@ -143,23 +143,14 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ isOpen, onClose
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div 
-        className="bg-white rounded-lg p-6 w-full max-w-md mx-4"
-        style={{
-          boxShadow: '0px 10px 25px rgba(0, 0, 0, 0.1)'
-        }}
-      >
+      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
         <div className="flex justify-between items-center mb-4">
-          <h3 style={{
-            fontFamily: 'Open Sans, sans-serif',
-            fontSize: '18px',
-            lineHeight: '24px',
-            fontWeight: '600',
-            color: '#171A1F'
-          }}>Reset Password - {userName}</h3>
-          <button 
+          <h3 className="text-lg font-semibold text-gray-900">
+            Reset Password - {userName}
+          </h3>
+          <button
             onClick={() => { onClose(); resetModal(); }}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-400 hover:text-gray-600 transition-colors"
           >
             <X size={20} />
           </button>
@@ -167,102 +158,66 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ isOpen, onClose
 
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p style={{
-              fontFamily: 'Roboto, sans-serif',
-              fontSize: '14px',
-              color: '#DC2626'
-            }}>{error}</p>
+            <p className="text-sm text-red-600">{error}</p>
           </div>
         )}
 
         <div className="space-y-4">
-          <p style={{
-            fontFamily: 'Roboto, sans-serif',
-            fontSize: '14px',
-            lineHeight: '20px',
-            color: '#565D6D'
-          }}>
+          <p className="text-sm text-gray-600">
             Enter the token and new password for {userName} ({employeeId}):
           </p>
 
           <div>
-            <label style={{
-              fontFamily: 'Roboto, sans-serif',
-              fontSize: '14px',
-              fontWeight: '500',
-              color: '#171A1F'
-            }}>Reset Token</label>
+            <label className="block text-sm font-medium text-gray-900 mb-1">
+              Reset Token
+            </label>
             <input
               type="text"
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-base tracking-wider focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Enter 6-digit token"
               maxLength={6}
-              style={{
-                fontFamily: 'JetBrains Mono, monospace',
-                fontSize: '16px',
-                letterSpacing: '2px'
-              }}
             />
           </div>
 
           <div>
-            <label style={{
-              fontFamily: 'Roboto, sans-serif',
-              fontSize: '14px',
-              fontWeight: '500',
-              color: '#171A1F'
-            }}>New Password</label>
+            <label className="block text-sm font-medium text-gray-900 mb-1">
+              New Password
+            </label>
             <input
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Enter new password"
             />
           </div>
 
           <div>
-            <label style={{
-              fontFamily: 'Roboto, sans-serif',
-              fontSize: '14px',
-              fontWeight: '500',
-              color: '#171A1F'
-            }}>Confirm Password</label>
+            <label className="block text-sm font-medium text-gray-900 mb-1">
+              Confirm Password
+            </label>
             <input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Confirm new password"
             />
           </div>
 
-          <div className="flex space-x-3">
+          <div className="flex space-x-3 mt-6">
             <button
               onClick={() => { onClose(); resetModal(); }}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
-              style={{
-                fontFamily: 'Roboto, sans-serif',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: '#565D6D'
-              }}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium text-sm"
             >
               Cancel
             </button>
             <button
               onClick={handleConfirmReset}
               disabled={isSubmitting || !token || !newPassword || !confirmPassword}
-              className="flex-1 px-4 py-2 rounded-lg text-white"
-              style={{
-                background: '#10B981',
-                fontFamily: 'Roboto, sans-serif',
-                fontSize: '14px',
-                fontWeight: '500',
-                opacity: (isSubmitting || !token || !newPassword || !confirmPassword) ? 0.7 : 1
-              }}
+              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? 'Resetting...' : 'Reset Password'}
             </button>
@@ -496,127 +451,63 @@ export default function StaffManagement() {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold mb-6" style={{ 
-        fontFamily: 'Open Sans, sans-serif',
-        fontSize: '24px',
-        lineHeight: '32px',
-        fontWeight: '600',
-        color: '#171A1F'
-      }}>Staff Management</h1>
-      
+      {/* Header */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900">Staff Management</h1>
+        <p className="text-sm text-gray-600 mt-1">Manage hospital staff and user accounts</p>
+      </div>
+
       <div className="space-y-6">
-        {/* Smaller Summary Cards */}
+        {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="p-4 rounded-xl" style={{ 
-            background: '#F8F9FA',
-            border: '1px solid rgba(229, 231, 235, 0.6)',
-            boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
-          }}>
-            <h3 className="mb-1" style={{
-              fontFamily: 'Roboto, sans-serif',
-              fontSize: '12px',
-              lineHeight: '16px',
-              fontWeight: '600',
-              color: '#565D6D'
-            }}>Total Staff</h3>
-            <div style={{
-              fontFamily: 'Roboto, sans-serif',
-              fontSize: '24px',
-              lineHeight: '32px',
-              fontWeight: '700',
-              color: '#171A1F'
-            }}>{staffList.filter(staff => isUserTrulyActive(staff)).length}</div>
-            <div style={{
-              fontFamily: 'Roboto, sans-serif',
-              fontSize: '12px',
-              lineHeight: '16px',
-              fontWeight: '400',
-              color: '#565D6D'
-            }}>Active employees</div>
+          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-gray-600">Total Staff</h3>
+              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                <Users className="h-4 w-4 text-blue-600" />
+              </div>
+            </div>
+            <div className="text-2xl font-bold text-gray-900">
+              {staffList.filter(staff => isUserTrulyActive(staff)).length}
+            </div>
+            <div className="text-xs text-gray-600 mt-1">Active employees</div>
           </div>
 
-          <div className="p-4 rounded-xl" style={{ 
-            background: '#F8F9FA',
-            border: '1px solid rgba(229, 231, 235, 0.6)',
-            boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
-          }}>
-            <h3 className="mb-1" style={{
-              fontFamily: 'Roboto, sans-serif',
-              fontSize: '12px',
-              lineHeight: '16px',
-              fontWeight: '600',
-              color: '#565D6D'
-            }}>Doctors</h3>
-            <div style={{
-              fontFamily: 'Roboto, sans-serif',
-              fontSize: '24px',
-              lineHeight: '32px',
-              fontWeight: '700',
-              color: '#171A1F'
-            }}>{staffList.filter(s => s.role === 'DOCTOR').length}</div>
-            <div style={{
-              fontFamily: 'Roboto, sans-serif',
-              fontSize: '12px',
-              lineHeight: '16px',
-              fontWeight: '400',
-              color: '#565D6D'
-            }}>Medical staff</div>
+          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-gray-600">Doctors</h3>
+              <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                <Stethoscope className="h-4 w-4 text-green-600" />
+              </div>
+            </div>
+            <div className="text-2xl font-bold text-gray-900">
+              {staffList.filter(s => s.role === 'DOCTOR').length}
+            </div>
+            <div className="text-xs text-gray-600 mt-1">Medical staff</div>
           </div>
 
-          <div className="p-4 rounded-xl" style={{ 
-            background: '#F8F9FA',
-            border: '1px solid rgba(229, 231, 235, 0.6)',
-            boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
-          }}>
-            <h3 className="mb-1" style={{
-              fontFamily: 'Roboto, sans-serif',
-              fontSize: '12px',
-              lineHeight: '16px',
-              fontWeight: '600',
-              color: '#565D6D'
-            }}>Nurses</h3>
-            <div style={{
-              fontFamily: 'Roboto, sans-serif',
-              fontSize: '24px',
-              lineHeight: '32px',
-              fontWeight: '700',
-              color: '#171A1F'
-            }}>{staffList.filter(s => s.role === 'NURSE').length}</div>
-            <div style={{
-              fontFamily: 'Roboto, sans-serif',
-              fontSize: '12px',
-              lineHeight: '16px',
-              fontWeight: '400',
-              color: '#565D6D'
-            }}>Nursing staff</div>
+          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-gray-600">Nurses</h3>
+              <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                <ActivityIcon className="h-4 w-4 text-purple-600" />
+              </div>
+            </div>
+            <div className="text-2xl font-bold text-gray-900">
+              {staffList.filter(s => s.role === 'NURSE').length}
+            </div>
+            <div className="text-xs text-gray-600 mt-1">Nursing staff</div>
           </div>
 
-          <div className="p-4 rounded-xl" style={{ 
-            background: '#F8F9FA',
-            border: '1px solid rgba(229, 231, 235, 0.6)',
-            boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
-          }}>
-            <h3 className="mb-1" style={{
-              fontFamily: 'Roboto, sans-serif',
-              fontSize: '12px',
-              lineHeight: '16px',
-              fontWeight: '600',
-              color: '#565D6D'
-            }}>Pending</h3>
-            <div style={{
-              fontFamily: 'Roboto, sans-serif',
-              fontSize: '24px',
-              lineHeight: '32px',
-              fontWeight: '700',
-              color: '#171A1F'
-            }}>{pendingApprovals.length}</div>
-            <div style={{
-              fontFamily: 'Roboto, sans-serif',
-              fontSize: '12px',
-              lineHeight: '16px',
-              fontWeight: '400',
-              color: '#F59E0B'
-            }}>Awaiting approval</div>
+          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-gray-600">Pending</h3>
+              <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                <UserCog className="h-4 w-4 text-orange-600" />
+              </div>
+            </div>
+            <div className="text-2xl font-bold text-gray-900">{pendingApprovals.length}</div>
+            <div className="text-xs text-gray-600 mt-1">Awaiting approval</div>
           </div>
         </div>
 
@@ -624,19 +515,9 @@ export default function StaffManagement() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Staff List */}
           <div className="lg:col-span-2">
-            <div className="p-4 rounded-xl" style={{ 
-              background: '#F8F9FA',
-              border: '1px solid rgba(229, 231, 235, 0.6)',
-              boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
-            }}>
+            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
               <div className="flex justify-between items-center mb-4">
-                <h3 style={{
-                  fontFamily: 'Roboto, sans-serif',
-                  fontSize: '16px',
-                  lineHeight: '22px',
-                  fontWeight: '600',
-                  color: '#171A1F'
-                }}>Staff Directory</h3>
+                <h3 className="text-base font-semibold text-gray-900">Staff Directory</h3>
                 
                 <div className="flex space-x-2">
                   <input
@@ -678,50 +559,33 @@ export default function StaffManagement() {
                   </div>
                 ) : (
                   filteredStaff.slice(0, 20).map((staff) => (
-                    <div key={staff.id} className="p-3 bg-white rounded-lg border border-gray-200">
+                    <div key={staff.id} className="p-3 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p style={{
-                            fontFamily: 'Roboto, sans-serif',
-                            fontSize: '14px',
-                            fontWeight: '600',
-                            color: '#171A1F'
-                          }}>{staff.full_name}</p>
-                          <p style={{
-                            fontFamily: 'JetBrains Mono, monospace',
-                            fontSize: '12px',
-                            color: '#565D6D'
-                          }}>{staff.employee_id} • {staff.role}</p>
-                          <p style={{
-                            fontFamily: 'Roboto, sans-serif',
-                            fontSize: '12px',
-                            color: '#565D6D'
-                          }}>{staff.email}</p>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {staff.full_name}
+                          </p>
+                          <p className="text-xs font-mono text-gray-600">
+                            {staff.employee_id} • {staff.role}
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            {staff.email}
+                          </p>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <span 
-                            className="px-2 py-1 rounded text-xs"
-                            style={{
-                              background: isUserTrulyActive(staff) ? '#DCFCE7' : '#FEE2E2',
-                              color: isUserTrulyActive(staff) ? '#166534' : '#DC2626',
-                              fontFamily: 'Roboto, sans-serif',
-                              fontSize: '11px',
-                              fontWeight: '500'
-                            }}
-                          >
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            isUserTrulyActive(staff)
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-red-50 text-red-600'
+                          }`}>
                             {isUserTrulyActive(staff) ? 'Active' : 'Inactive'}
                           </span>
                           {staff.remaining_temporary_hours !== null && (
-                            <span 
-                              className="px-2 py-1 rounded text-xs"
-                              style={{
-                                background: staff.remaining_temporary_hours > 0 ? '#FEF3C7' : '#FEE2E2',
-                                color: staff.remaining_temporary_hours > 0 ? '#92400E' : '#DC2626',
-                                fontFamily: 'Roboto, sans-serif',
-                                fontSize: '11px',
-                                fontWeight: '500'
-                              }}
-                            >
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              staff.remaining_temporary_hours > 0
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-red-50 text-red-600'
+                            }`}>
                               Temp: {staff.remaining_temporary_hours > 0 ? `${staff.remaining_temporary_hours}h left` : 'Expired'}
                             </span>
                           )}
@@ -771,68 +635,41 @@ export default function StaffManagement() {
 
           {/* Pending Approvals */}
           <div>
-            <div className="p-4 rounded-xl" style={{ 
-              background: '#F8F9FA',
-              border: '1px solid rgba(229, 231, 235, 0.6)',
-              boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)'
-            }}>
-              <h3 className="mb-3" style={{
-                fontFamily: 'Roboto, sans-serif',
-                fontSize: '16px',
-                lineHeight: '22px',
-                fontWeight: '600',
-                color: '#171A1F'
-              }}>Pending Approvals</h3>
-              
+            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+              <h3 className="text-base font-semibold text-gray-900 mb-3">
+                Pending Approvals
+              </h3>
+
               <div className="space-y-3 max-h-96 overflow-y-auto">
                 {pendingApprovals.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8 text-gray-500 text-sm">
                     No pending approvals
                   </div>
                 ) : (
                   pendingApprovals.slice(0, 10).map((approval) => (
-                    <div key={approval.id} className="p-3 bg-white rounded-lg border border-gray-200">
+                    <div key={approval.id} className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
                       <div className="space-y-2">
                         <div>
-                          <p style={{
-                            fontFamily: 'Roboto, sans-serif',
-                            fontSize: '14px',
-                            fontWeight: '600',
-                            color: '#171A1F'
-                          }}>{approval.full_name}</p>
-                          <p style={{
-                            fontFamily: 'JetBrains Mono, monospace',
-                            fontSize: '12px',
-                            color: '#565D6D'
-                          }}>{approval.employee_id} • {approval.role}</p>
-                          <p style={{
-                            fontFamily: 'Roboto, sans-serif',
-                            fontSize: '12px',
-                            color: '#565D6D'
-                          }}>{approval.email}</p>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {approval.full_name}
+                          </p>
+                          <p className="text-xs font-mono text-gray-600">
+                            {approval.employee_id} • {approval.role}
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            {approval.email}
+                          </p>
                         </div>
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleApproveReject(approval.id, 'approve')}
-                            className="flex-1 px-3 py-2 rounded-lg text-white text-sm"
-                            style={{ 
-                              background: '#10B981',
-                              fontFamily: 'Roboto, sans-serif',
-                              fontSize: '12px',
-                              fontWeight: '500'
-                            }}
+                            className="flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-medium transition-colors"
                           >
                             Approve
                           </button>
                           <button
                             onClick={() => handleApproveReject(approval.id, 'reject')}
-                            className="flex-1 px-3 py-2 rounded-lg text-white text-sm"
-                            style={{ 
-                              background: '#EF4444',
-                              fontFamily: 'Roboto, sans-serif',
-                              fontSize: '12px',
-                              fontWeight: '500'
-                            }}
+                            className="flex-1 px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-medium transition-colors"
                           >
                             Reject
                           </button>
@@ -863,23 +700,14 @@ export default function StaffManagement() {
       {/* Edit Staff Modal */}
       {editingStaff && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div 
-            className="bg-white rounded-lg p-6 w-full max-w-md mx-4"
-            style={{
-              boxShadow: '0px 10px 25px rgba(0, 0, 0, 0.1)'
-            }}
-          >
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
             <div className="flex justify-between items-center mb-4">
-              <h3 style={{
-                fontFamily: 'Open Sans, sans-serif',
-                fontSize: '18px',
-                lineHeight: '24px',
-                fontWeight: '600',
-                color: '#171A1F'
-              }}>Edit Staff Member</h3>
-              <button 
+              <h3 className="text-lg font-semibold text-gray-900">
+                Edit Staff Member
+              </h3>
+              <button
                 onClick={() => setEditingStaff(null)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X size={20} />
               </button>
@@ -887,61 +715,49 @@ export default function StaffManagement() {
 
             <div className="space-y-4">
               <div>
-                <label style={{
-                  fontFamily: 'Roboto, sans-serif',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#171A1F'
-                }}>Full Name</label>
+                <label className="block text-sm font-medium text-gray-900 mb-1">
+                  Full Name
+                </label>
                 <input
                   type="text"
                   value={editingStaff.full_name || ''}
                   onChange={(e) => setEditingStaff({...editingStaff, full_name: e.target.value})}
-                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label style={{
-                  fontFamily: 'Roboto, sans-serif',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#171A1F'
-                }}>Email</label>
+                <label className="block text-sm font-medium text-gray-900 mb-1">
+                  Email
+                </label>
                 <input
                   type="email"
                   value={editingStaff.email || ''}
                   onChange={(e) => setEditingStaff({...editingStaff, email: e.target.value})}
-                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label style={{
-                  fontFamily: 'Roboto, sans-serif',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#171A1F'
-                }}>Phone Number</label>
+                <label className="block text-sm font-medium text-gray-900 mb-1">
+                  Phone Number
+                </label>
                 <input
                   type="text"
                   value={editingStaff.phone_number || ''}
                   onChange={(e) => setEditingStaff({...editingStaff, phone_number: e.target.value})}
-                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label style={{
-                  fontFamily: 'Roboto, sans-serif',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#171A1F'
-                }}>Role</label>
+                <label className="block text-sm font-medium text-gray-900 mb-1">
+                  Role
+                </label>
                 <select
                   value={editingStaff.role || ''}
                   onChange={(e) => setEditingStaff({...editingStaff, role: e.target.value})}
-                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="DOCTOR">Doctor</option>
                   <option value="NURSE">Nurse</option>
@@ -961,15 +777,7 @@ export default function StaffManagement() {
                   onChange={(e) => setEditingStaff({...editingStaff, is_active: e.target.checked})}
                   className="rounded"
                 />
-                <label 
-                  htmlFor="isActive"
-                  style={{
-                    fontFamily: 'Roboto, sans-serif',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    color: '#171A1F'
-                  }}
-                >
+                <label htmlFor="isActive" className="text-sm font-medium text-gray-900">
                   Active Employee
                 </label>
               </div>
@@ -977,25 +785,13 @@ export default function StaffManagement() {
               <div className="flex space-x-3 pt-4">
                 <button
                   onClick={() => setEditingStaff(null)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
-                  style={{
-                    fontFamily: 'Roboto, sans-serif',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    color: '#565D6D'
-                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium text-sm"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSaveEdit}
-                  className="flex-1 px-4 py-2 rounded-lg text-white"
-                  style={{
-                    background: '#1976D2',
-                    fontFamily: 'Roboto, sans-serif',
-                    fontSize: '14px',
-                    fontWeight: '500'
-                  }}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm"
                 >
                   Save Changes
                 </button>

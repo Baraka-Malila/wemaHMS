@@ -8,9 +8,13 @@ interface RealTimeClockProps {
 }
 
 export default function RealTimeClock({ format = 'time-only', className = '' }: RealTimeClockProps) {
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // Set mounted flag to prevent hydration mismatch
+    setMounted(true);
+
     // Update time immediately
     setCurrentTime(new Date());
 
@@ -22,6 +26,15 @@ export default function RealTimeClock({ format = 'time-only', className = '' }: 
     // Cleanup interval on component unmount
     return () => clearInterval(interval);
   }, []);
+
+  // Prevent hydration mismatch by not rendering until mounted
+  if (!mounted || !currentTime) {
+    return (
+      <div className={className}>
+        <p className="text-xl font-semibold">--:--</p>
+      </div>
+    );
+  }
 
   const formatTime = (date: Date) => {
     if (format === 'full') {
