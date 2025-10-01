@@ -601,3 +601,37 @@ The system successfully implements real hospital workflows with:
 - **Cross-portal communication** enabling seamless patient care coordination
 
 **Current state**: Core patient flow from registration to consultation is fully functional. Next phase focuses on completing medication/lab workflows and administrative features.
+
+
+
+
+## **TESTING PASSWORDS AND CREDENTIALS**
+
+### ADMIN ROLE
+- ** Employee id: ADM999 ** 
+- ** Password   : AdminSecure123! **
+
+### RECEPTION ROLE
+- ** Employee id: REC002 **
+- ** Password   : BARAKA1234@ **
+
+### DOCTOR ROLE
+- ** Employee id: DOC002 **
+- ** Password   : MALILA1234$ **
+
+### LAB ROLE
+- ** Employee id: LAB003 **
+- ** Password   : JAMES1239 **
+
+### PHARMACY ROLE
+- ** Employee id: PHA001 **
+- ** Password   : JOHNPHARMACIST1239% **
+
+### FINANCE ROLE
+- ** Employee id: FIN002 **
+- ** Password   : JUMANJI1234% **
+
+### NURSING ROLE
+- ** Employee id: NUR001 **
+- ** Password   : SARAH123$ **
+

@@ -38,6 +38,7 @@ export default function PaymentHistory() {
   const [serviceFilter, setServiceFilter] = useState('ALL');
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
   const [patientFilter, setPatientFilter] = useState('');
+  const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set());
 
   const loadPaymentHistory = async () => {
     try {
@@ -251,7 +252,7 @@ export default function PaymentHistory() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
-            All Transactions - {new Date(dateFilter).toLocaleDateString()}
+            All Transactions - {dateFilter ? dateFilter.split('-').reverse().join('/') : 'All Dates'}
           </h3>
         </div>
 
@@ -260,82 +261,120 @@ export default function PaymentHistory() {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto mb-3"></div>
             <p className="text-sm">Loading payment history...</p>
           </div>
-        ) : filteredPayments.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Time
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Receipt #
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Patient
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Service
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Method
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Processed By
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredPayments.map((payment) => (
-                  <tr key={payment.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(payment.payment_date).toLocaleTimeString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-mono text-gray-900">{payment.receipt_number || 'N/A'}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{payment.patient_name}</div>
-                        <div className="text-sm text-gray-500">{payment.patient_id}</div>
+        ) : Object.keys(paymentsByPatient).length > 0 ? (
+          <div className="divide-y divide-gray-200">
+            {Object.values(paymentsByPatient).map((patientData: any) => {
+              const isExpanded = expandedPatients.has(patientData.patient_id);
+              return (
+                <div key={patientData.patient_id}>
+                  {/* Patient Summary Row */}
+                  <div
+                    className="px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => {
+                      const newExpanded = new Set(expandedPatients);
+                      if (isExpanded) {
+                        newExpanded.delete(patientData.patient_id);
+                      } else {
+                        newExpanded.add(patientData.patient_id);
+                      }
+                      setExpandedPatients(newExpanded);
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className="flex-shrink-0">
+                          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                            <User className="h-5 w-5 text-amber-600" />
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="text-base font-semibold text-gray-900">{patientData.patient_name}</h4>
+                          <p className="text-sm text-gray-500">{patientData.patient_id}</p>
+                        </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{payment.service_name}</div>
-                        <span className={`inline-flex mt-1 px-2 py-1 text-xs font-medium rounded-full ${getServiceBadgeColor(payment.service_type)}`}>
-                          {payment.service_type.replace('_', ' ')}
-                        </span>
+
+                      <div className="flex items-center space-x-6">
+                        <div className="text-right">
+                          <p className="text-sm text-gray-500">Payments</p>
+                          <p className="text-base font-semibold text-gray-900">{patientData.payments.length}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-gray-500">Services</p>
+                          <p className="text-base font-medium text-gray-900">
+                            {[...new Set(patientData.payments.map((p: Payment) => p.service_type))].length}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-gray-500">Total Amount</p>
+                          <p className="text-lg font-bold text-amber-600">
+                            TZS {patientData.total.toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="flex-shrink-0">
+                          <svg
+                            className={`h-5 w-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-bold text-gray-900">
-                        TZS {parseFloat(payment.amount).toLocaleString()}
+                    </div>
+                  </div>
+
+                  {/* Expanded Payment Details */}
+                  {isExpanded && (
+                    <div className="bg-gray-50 px-6 py-4">
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-100">
+                            <tr>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Receipt #</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Method</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Processed By</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {patientData.payments.map((payment: Payment) => (
+                              <tr key={payment.id} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                  {new Date(payment.payment_date).toLocaleTimeString()}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm font-mono text-gray-900">
+                                  {payment.receipt_number || 'N/A'}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div>
+                                    <div className="text-sm font-medium text-gray-900">{payment.service_name}</div>
+                                    <span className={`inline-flex mt-1 px-2 py-0.5 text-xs font-medium rounded-full ${getServiceBadgeColor(payment.service_type)}`}>
+                                      {payment.service_type.replace('_', ' ')}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                  TZS {parseFloat(payment.amount.toString()).toLocaleString()}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                  {payment.payment_method}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                  {payment.processed_by?.full_name || 'System'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{payment.payment_method}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
-                        {payment.processed_by?.full_name || 'System'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-amber-600 hover:text-amber-900">
-                        <Eye className="h-5 w-5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-12">
@@ -352,7 +391,7 @@ export default function PaymentHistory() {
           <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
             <div className="flex justify-between items-center">
               <div className="text-sm text-gray-600">
-                Showing {filteredPayments.length} transaction{filteredPayments.length !== 1 ? 's' : ''}
+                Showing {Object.keys(paymentsByPatient).length} patient{Object.keys(paymentsByPatient).length !== 1 ? 's' : ''} with {filteredPayments.length} payment{filteredPayments.length !== 1 ? 's' : ''}
               </div>
               <div className="text-lg font-bold text-gray-900">
                 Total: TZS {totalAmount.toLocaleString()}
@@ -361,40 +400,6 @@ export default function PaymentHistory() {
           </div>
         )}
       </div>
-
-      {/* Payments by Patient Summary */}
-      {Object.keys(paymentsByPatient).length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Summary by Patient</h3>
-          </div>
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Object.values(paymentsByPatient).map((patient: any) => (
-                <div key={patient.patient_id} className="border border-gray-200 rounded-lg p-4 hover:border-amber-500 transition-colors">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h4 className="font-medium text-gray-900">{patient.patient_name}</h4>
-                      <p className="text-sm text-gray-500">{patient.patient_id}</p>
-                    </div>
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      {patient.payments.length} payment{patient.payments.length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    Services: {[...new Set(patient.payments.map((p: Payment) => p.service_type))].join(', ').replace(/_/g, ' ')}
-                  </div>
-                  <div className="mt-2 pt-2 border-t border-gray-200">
-                    <div className="text-lg font-bold text-gray-900">
-                      TZS {patient.total.toLocaleString()}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
