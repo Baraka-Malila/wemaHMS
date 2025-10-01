@@ -63,12 +63,12 @@ export default function PaymentHistory() {
         // Only update state if IDs or count changed (prevents blinking)
         setPayments(prev => {
           const prevIds = new Set(prev.map(p => p.id));
-          const currentIds = new Set(paymentsArray.map((p: any) => p.id));
+          const currentIds = new Set(paymentsArray.map((p: any) => p.id as string));
 
           // Check if anything changed
           const countChanged = prev.length !== paymentsArray.length;
-          const idsChanged = Array.from(currentIds).some(id => !prevIds.has(id)) ||
-                            Array.from(prevIds).some(id => !currentIds.has(id));
+          const idsChanged = Array.from(currentIds).some((id: string) => !prevIds.has(id)) ||
+                            Array.from(prevIds).some((id: string) => !currentIds.has(id));
 
           if (countChanged || idsChanged || prev.length === 0) {
             return paymentsArray;

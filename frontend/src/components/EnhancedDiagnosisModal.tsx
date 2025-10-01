@@ -666,6 +666,7 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
 
           // Map frontend test IDs to backend field names
           const testIdMapping: { [key: string]: string } = {
+            // Parasitology
             'mrdt': 'mrdt_requested',
             'bs': 'bs_requested',
             'stool_macro': 'stool_analysis_requested',
@@ -673,12 +674,28 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
             'urine_sed_macro': 'urine_sed_requested',
             'urine_sed_micro': 'urine_sed_requested',
             'urinalysis': 'urinalysis_requested',
+
+            // Clinical Chemistry (all part of urinalysis)
+            'glucose': 'urinalysis_requested',
+            'urobiliogen': 'urinalysis_requested',
+            'bilirubin': 'urinalysis_requested',
+            'ketones': 'urinalysis_requested',
+            's_gravity': 'urinalysis_requested',
+            'blood': 'urinalysis_requested',
+            'ph': 'urinalysis_requested',
+            'protein': 'urinalysis_requested',
+            'nitrite': 'urinalysis_requested',
+            'leucocytes': 'urinalysis_requested',
+
+            // Microbiology
             'rpr': 'rpr_requested',
             'h_pylori': 'h_pylori_requested',
             'hepatitis_b': 'hepatitis_b_requested',
             'hepatitis_c': 'hepatitis_c_requested',
             'ssat': 'ssat_requested',
             'upt': 'upt_requested',
+
+            // Hematology
             'esr': 'esr_requested',
             'b_grouping': 'blood_grouping_requested',
             'hb': 'hb_requested',
@@ -688,13 +705,19 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
             'sickling_test': 'sickling_test_requested',
           };
 
+          console.log('🔍 Selected tests from UI:', labRequest.selected_tests);
+
           labRequest.selected_tests.forEach(testId => {
             const backendField = testIdMapping[testId];
             if (backendField) {
               testBooleans[backendField] = true;
+              console.log(`✅ Mapped ${testId} → ${backendField}`);
+            } else {
+              console.error(`❌ No mapping found for test ID: ${testId}`);
             }
           });
 
+          console.log('📋 Final test booleans:', testBooleans);
           console.log('Creating lab request:', {
             consultation_id: finalConsultationId,
             patient_id: patientId,

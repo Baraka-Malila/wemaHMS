@@ -128,7 +128,25 @@ export default function NewPatientModal({ isOpen, onClose, onSuccess }: NewPatie
       } else {
         const errorData = await response.json();
         console.error('Registration error:', errorData);
-        alert(`Error: ${errorData.error || errorData.message || JSON.stringify(errorData)}`);
+
+        // Format validation errors for user-friendly display
+        let errorMessage = 'Registration failed:\n';
+        if (errorData.phone_number) {
+          errorMessage += `• Phone: ${errorData.phone_number}\n`;
+        }
+        if (errorData.error) {
+          errorMessage += `• ${errorData.error}\n`;
+        }
+        if (errorData.message) {
+          errorMessage += `• ${errorData.message}\n`;
+        }
+
+        // If no specific errors found, show raw response
+        if (errorMessage === 'Registration failed:\n') {
+          errorMessage = `Error: ${JSON.stringify(errorData)}`;
+        }
+
+        alert(errorMessage);
       }
     } catch (error) {
       console.error('Error registering patient:', error);

@@ -875,19 +875,42 @@ def complete_consultation(request):
                 total_lab_cost = Decimal('0')
                 test_names = []
 
+                # Map boolean fields to service codes
+                test_field_to_code = {
+                    'mrdt_requested': 'LAB_MRDT',
+                    'bs_requested': 'LAB_BS',
+                    'stool_analysis_requested': 'LAB_STOOL_ANALYSIS',
+                    'urine_sed_requested': 'LAB_URINE_SED',
+                    'urinalysis_requested': 'LAB_URINALYSIS',
+                    'rpr_requested': 'LAB_RPR',
+                    'h_pylori_requested': 'LAB_H_PYLORI',
+                    'hepatitis_b_requested': 'LAB_HEPATITIS_B',
+                    'hepatitis_c_requested': 'LAB_HEPATITIS_C',
+                    'ssat_requested': 'LAB_SSAT',
+                    'upt_requested': 'LAB_UPT',
+                    'esr_requested': 'LAB_ESR',
+                    'blood_grouping_requested': 'LAB_BLOOD_GROUPING',
+                    'hb_requested': 'LAB_HB',
+                    'rheumatoid_factor_requested': 'LAB_RF',
+                    'rbg_requested': 'LAB_RBG',
+                    'fbg_requested': 'LAB_FBG',
+                    'sickling_test_requested': 'LAB_SICKLING_TEST',
+                }
+
                 for lab_request in lab_requests:
-                    if lab_request.selected_tests:
-                        for test_id in lab_request.selected_tests:
-                            service_code = test_id_to_code.get(test_id)
-                            if service_code:
-                                pricing = ServicePricing.objects.filter(service_code=service_code).first()
-                                if pricing:
-                                    total_lab_cost += pricing.standard_price
-                                    test_names.append(pricing.service_name)
-                                else:
-                                    # Fallback price if not in database
-                                    total_lab_cost += Decimal('15000.00')
-                                    test_names.append(test_id)
+                    # Check each boolean field and add price if requested
+                    for field_name, service_code in test_field_to_code.items():
+                        if getattr(lab_request, field_name, False):
+                            pricing = ServicePricing.objects.filter(service_code=service_code).first()
+                            if pricing:
+                                total_lab_cost += pricing.standard_price
+                                test_names.append(pricing.service_name)
+                                print(f"  Adding {pricing.service_name}: {pricing.standard_price} TZS")
+                            else:
+                                # Fallback price if not in database
+                                total_lab_cost += Decimal('15000.00')
+                                test_names.append(field_name.replace('_requested', ''))
+                                print(f"  Warning: No pricing for {service_code}, using default 15000 TZS")
 
                 if total_lab_cost > 0:
                     # Check if lab payment already exists
