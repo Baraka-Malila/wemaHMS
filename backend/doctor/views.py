@@ -166,12 +166,34 @@ def start_consultation(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Check if there's already an IN_PROGRESS consultation for this patient
+        existing_consultation = Consultation.objects.filter(
+            patient_id=patient_id.upper(),
+            status='IN_PROGRESS'
+        ).first()
+        
+        if existing_consultation:
+            # Patient has consultation but wrong status - fix it
+            patient.current_status = 'WITH_DOCTOR'
+            patient.current_location = f"Consultation Room - Dr. {existing_consultation.doctor.full_name}"
+            patient.save()
+            
+            return Response({
+                'error': 'This patient already has a consultation in progress.',
+                'consultation_id': str(existing_consultation.id),
+                'patient_id': patient.patient_id,
+                'patient_name': patient.full_name,
+                'doctor': existing_consultation.doctor.full_name,
+                'started_at': existing_consultation.consultation_date.isoformat(),
+                'note': 'Patient status has been updated to WITH_DOCTOR. They should no longer appear in the waiting queue.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         # Create consultation
         consultation_data = {
             'patient_id': patient.patient_id,
             'patient_name': patient.full_name,
             'doctor': request.user.id,
-            'chief_complaint': request.data.get('chief_complaint'),
+            'chief_complaint': request.data.get('chief_complaint', 'To be determined'),  # Default placeholder
             'priority': request.data.get('priority', 'NORMAL').upper(),
             'symptoms': request.data.get('symptoms', ''),
         }
@@ -810,30 +832,33 @@ def complete_consultation(request):
             previous_status = patient.current_status
             previous_location = patient.current_location
 
-            # Auto-create PENDING payment for consultation if fee is required
+            # ALWAYS auto-create PENDING payment for consultation (required in workflow)
             payment_created = False
-            if consultation.consultation_fee_required:
-                # Check if payment already exists
-                existing_payment = get_pending_payment_for_service(
+            
+            # Check if payment already exists
+            existing_payment = get_pending_payment_for_service(
+                patient=patient,
+                service_type='CONSULTATION',
+                reference_id=consultation.id
+            )
+
+            if not existing_payment:
+                # Get consultation price (default 5,000 TZS as per workflow)
+                consultation_amount = consultation.consultation_fee_amount or get_consultation_price() or Decimal('5000.00')
+
+                # Create PENDING payment
+                payment = create_pending_payment(
                     patient=patient,
                     service_type='CONSULTATION',
-                    reference_id=consultation.id
+                    service_name=f'Doctor Consultation - {consultation.diagnosis or "General"}',
+                    amount=consultation_amount,
+                    reference_id=consultation.id,
+                    user=request.user
                 )
-
-                if not existing_payment:
-                    # Get consultation price
-                    consultation_amount = consultation.consultation_fee_amount or get_consultation_price() or Decimal('50000.00')
-
-                    # Create PENDING payment
-                    payment = create_pending_payment(
-                        patient=patient,
-                        service_type='CONSULTATION',
-                        service_name=f'Doctor Consultation - {consultation.diagnosis or "General"}',
-                        amount=consultation_amount,
-                        reference_id=consultation.id,
-                        user=request.user
-                    )
-                    payment_created = True
+                payment_created = True
+                print(f"✅ Created PENDING consultation payment: {payment.id} for {consultation_amount} TZS")
+            else:
+                print(f"ℹ️ Consultation payment already exists: {existing_payment.id}")
 
             # Update patient status to indicate pending consultation payment
             patient.current_status = 'PENDING_CONSULTATION_PAYMENT'

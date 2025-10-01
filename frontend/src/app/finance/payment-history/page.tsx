@@ -37,7 +37,7 @@ export default function PaymentHistory() {
   const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [serviceFilter, setServiceFilter] = useState('ALL');
-  const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]); // Today by default
+  const [dateFilter, setDateFilter] = useState(''); // Empty = show all dates (no filter)
   const [patientFilter, setPatientFilter] = useState('');
   const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set());
 
@@ -165,11 +165,14 @@ export default function PaymentHistory() {
             <div className="flex items-center gap-6">
               <p className="text-amber-100">
                 {filteredPayments.length} transaction{filteredPayments.length !== 1 ? 's' : ''}
+                {dateFilter ? ` on ${dateFilter}` : ' (All Time)'}
               </p>
               <div className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-lg">
                 <DollarSign className="h-5 w-5" />
                 <div>
-                  <p className="text-xs text-amber-100">Total Amount</p>
+                  <p className="text-xs text-amber-100">
+                    {dateFilter ? `Total for ${dateFilter}` : 'Total (All Time)'}
+                  </p>
                   <p className="text-lg font-bold">TZS {totalAmount.toLocaleString()}</p>
                 </div>
               </div>
@@ -262,17 +265,28 @@ export default function PaymentHistory() {
 
         {/* Action Buttons */}
         <div className="mt-4 flex justify-between items-center">
-          <button 
-            onClick={() => {
-              setSearchTerm('');
-              setServiceFilter('ALL');
-              setDateFilter(new Date().toISOString().split('T')[0]); // Reset to today
-              setPatientFilter('');
-            }}
-            className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            Clear Filters
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => {
+                setSearchTerm('');
+                setServiceFilter('ALL');
+                setDateFilter(''); // Clear date filter to show all payments
+                setPatientFilter('');
+              }}
+              className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Clear Filters
+            </button>
+            <button 
+              onClick={() => {
+                setDateFilter(new Date().toISOString().split('T')[0]); // Set to today
+              }}
+              className="inline-flex items-center px-4 py-2 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 transition-colors"
+            >
+              <Calendar className="h-4 w-4 mr-2" />
+              Today Only
+            </button>
+          </div>
           <button className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
             <Download className="h-4 w-4 mr-2" />
             Export to Excel
@@ -436,13 +450,8 @@ export default function PaymentHistory() {
         {/* Summary Footer */}
         {filteredPayments.length > 0 && (
           <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
-            <div className="flex justify-between items-center">
-              <div className="text-sm text-gray-600">
-                Showing {Object.keys(paymentsByPatient).length} patient{Object.keys(paymentsByPatient).length !== 1 ? 's' : ''} with {filteredPayments.length} payment{filteredPayments.length !== 1 ? 's' : ''}
-              </div>
-              <div className="text-lg font-bold text-gray-900">
-                Total: TZS {totalAmount.toLocaleString()}
-              </div>
+            <div className="text-sm text-gray-600 text-center">
+              Showing {Object.keys(paymentsByPatient).length} patient{Object.keys(paymentsByPatient).length !== 1 ? 's' : ''} with {filteredPayments.length} payment{filteredPayments.length !== 1 ? 's' : ''}
             </div>
           </div>
         )}

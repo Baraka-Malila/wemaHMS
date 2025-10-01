@@ -54,9 +54,9 @@ export default function FinanceDashboard() {
       const token = auth.getToken();
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-      // Fetch paid payments for the selected date
+      // Fetch paid payments for the selected date using payment_date_from and payment_date_to
       const paidResponse = await fetch(
-        `${API_URL}/api/finance/payments/?status=PAID&date=${selectedDate}&page_size=1000`,
+        `${API_URL}/api/finance/payments/?status=PAID&payment_date_from=${selectedDate}&payment_date_to=${selectedDate}&page_size=1000`,
         {
           headers: {
             'Authorization': `Token ${token}`,

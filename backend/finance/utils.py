@@ -97,11 +97,11 @@ def get_consultation_price(consultation_type='GENERAL', doctor_specialty=None, e
         if service:
             return service.emergency_price if emergency and service.emergency_price else service.standard_price
         
-        # Default fallback price
-        return Decimal('50000.00')  # 50k TZS default
+        # Default fallback price (5,000 TZS as per workflow)
+        return Decimal('5000.00')
         
     except Exception:
-        return Decimal('50000.00')
+        return Decimal('5000.00')
 
 
 def get_nursing_service_price(service_name, service_code=None):

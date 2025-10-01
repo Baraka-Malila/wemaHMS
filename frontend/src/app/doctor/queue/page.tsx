@@ -96,34 +96,14 @@ export default function PatientQueue() {
     try {
       setStartingConsultation(patient.patient_id);
       
-      // Call API to start consultation - this will update patient status to WITH_DOCTOR
-      // and remove them from the waiting queue
-      const response = await fetch('/api/doctor/consultations/start/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          patient_id: patient.patient_id
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to start consultation');
-      }
-
-      const data = await response.json();
-      
-      // Open the diagnosis modal with the consultation data
+      // Simply open the diagnosis modal - consultation will be created when saved
+      // This prevents patients from being stuck in WITH_DOCTOR if modal is closed without saving
       setDiagnosisPatientId(patient.patient_id);
       setDiagnosisModalOpen(true);
       
-      // Refresh the queue to remove this patient from the list
-      await loadWaitingPatients();
     } catch (error) {
-      console.error('Error starting consultation:', error);
-      alert(`Error starting consultation: ${error instanceof Error ? error.message : 'Please try again.'}`);
+      console.error('Error opening consultation modal:', error);
+      alert(`Error opening consultation: ${error instanceof Error ? error.message : 'Please try again.'}`);
     } finally {
       setStartingConsultation('');
     }

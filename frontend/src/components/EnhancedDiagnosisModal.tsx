@@ -373,6 +373,24 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
         const finalConsultationId = consultationData.consultation?.id || activeConsultationId;
         setActiveConsultationId(finalConsultationId);
 
+        // If this is a NEW consultation (not update), update patient status to WITH_DOCTOR
+        if (!activeConsultationId) {
+          await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/${patientId}/status/`,
+            {
+              method: 'PATCH',
+              headers: {
+                'Authorization': `Token ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                status: 'WITH_DOCTOR'
+              })
+            }
+          );
+          console.log('✅ Patient status updated to WITH_DOCTOR');
+        }
+
         // Create prescriptions
         for (const prescription of prescriptions) {
           if (prescription.medication_name.trim()) {
@@ -424,37 +442,43 @@ export default function EnhancedDiagnosisModal({ isOpen, onClose, patientId, con
           );
         }
 
-        // Update patient status based on payment gate workflow
-        let newStatus = 'COMPLETED';
-        let statusMessage = 'Consultation completed successfully!';
-
-        if (hasLabRequests && hasPrescriptions) {
-          // Both labs and prescriptions ordered - pay for labs first
-          newStatus = 'PENDING_LAB_PAYMENT';
-          statusMessage = 'Consultation saved. Patient must proceed to FINANCE to pay for lab tests before going to the lab.';
-        } else if (hasLabRequests) {
-          // Only lab tests ordered - need to pay for labs, then return after results
-          newStatus = 'PENDING_LAB_PAYMENT';
-          statusMessage = 'Consultation saved. Patient must proceed to FINANCE to pay for lab tests. After lab results, patient returns to doctor for treatment plan.';
-        } else if (hasPrescriptions) {
-          // Only prescriptions - pay for medications
-          newStatus = 'TREATMENT_PRESCRIBED';
-          statusMessage = 'Consultation saved. Patient must proceed to FINANCE to pay for prescriptions before going to pharmacy.';
-        }
-
-        await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/patients/${patientId}/status/`,
+        // ===== COMPLETE CONSULTATION AND AUTO-CREATE PAYMENT =====
+        // Call complete_consultation endpoint to:
+        // 1. Mark consultation as COMPLETED
+        // 2. Auto-create PENDING consultation payment (5,000 TZS)
+        // 3. Update patient status to PENDING_CONSULTATION_PAYMENT
+        const completeResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/doctor/consultations/complete/`,
           {
-            method: 'PATCH',
+            method: 'POST',
             headers: {
               'Authorization': `Token ${token}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              status: newStatus
+              consultation_id: finalConsultationId
             })
           }
         );
+
+        if (!completeResponse.ok) {
+          console.error('Failed to complete consultation and create payment');
+          const errorData = await completeResponse.json();
+          alert(`Warning: Consultation saved but payment creation failed: ${errorData.error || 'Unknown error'}`);
+        }
+
+        // Determine success message based on what was ordered
+        let statusMessage = 'Consultation completed successfully!';
+
+        if (hasLabRequests && hasPrescriptions) {
+          statusMessage = 'Consultation completed. Patient must proceed to FINANCE to:\n1. Pay consultation fee (5,000 TZS)\n2. Pay for lab tests\n3. After labs, pay for medications';
+        } else if (hasLabRequests) {
+          statusMessage = 'Consultation completed. Patient must proceed to FINANCE to:\n1. Pay consultation fee (5,000 TZS)\n2. Pay for lab tests\n3. After lab results, return to doctor for treatment plan';
+        } else if (hasPrescriptions) {
+          statusMessage = 'Consultation completed. Patient must proceed to FINANCE to:\n1. Pay consultation fee (5,000 TZS)\n2. Pay for medications\n3. Proceed to pharmacy';
+        } else {
+          statusMessage = 'Consultation completed. Patient must proceed to FINANCE to pay consultation fee (5,000 TZS)';
+        }
 
         alert(statusMessage);
         onSave?.();
