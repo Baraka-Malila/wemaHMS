@@ -676,6 +676,17 @@ class ServicePayment(models.Model):
         # Set payment date when status changes to PAID
         if self.status == 'PAID' and not self.payment_date:
             self.payment_date = timezone.now()
+        
+        # Auto-generate receipt number when status is PAID
+        if self.status == 'PAID' and not self.receipt_number:
+            # Format: RCT-YYYYMMDD-XXXXX (e.g., RCT-20251001-00001)
+            today = timezone.now().strftime('%Y%m%d')
+            # Count today's paid payments to generate sequential number
+            today_count = ServicePayment.objects.filter(
+                payment_date__date=timezone.now().date(),
+                status='PAID'
+            ).count() + 1
+            self.receipt_number = f"RCT-{today}-{today_count:05d}"
 
         super().save(*args, **kwargs)
 

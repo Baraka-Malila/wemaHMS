@@ -68,6 +68,11 @@ class Consultation(models.Model):
         default='',
         help_text='Treatment recommendations'
     )
+    general_advice = models.TextField(
+        blank=True,
+        default='',
+        help_text='General lifestyle/behavioral advice (e.g., rest, exercise, diet, hydration) - separate from medication prescriptions'
+    )
     
     # Follow-up and priority
     follow_up_date = models.DateField(blank=True, null=True)

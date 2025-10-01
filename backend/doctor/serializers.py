@@ -19,9 +19,9 @@ class ConsultationSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'patient_id', 'patient_name', 'doctor', 'doctor_name',
             'chief_complaint', 'symptoms', 'examination_findings', 'diagnosis',
-            'treatment_plan', 'follow_up_date', 'priority', 'status',
+            'treatment_plan', 'general_advice', 'follow_up_date', 'priority', 'status',
             'temperature', 'blood_pressure_systolic', 'blood_pressure_diastolic',
-            'heart_rate', 'blood_pressure', 'doctor_notes',
+            'heart_rate', 'respiratory_rate', 'blood_pressure', 'doctor_notes',
 
             # New clinical notes fields
             'clinical_notes', 'possible_diagnosis', 'medication_plan',

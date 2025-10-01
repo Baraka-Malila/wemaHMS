@@ -26,7 +26,8 @@ interface Payment {
   status: string;
   payment_date: string;
   created_at: string;
-  processed_by: any;
+  processed_by: string;  // UUID string
+  processed_by_name?: string;  // Full name from backend
   receipt_number: string;
 }
 
@@ -36,7 +37,7 @@ export default function PaymentHistory() {
   const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [serviceFilter, setServiceFilter] = useState('ALL');
-  const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
+  const [dateFilter, setDateFilter] = useState(''); // Empty by default to show all dates
   const [patientFilter, setPatientFilter] = useState('');
   const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set());
 
@@ -58,9 +59,16 @@ export default function PaymentHistory() {
 
       if (response.ok) {
         const data = await response.json();
-        const paymentsArray = Array.isArray(data) ? data : [];
+        // Handle paginated response (DRF pagination wraps data in "results")
+        const paymentsArray = Array.isArray(data) ? data : (data.results || []);
+        console.log('💰 Loaded payment history:', {
+          total: paymentsArray.length,
+          payments: paymentsArray
+        });
         setPayments(paymentsArray);
         setFilteredPayments(paymentsArray);
+      } else {
+        console.error('❌ Failed to load payments:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error loading payment history:', error);
@@ -109,6 +117,15 @@ export default function PaymentHistory() {
       });
     }
 
+    console.log('🔍 Filters applied:', {
+      searchTerm,
+      serviceFilter,
+      patientFilter,
+      dateFilter,
+      totalPayments: payments.length,
+      filteredCount: filtered.length
+    });
+
     setFilteredPayments(filtered);
   }, [searchTerm, serviceFilter, patientFilter, dateFilter, payments]);
 
@@ -123,7 +140,7 @@ export default function PaymentHistory() {
     return colors[serviceType] || colors['OTHER'];
   };
 
-  const totalAmount = filteredPayments.reduce((sum, p) => sum + parseFloat(p.amount || '0'), 0);
+  const totalAmount = filteredPayments.reduce((sum, p) => sum + parseFloat(String(p.amount || '0')), 0);
 
   // Group by patient
   const paymentsByPatient = filteredPayments.reduce((acc: any, payment) => {
@@ -136,7 +153,7 @@ export default function PaymentHistory() {
       };
     }
     acc[payment.patient_id].payments.push(payment);
-    acc[payment.patient_id].total += parseFloat(payment.amount || '0');
+    acc[payment.patient_id].total += parseFloat(String(payment.amount || '0'));
     return acc;
   }, {});
 
@@ -239,8 +256,19 @@ export default function PaymentHistory() {
           </div>
         </div>
 
-        {/* Export Button */}
-        <div className="mt-4 flex justify-end">
+        {/* Action Buttons */}
+        <div className="mt-4 flex justify-between items-center">
+          <button 
+            onClick={() => {
+              setSearchTerm('');
+              setServiceFilter('ALL');
+              setDateFilter('');
+              setPatientFilter('');
+            }}
+            className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            Clear Filters
+          </button>
           <button className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
             <Download className="h-4 w-4 mr-2" />
             Export to Excel
@@ -363,7 +391,7 @@ export default function PaymentHistory() {
                                   {payment.payment_method}
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                  {payment.processed_by?.full_name || 'System'}
+                                  {payment.processed_by_name || 'System'}
                                 </td>
                               </tr>
                             ))}
@@ -381,8 +409,23 @@ export default function PaymentHistory() {
             <FileText className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No transactions found</h3>
             <p className="mt-1 text-sm text-gray-500">
-              Try adjusting your filters or select a different date
+              {payments.length === 0 
+                ? 'No PAID transactions in the system yet. File fees and other payments will appear here once processed.'
+                : 'Try clearing filters to see all transactions, or adjust your search criteria.'}
             </p>
+            {payments.length > 0 && (
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setServiceFilter('ALL');
+                  setDateFilter('');
+                  setPatientFilter('');
+                }}
+                className="mt-4 inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700"
+              >
+                Clear All Filters
+              </button>
+            )}
           </div>
         )}
 
