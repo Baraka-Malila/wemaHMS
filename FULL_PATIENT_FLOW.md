@@ -12,7 +12,7 @@ Patient Journey with Payment Gates:
      │
      └─ SCENARIO B: Lab Tests Needed
         ├─ Doctor fills Lab Requests tab only
-        ├─ Leaves Treatment Plan & Prescriptions empty
+        ├─ Leaves patient findings & Prescriptions
         ├─ Patient status: PENDING_LAB_PAYMENT
         │
         ├─ FINANCE (Cashier) - Pay for lab tests
@@ -27,7 +27,7 @@ Patient Journey with Payment Gates:
         │
         ├─ DOCTOR (Return for results)
         │  ├─ Reviews lab results
-        │  ├─ Updates Treatment Plan & Prescriptions
+        │  ├─ Updates (just writes below on the section)..we'll auto append to existing findings or find a way to display the results and doc to write hist more clinical notes again and so on...
         │  └─ Status change: LAB_COMPLETED →
   TREATMENT_PRESCRIBED
         │
@@ -40,4 +40,4 @@ Patient Journey with Payment Gates:
         └─ PHARMACY - Dispense medications
            ├─ Verify: status === PHARMACY_PAID (bottleneck)
            ├─ Dispense medications
-           └─ Status change: PHARMACY_PAID → COMPLETED → EXIT
+           └─ Status change: PHARMACY_PAID → COMPLETED → EXIT(exit makes this patient an existing so from this moment he or she can be checked in again from the reception as an existing patient)
