@@ -17,6 +17,7 @@ import {
   PieChart
 } from 'lucide-react';
 import RealTimeClock from '@/components/ui/RealTimeClock';
+import PaymentRecordModal from '@/components/PaymentRecordModal';
 import auth from '@/lib/auth';
 
 export default function FinanceDashboard() {
@@ -132,8 +133,8 @@ export default function FinanceDashboard() {
         }));
         setRevenueByMethod(methodArray);
 
-        // Store pending payments for display
-        setPendingPayments(pendingPayments.slice(0, 5)); // Show top 5
+        // Store ALL pending payments for display
+        setPendingPayments(pendingPayments); // Show all pending
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -352,105 +353,125 @@ export default function FinanceDashboard() {
         </div>
       </div>
 
-      {/* Pending Payments Queue */}
+      {/* All Pending Payments - Processing Workspace */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Pending Payments Queue</h3>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-              {pendingPayments.length} Awaiting Approval
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Pending Payments - Processing Queue</h3>
+              <p className="text-sm text-gray-600 mt-1">Process payments quickly from here</p>
+            </div>
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+              {pendingPayments.length} Pending
             </span>
           </div>
         </div>
 
-        <div className="divide-y divide-gray-200">
-          {loading ? (
-            <div className="p-12 text-center text-gray-500">
-              <Clock className="mx-auto h-12 w-12 text-gray-400 animate-spin mb-3" />
-              <p className="text-sm">Loading pending payments...</p>
-            </div>
-          ) : pendingPayments.length > 0 ? (
-            pendingPayments.map((payment) => {
-              const badge = getServiceTypeBadge(payment.service_type);
-              const BadgeIcon = badge.icon;
-
-              return (
-                <div key={payment.id} className="p-6 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0">
-                        <BadgeIcon className="h-8 w-8 text-orange-500" />
-                      </div>
-                      <div>
-                        <h4 className="text-lg font-medium text-gray-900">{payment.service_name}</h4>
-                        <p className="text-sm text-gray-600">Patient: {payment.patient_name} ({payment.patient_id})</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xl font-bold text-gray-900">TZS {parseFloat(payment.amount).toLocaleString()}</p>
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${badge.color}`}>
-                        {payment.service_type.replace('_', ' ')}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
-                    <div>
-                      <p className="text-gray-600">Payment Method</p>
-                      <p className="font-medium text-gray-900">{payment.payment_method || 'CASH'}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Status</p>
-                      <p className="font-medium text-orange-600">PENDING</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Created</p>
-                      <p className="font-medium text-gray-900">
-                        {new Date(payment.created_at).toLocaleTimeString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Reference</p>
-                      <p className="font-medium text-gray-900">{payment.reference_id ? `#${payment.reference_id.slice(0, 8)}` : 'N/A'}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex space-x-2">
-                    <a
-                      href="/finance/payment-history"
-                      className="flex items-center space-x-1 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-medium rounded-md hover:from-amber-600 hover:to-orange-700 transition-all"
-                    >
-                      <CheckCircle className="h-4 w-4" />
-                      <span>Process Payment</span>
-                    </a>
-                    <button className="flex items-center space-x-1 px-3 py-2 bg-gray-50 text-gray-600 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors">
-                      <Eye className="h-4 w-4" />
-                      <span>View Details</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <div className="text-center py-12">
-              <CheckCircle className="mx-auto h-12 w-12 text-green-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">All payments processed!</h3>
-              <p className="mt-1 text-sm text-gray-500">No pending payments at the moment.</p>
-            </div>
-          )}
-        </div>
-
-        {pendingPayments.length > 0 && (
-          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
-            <a
-              href="/finance/payment-history"
-              className="text-sm font-medium text-amber-600 hover:text-amber-700 flex items-center justify-center"
-            >
-              View all pending payments →
-            </a>
+        {loading ? (
+          <div className="p-12 text-center text-gray-500">
+            <Clock className="mx-auto h-12 w-12 text-gray-400 animate-spin mb-3" />
+            <p className="text-sm">Loading pending payments...</p>
+          </div>
+        ) : pendingPayments.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Patient
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Service
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Payment Method
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Created
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {pendingPayments.map((payment) => {
+                  const badge = getServiceTypeBadge(payment.service_type);
+                  return (
+                    <tr key={payment.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{payment.patient_name}</div>
+                          <div className="text-sm text-gray-500">{payment.patient_id}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{payment.service_name}</div>
+                          <span className={`inline-flex mt-1 px-2 py-1 text-xs font-medium rounded-full ${badge.color}`}>
+                            {payment.service_type.replace('_', ' ')}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-bold text-gray-900">
+                          TZS {parseFloat(payment.amount).toLocaleString()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{payment.payment_method || 'CASH'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">
+                          {new Date(payment.created_at).toLocaleString()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => {
+                            setSelectedPayment(payment);
+                            setPaymentModalOpen(true);
+                          }}
+                          className="inline-flex items-center px-3 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-md hover:from-amber-600 hover:to-orange-700 transition-all"
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Process
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <CheckCircle className="mx-auto h-12 w-12 text-green-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">All payments processed!</h3>
+            <p className="mt-1 text-sm text-gray-500">No pending payments at the moment.</p>
           </div>
         )}
       </div>
+
+      {/* Payment Processing Modal */}
+      {selectedPayment && (
+        <PaymentRecordModal
+          isOpen={paymentModalOpen}
+          onClose={() => {
+            setPaymentModalOpen(false);
+            setSelectedPayment(null);
+          }}
+          payment={selectedPayment}
+          onSuccess={() => {
+            setPaymentModalOpen(false);
+            setSelectedPayment(null);
+            fetchDashboardData(); // Refresh data
+          }}
+        />
+      )}
     </div>
   );
 }

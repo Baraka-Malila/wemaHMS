@@ -3,18 +3,18 @@
 import { useState, useEffect } from 'react';
 import {
   DollarSign,
-  Clock,
   FileText,
-  CreditCard,
-  CheckCircle,
+  Search,
   Filter,
-  Search
+  Calendar,
+  Download,
+  Eye,
+  User
 } from 'lucide-react';
 import RealTimeClock from '@/components/ui/RealTimeClock';
-import PaymentRecordModal from '@/components/PaymentRecordModal';
 import auth from '@/lib/auth';
 
-interface PendingPayment {
+interface Payment {
   id: string;
   patient_id: string;
   patient_name: string;
@@ -22,30 +22,31 @@ interface PendingPayment {
   service_name: string;
   reference_id: string;
   amount: number;
+  payment_method: string;
   status: string;
+  payment_date: string;
   created_at: string;
+  processed_by: any;
+  receipt_number: string;
 }
 
 export default function PaymentHistory() {
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'pending' | 'recent'>('pending');
-  const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
-  const [recentPayments, setRecentPayments] = useState<PendingPayment[]>([]);
-  const [filteredPayments, setFilteredPayments] = useState<PendingPayment[]>([]);
-  const [selectedPayment, setSelectedPayment] = useState<PendingPayment | null>(null);
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [serviceFilter, setServiceFilter] = useState('ALL');
+  const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
+  const [patientFilter, setPatientFilter] = useState('');
 
-  const loadPaymentQueue = async (isInitialLoad = false) => {
-    if (isInitialLoad) {
-      setLoading(true);
-    }
-
+  const loadPaymentHistory = async () => {
     try {
+      setLoading(true);
       const token = auth.getToken();
+
+      // Fetch all PAID payments
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/finance/payments/pending/`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/finance/payments/?status=PAID`,
         {
           headers: {
             'Authorization': `Token ${token}`,
@@ -56,167 +57,87 @@ export default function PaymentHistory() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Pending payments response:', data);
-        const paymentsArray = Array.isArray(data)
-          ? data
-          : data.pending_payments
-          ? (Array.isArray(data.pending_payments) ? data.pending_payments : [])
-          : [];
-        console.log('Pending payments array:', paymentsArray);
-        setPendingPayments(paymentsArray);
-        if (activeTab === 'pending') {
-          setFilteredPayments(paymentsArray);
-        }
-      } else {
-        console.error('Pending payments error:', response.status, await response.text());
+        const paymentsArray = Array.isArray(data) ? data : [];
+        setPayments(paymentsArray);
+        setFilteredPayments(paymentsArray);
       }
     } catch (error) {
-      console.error('Error loading payment queue:', error);
+      console.error('Error loading payment history:', error);
     } finally {
-      if (isInitialLoad) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
 
-  const loadRecentPayments = async (isInitialLoad = false) => {
-    if (isInitialLoad) {
-      setLoading(true);
-    }
+  useEffect(() => {
+    loadPaymentHistory();
+    // Refresh every 10 seconds
+    const interval = setInterval(loadPaymentHistory, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
-    try {
-      const token = auth.getToken();
-      // Get all payments (both paid and pending)
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/finance/payments/?status=PAID&limit=100`,
-        {
-          headers: {
-            'Authorization': `Token ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
+  // Apply filters
+  useEffect(() => {
+    let filtered = [...payments];
+
+    // Search filter (patient ID or name)
+    if (searchTerm) {
+      filtered = filtered.filter(p =>
+        p.patient_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.patient_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.receipt_number?.toLowerCase().includes(searchTerm.toLowerCase())
       );
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Recent payments response:', data);
-        const paymentsArray = Array.isArray(data)
-          ? data
-          : data.results
-          ? (Array.isArray(data.results) ? data.results : [])
-          : [];
-        console.log('Recent payments array:', paymentsArray);
-        setRecentPayments(paymentsArray);
-        if (activeTab === 'recent') {
-          setFilteredPayments(paymentsArray);
-        }
-      } else {
-        console.error('Recent payments error:', response.status, await response.text());
-      }
-    } catch (error) {
-      console.error('Error loading recent payments:', error);
-    } finally {
-      if (isInitialLoad) {
-        setLoading(false);
-      }
     }
-  };
-
-  useEffect(() => {
-    if (activeTab === 'pending') {
-      loadPaymentQueue(true);
-    } else {
-      loadRecentPayments(true);
-    }
-
-    // Real-time polling every 3 seconds
-    const refreshInterval = setInterval(() => {
-      if (activeTab === 'pending') {
-        loadPaymentQueue(false);
-      } else {
-        loadRecentPayments(false);
-      }
-    }, 3000);
-
-    return () => clearInterval(refreshInterval);
-  }, [activeTab]);
-
-  // Filter and search
-  useEffect(() => {
-    const sourceData = activeTab === 'pending' ? pendingPayments : recentPayments;
-    let filtered = sourceData;
 
     // Service type filter
     if (serviceFilter !== 'ALL') {
       filtered = filtered.filter(p => p.service_type === serviceFilter);
     }
 
-    // Search filter
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
+    // Patient filter
+    if (patientFilter) {
       filtered = filtered.filter(p =>
-        p.patient_id?.toLowerCase().includes(search) ||
-        p.patient_name?.toLowerCase().includes(search) ||
-        p.service_name?.toLowerCase().includes(search)
+        p.patient_id.toLowerCase().includes(patientFilter.toLowerCase())
       );
     }
 
+    // Date filter (if specific date selected)
+    if (dateFilter) {
+      filtered = filtered.filter(p => {
+        const paymentDate = new Date(p.payment_date).toISOString().split('T')[0];
+        return paymentDate === dateFilter;
+      });
+    }
+
     setFilteredPayments(filtered);
-  }, [searchTerm, serviceFilter, pendingPayments, recentPayments, activeTab]);
-
-  const handleRecordPayment = (payment: PendingPayment) => {
-    setSelectedPayment(payment);
-    setPaymentModalOpen(true);
-  };
-
-  const handlePaymentSuccess = () => {
-    setPaymentModalOpen(false);
-    setSelectedPayment(null);
-    loadPaymentQueue(false);
-  };
+  }, [searchTerm, serviceFilter, patientFilter, dateFilter, payments]);
 
   const getServiceBadgeColor = (serviceType: string) => {
-    switch (serviceType) {
-      case 'CONSULTATION':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'LAB_TEST':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'MEDICATION':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'FILE_FEE':
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-      default:
-        return 'bg-orange-100 text-orange-800 border-orange-200';
-    }
+    const colors: any = {
+      'CONSULTATION': 'bg-green-100 text-green-800',
+      'LAB_TEST': 'bg-purple-100 text-purple-800',
+      'MEDICATION': 'bg-blue-100 text-blue-800',
+      'FILE_FEE': 'bg-amber-100 text-amber-800',
+      'OTHER': 'bg-gray-100 text-gray-800'
+    };
+    return colors[serviceType] || colors['OTHER'];
   };
 
-  const getWaitTime = (createdAt: string) => {
-    const created = new Date(createdAt);
-    const now = new Date();
-    const diffMs = now.getTime() - created.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
+  const totalAmount = filteredPayments.reduce((sum, p) => sum + parseFloat(p.amount || '0'), 0);
 
-    if (diffMins < 60) {
-      return `${diffMins}min${diffMins !== 1 ? 's' : ''}`;
+  // Group by patient
+  const paymentsByPatient = filteredPayments.reduce((acc: any, payment) => {
+    if (!acc[payment.patient_id]) {
+      acc[payment.patient_id] = {
+        patient_name: payment.patient_name,
+        patient_id: payment.patient_id,
+        payments: [],
+        total: 0
+      };
     }
-    const hours = Math.floor(diffMins / 60);
-    const remainingMinutes = diffMins % 60;
-    if (remainingMinutes === 0) {
-      return `${hours}hr${hours !== 1 ? 's' : ''}`;
-    }
-    return `${hours}hr${hours !== 1 ? 's' : ''} ${remainingMinutes}min`;
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading payment queue...</p>
-        </div>
-      </div>
-    );
-  }
+    acc[payment.patient_id].payments.push(payment);
+    acc[payment.patient_id].total += parseFloat(payment.amount || '0');
+    return acc;
+  }, {});
 
   return (
     <div className="space-y-6">
@@ -224,181 +145,255 @@ export default function PaymentHistory() {
       <div className="bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold mb-2">
-              {activeTab === 'pending' ? 'Payment History - Pending' : 'Payment History - Completed'}
-            </h1>
+            <h1 className="text-2xl font-bold mb-2">Payment History & Transactions</h1>
             <p className="text-amber-100">
-              {filteredPayments.length} {activeTab === 'pending' ? 'pending' : 'recent'} payment{filteredPayments.length !== 1 ? 's' : ''}
+              Complete payment ledger - {filteredPayments.length} transaction{filteredPayments.length !== 1 ? 's' : ''}
               {' • Total: TZS '}
-              {filteredPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0).toLocaleString()}
+              {totalAmount.toLocaleString()}
             </p>
           </div>
           <div className="hidden md:block">
             <div className="bg-white/10 rounded-lg p-4">
               <DollarSign className="h-8 w-8 text-white mb-2" />
               <p className="text-sm text-amber-100">Current Time</p>
-              <RealTimeClock className="text-white" />
+              <RealTimeClock className="text-white font-semibold" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="flex border-b border-gray-200">
-          <button
-            onClick={() => setActiveTab('pending')}
-            className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
-              activeTab === 'pending'
-                ? 'text-amber-600 border-b-2 border-amber-600 bg-amber-50'
-                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-            }`}
-          >
-            <div className="flex items-center justify-center gap-2">
-              <Clock className="h-5 w-5" />
-              <span>Pending Payments</span>
-              <span className={`px-2 py-1 rounded-full text-xs ${
-                activeTab === 'pending' ? 'bg-amber-600 text-white' : 'bg-gray-200 text-gray-700'
-              }`}>
-                {pendingPayments.length}
-              </span>
-            </div>
-          </button>
-          <button
-            onClick={() => setActiveTab('recent')}
-            className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
-              activeTab === 'recent'
-                ? 'text-green-600 border-b-2 border-green-600 bg-green-50'
-                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-            }`}
-          >
-            <div className="flex items-center justify-center gap-2">
-              <CheckCircle className="h-5 w-5" />
-              <span>Recent Payments</span>
-              <span className={`px-2 py-1 rounded-full text-xs ${
-                activeTab === 'recent' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700'
-              }`}>
-                {recentPayments.length}
-              </span>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      {/* Filters and Search */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-        <div className="flex flex-col md:flex-row gap-4">
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Search */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by patient ID, name, or service..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-            />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Search
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Patient ID, Name, Receipt #"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              />
+            </div>
+          </div>
+
+          {/* Date Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Date
+            </label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              />
+            </div>
           </div>
 
           {/* Service Filter */}
-          <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-gray-400" />
-            <select
-              value={serviceFilter}
-              onChange={(e) => setServiceFilter(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-            >
-              <option value="ALL">All Services</option>
-              <option value="CONSULTATION">Consultation</option>
-              <option value="LAB_TEST">Lab Test</option>
-              <option value="MEDICATION">Medication</option>
-              <option value="FILE_FEE">File Fee</option>
-              <option value="OTHER">Other</option>
-            </select>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Service Type
+            </label>
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <select
+                value={serviceFilter}
+                onChange={(e) => setServiceFilter(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 appearance-none"
+              >
+                <option value="ALL">All Services</option>
+                <option value="CONSULTATION">Consultation</option>
+                <option value="LAB_TEST">Lab Test</option>
+                <option value="MEDICATION">Medication</option>
+                <option value="FILE_FEE">File Fee</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
           </div>
+
+          {/* Patient Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Patient ID
+            </label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="e.g., PAT123"
+                value={patientFilter}
+                onChange={(e) => setPatientFilter(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Export Button */}
+        <div className="mt-4 flex justify-end">
+          <button className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+            <Download className="h-4 w-4 mr-2" />
+            Export to Excel
+          </button>
         </div>
       </div>
 
-      {/* Payment Queue */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredPayments.length === 0 ? (
-          <div className="lg:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-            <CheckCircle className="h-12 w-12 text-green-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No pending payments</h3>
-            <p className="text-gray-500">
-              {searchTerm || serviceFilter !== 'ALL'
-                ? 'No payments match your current filters.'
-                : 'All payments have been processed.'}
-            </p>
+      {/* Transactions Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">
+            All Transactions - {new Date(dateFilter).toLocaleDateString()}
+          </h3>
+        </div>
+
+        {loading ? (
+          <div className="p-12 text-center text-gray-500">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto mb-3"></div>
+            <p className="text-sm">Loading payment history...</p>
+          </div>
+        ) : filteredPayments.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Time
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Receipt #
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Patient
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Service
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Method
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Processed By
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredPayments.map((payment) => (
+                  <tr key={payment.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(payment.payment_date).toLocaleTimeString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm font-mono text-gray-900">{payment.receipt_number || 'N/A'}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{payment.patient_name}</div>
+                        <div className="text-sm text-gray-500">{payment.patient_id}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{payment.service_name}</div>
+                        <span className={`inline-flex mt-1 px-2 py-1 text-xs font-medium rounded-full ${getServiceBadgeColor(payment.service_type)}`}>
+                          {payment.service_type.replace('_', ' ')}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-bold text-gray-900">
+                        TZS {parseFloat(payment.amount).toLocaleString()}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{payment.payment_method}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">
+                        {payment.processed_by?.full_name || 'System'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button className="text-amber-600 hover:text-amber-900">
+                        <Eye className="h-5 w-5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : (
-          filteredPayments.map((payment) => (
-            <div
-              key={payment.id}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-            >
-              {/* Header */}
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {payment.patient_name}
-                  </h3>
-                  <p className="text-sm text-gray-600">{payment.patient_id}</p>
-                </div>
-                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getServiceBadgeColor(payment.service_type)}`}>
-                  {payment.service_type.replace('_', ' ')}
-                </span>
+          <div className="text-center py-12">
+            <FileText className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No transactions found</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Try adjusting your filters or select a different date
+            </p>
+          </div>
+        )}
+
+        {/* Summary Footer */}
+        {filteredPayments.length > 0 && (
+          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+            <div className="flex justify-between items-center">
+              <div className="text-sm text-gray-600">
+                Showing {filteredPayments.length} transaction{filteredPayments.length !== 1 ? 's' : ''}
               </div>
-
-              {/* Service Details */}
-              <div className="space-y-3 mb-4">
-                <div className="flex items-center text-sm">
-                  <FileText className="h-4 w-4 text-gray-400 mr-2" />
-                  <span className="text-gray-600">Service:</span>
-                  <span className="ml-2 font-medium text-gray-900">{payment.service_name}</span>
-                </div>
-
-                <div className="flex items-center text-sm">
-                  <DollarSign className="h-4 w-4 text-gray-400 mr-2" />
-                  <span className="text-gray-600">Amount:</span>
-                  <span className="ml-2 font-bold text-gray-900">
-                    TZS {Number(payment.amount).toLocaleString()}
-                  </span>
-                </div>
-
-                <div className="flex items-center text-sm">
-                  <Clock className="h-4 w-4 text-gray-400 mr-2" />
-                  <span className="text-gray-600">Waiting:</span>
-                  <span className="ml-2 font-medium text-orange-600">
-                    {getWaitTime(payment.created_at)}
-                  </span>
-                </div>
+              <div className="text-lg font-bold text-gray-900">
+                Total: TZS {totalAmount.toLocaleString()}
               </div>
-
-              {/* Action Button */}
-              <button
-                onClick={() => handleRecordPayment(payment)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:from-amber-600 hover:to-orange-700 transition-all font-medium"
-              >
-                <CreditCard className="h-5 w-5" />
-                Record Payment
-              </button>
             </div>
-          ))
+          </div>
         )}
       </div>
 
-      {/* Payment Recording Modal */}
-      {selectedPayment && (
-        <PaymentRecordModal
-          isOpen={paymentModalOpen}
-          onClose={() => {
-            setPaymentModalOpen(false);
-            setSelectedPayment(null);
-          }}
-          payment={selectedPayment}
-          onSuccess={handlePaymentSuccess}
-        />
+      {/* Payments by Patient Summary */}
+      {Object.keys(paymentsByPatient).length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">Summary by Patient</h3>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Object.values(paymentsByPatient).map((patient: any) => (
+                <div key={patient.patient_id} className="border border-gray-200 rounded-lg p-4 hover:border-amber-500 transition-colors">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <h4 className="font-medium text-gray-900">{patient.patient_name}</h4>
+                      <p className="text-sm text-gray-500">{patient.patient_id}</p>
+                    </div>
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      {patient.payments.length} payment{patient.payments.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Services: {[...new Set(patient.payments.map((p: Payment) => p.service_type))].join(', ').replace(/_/g, ' ')}
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-gray-200">
+                    <div className="text-lg font-bold text-gray-900">
+                      TZS {patient.total.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
