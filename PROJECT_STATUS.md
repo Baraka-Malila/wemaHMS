@@ -382,3 +382,86 @@
 ---
 
 **Status Summary:** 78% complete, payment flow solid, ready to proceed with Lab and Pharmacy portal integration to reach 85% completion.
+
+---
+
+## 🔔 HEADER COMPONENTS IMPLEMENTATION PLAN (Cross-Portal)
+
+**Current Status:** ✅ Implemented in Admin Portal
+
+**Goal:** Standardize Notifications and Settings dropdowns across ALL portals (Doctor, Finance, Reception, Pharmacy, Lab, Nursing)
+
+### **Components to Replicate:**
+1. **NotificationsDropdown** - Activity feed with badge counter
+2. **SettingsDropdown** - User profile & system settings
+
+### **Implementation Steps (Per Portal):**
+
+#### **Step 1: Create Portal-Specific Notification Content**
+Each portal shows role-relevant notifications:
+- **Doctor:** New patients in queue, lab results ready, urgent cases
+- **Finance:** Pending payments, payment processed, daily revenue alerts
+- **Reception:** New registrations, check-in reminders, file fee pending
+- **Pharmacy:** Prescription queue, low stock alerts, dispensing tasks
+- **Lab:** Test requests, urgent tests, equipment maintenance
+- **Nursing:** Patient vitals alerts, medication schedules, ward updates
+
+#### **Step 2: Reuse Settings Component**
+- Settings dropdown works universally (fetches user profile via API)
+- Same menu items for all roles:
+  - Profile Settings
+  - Change Password
+  - Help & Support
+  - About
+
+#### **Step 3: Update Each Portal Layout**
+Files to modify:
+- `/frontend/src/app/doctor/layout.tsx`
+- `/frontend/src/app/finance/layout.tsx`
+- `/frontend/src/app/reception/layout.tsx`
+- `/frontend/src/app/pharmacy/layout.tsx`
+- `/frontend/src/app/lab/layout.tsx`
+- `/frontend/src/app/nursing/layout.tsx`
+
+**Changes:**
+1. Import components: `import NotificationsDropdown from '@/components/[portal]/NotificationsDropdown'`
+2. Import shared: `import SettingsDropdown from '@/components/admin/SettingsDropdown'`
+3. Replace SVG icons with components in header
+
+#### **Step 4: Create Portal-Specific Notification Components**
+Structure:
+```
+/components
+  /doctor
+    - NotificationsDropdown.tsx (doctor-specific notifications)
+  /finance
+    - NotificationsDropdown.tsx (finance-specific notifications)
+  /reception
+    - NotificationsDropdown.tsx (reception-specific notifications)
+  /pharmacy
+    - NotificationsDropdown.tsx (pharmacy-specific notifications)
+  /lab
+    - NotificationsDropdown.tsx (lab-specific notifications)
+  /nursing
+    - NotificationsDropdown.tsx (nursing-specific notifications)
+  /admin
+    - SettingsDropdown.tsx (shared across all portals)
+```
+
+### **Estimated Time:** 2-3 hours
+- 20 min per portal × 6 portals = 2 hours
+- 30 min testing & refinement
+- 30 min backend API integration (if needed)
+
+### **Future Enhancements (Optional):**
+- Real-time notifications via WebSockets
+- Notification persistence in database
+- Push notifications
+- Email notifications for critical alerts
+- Notification preferences (per user)
+
+**Priority:** Medium (improves UX but not blocking core functionality)
+
+**Dependencies:** None (can be done anytime)
+
+---

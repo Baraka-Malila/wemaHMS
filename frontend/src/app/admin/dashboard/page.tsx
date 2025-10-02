@@ -258,17 +258,17 @@ export default function AdminDashboard() {
 
   return (
     <>
-      {/* Header with Clock */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+      {/* Header with Gradient */}
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shadow-lg p-6 mb-6 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Admin Dashboard</h1>
-            <p className="text-sm text-gray-600 mt-1">System Overview & Management</p>
+            <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
+            <p className="text-sm text-blue-100 mt-1">System Overview & Management</p>
           </div>
           <div className="hidden md:block">
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-              <p className="text-xs text-gray-500 mb-1">Current Time</p>
-              <RealTimeClock className="text-gray-900 font-semibold text-xl" />
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+              <p className="text-xs text-blue-100 mb-1">Current Time</p>
+              <RealTimeClock className="text-white font-semibold text-xl" />
             </div>
           </div>
         </div>
