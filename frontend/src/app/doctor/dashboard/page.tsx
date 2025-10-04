@@ -21,7 +21,7 @@ import RealTimeClock from '@/components/ui/RealTimeClock';
 import auth from '@/lib/auth';
 import PatientDetailsModal from '@/components/PatientDetailsModal';
 import EnhancedDiagnosisModal from '@/components/EnhancedDiagnosisModal';
-import PatientHistoryModal from '@/components/PatientHistoryModal';
+import PatientCompleteFileModal from '@/components/PatientCompleteFileModal';
 
 interface DashboardStats {
   today_consultations: number;
@@ -512,11 +512,12 @@ export default function DoctorDashboard() {
         }}
       />
 
-      {/* Patient History Modal */}
-      <PatientHistoryModal
+      {/* Patient Complete File Modal */}
+      <PatientCompleteFileModal
         isOpen={historyModalOpen}
         onClose={() => setHistoryModalOpen(false)}
         patientId={historyPatientId}
+        onUpdate={loadDashboardData}
       />
     </div>
   );

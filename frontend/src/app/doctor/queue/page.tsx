@@ -18,7 +18,7 @@ import {
 import auth from '@/lib/auth';
 import PatientDetailsModal from '@/components/PatientDetailsModal';
 import EnhancedDiagnosisModal from '@/components/EnhancedDiagnosisModal';
-import PatientHistoryModal from '@/components/PatientHistoryModal';
+import PatientCompleteFileModal from '@/components/PatientCompleteFileModal';
 
 interface Patient {
   id: string;
@@ -50,8 +50,8 @@ export default function PatientQueue() {
   const [modalPatientId, setModalPatientId] = useState('');
   const [diagnosisModalOpen, setDiagnosisModalOpen] = useState(false);
   const [diagnosisPatientId, setDiagnosisPatientId] = useState('');
-  const [historyModalOpen, setHistoryModalOpen] = useState(false);
-  const [historyPatientId, setHistoryPatientId] = useState('');
+  const [fileModalOpen, setFileModalOpen] = useState(false);
+  const [filePatientId, setFilePatientId] = useState('');
 
   // Load waiting patients from API
   const loadWaitingPatients = async (isInitialLoad: boolean = false, priority?: string) => {
@@ -115,10 +115,10 @@ export default function PatientQueue() {
     setModalOpen(true);
   };
 
-  // View patient history
-  const handleViewHistory = (patient: Patient) => {
-    setHistoryPatientId(patient.patient_id);
-    setHistoryModalOpen(true);
+  // View complete patient file
+  const handleViewCompleteFile = (patient: Patient) => {
+    setFilePatientId(patient.patient_id);
+    setFileModalOpen(true);
   };
 
   // Format wait time to show hours and minutes
@@ -388,31 +388,36 @@ export default function PatientQueue() {
 
               {/* Card Actions */}
               <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
-                <div className="flex space-x-2">
+                <div className="flex flex-col space-y-2">
+                  {/* Primary Action */}
                   <button
                     onClick={() => handleStartConsultation(patient)}
                     disabled={startingConsultation === patient.patient_id}
-                    className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-green-700 text-white text-sm font-medium rounded-md hover:bg-green-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-green-700 text-white text-sm font-medium rounded-md hover:bg-green-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <UserCheck className="h-4 w-4" />
                     <span>
-                      {startingConsultation === patient.patient_id ? 'Starting...' : 'Consult'}
+                      {startingConsultation === patient.patient_id ? 'Starting...' : 'Start Consultation'}
                     </span>
                   </button>
-                  <button
-                    onClick={() => handleViewPatient(patient)}
-                    className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-50 text-blue-700 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors"
-                  >
-                    <Eye className="h-4 w-4" />
-                    <span>View</span>
-                  </button>
-                  <button
-                    onClick={() => handleViewHistory(patient)}
-                    className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-50 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors"
-                  >
-                    <FileText className="h-4 w-4" />
-                    <span>History</span>
-                  </button>
+
+                  {/* Secondary Actions */}
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleViewCompleteFile(patient)}
+                      className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 bg-purple-50 text-purple-700 text-sm font-medium rounded-md hover:bg-purple-100 transition-colors"
+                    >
+                      <FileText className="h-4 w-4" />
+                      <span>Complete File</span>
+                    </button>
+                    <button
+                      onClick={() => handleViewPatient(patient)}
+                      className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 bg-blue-50 text-blue-700 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors"
+                    >
+                      <Eye className="h-4 w-4" />
+                      <span>View</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -439,11 +444,15 @@ export default function PatientQueue() {
         }}
       />
 
-      {/* Patient History Modal */}
-      <PatientHistoryModal
-        isOpen={historyModalOpen}
-        onClose={() => setHistoryModalOpen(false)}
-        patientId={historyPatientId}
+      {/* Patient Complete File Modal */}
+      <PatientCompleteFileModal
+        isOpen={fileModalOpen}
+        onClose={() => setFileModalOpen(false)}
+        patientId={filePatientId}
+        onUpdate={() => {
+          const priority = filterPriority !== 'all' ? filterPriority : undefined;
+          loadWaitingPatients(true, priority);
+        }}
       />
     </div>
   );

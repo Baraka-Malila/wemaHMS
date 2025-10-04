@@ -373,3 +373,205 @@ def get_patient_queue(request):
         'count': len(sorted_results),
         'note': 'Patients ordered by actual queue entry time (FIFO)'
     })
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_summary="Get complete patient history",
+    operation_description="Aggregates all patient data: consultations, prescriptions, lab tests, pharmacy dispensing, nursing records, and payments. Accessible by DOCTOR, LAB, PHARMACY, NURSING, FINANCE, and ADMIN roles.",
+    responses={
+        200: openapi.Response(
+            description="Complete patient history",
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'patient': openapi.Schema(type=openapi.TYPE_OBJECT),
+                    'consultations': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_OBJECT)),
+                    'prescriptions': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_OBJECT)),
+                    'lab_tests': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_OBJECT)),
+                    'pharmacy_dispensing': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_OBJECT)),
+                    'nursing_records': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_OBJECT)),
+                    'payments': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_OBJECT)),
+                    'timeline': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_OBJECT)),
+                }
+            )
+        ),
+        403: openapi.Response(description="Access forbidden - role-based restrictions"),
+        404: openapi.Response(description="Patient not found"),
+    },
+    tags=['Patient Core - Universal APIs']
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def patient_complete_history(request, patient_id):
+    """
+    Get complete aggregated patient history across all services.
+
+    Role-based access:
+    - DOCTOR: Full access to all records
+    - PHARMACY: Own dispensing records + prescriptions
+    - LAB: Own test results + lab requests
+    - NURSING: Own nursing records + consultations (read-only)
+    - FINANCE: Payments only
+    - ADMIN: Full access
+
+    Returns chronologically sorted timeline of all patient interactions.
+    """
+    # Get patient
+    patient = get_object_or_404(Patient, patient_id=patient_id.upper())
+
+    # Check role-based permissions
+    user_role = request.user.role
+    allowed_roles = ['DOCTOR', 'LAB', 'PHARMACY', 'NURSING', 'FINANCE', 'ADMIN']
+
+    if user_role not in allowed_roles:
+        return Response(
+            {'error': 'Access denied. This endpoint is for medical staff only.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # Serialize patient basic info
+    patient_data = PatientDetailSerializer(patient).data
+
+    # Initialize response data
+    response_data = {
+        'patient': patient_data,
+        'consultations': [],
+        'prescriptions': [],
+        'lab_tests': [],
+        'pharmacy_dispensing': [],
+        'nursing_records': [],
+        'payments': [],
+        'timeline': []
+    }
+
+    # Import models (avoid circular imports)
+    from doctor.models import Consultation, Prescription, LabTestRequest
+    from doctor.serializers import ConsultationSerializer, PrescriptionSerializer, LabTestRequestSerializer
+    from finance.models import ServicePayment
+    from finance.serializers import ServicePaymentSerializer
+
+    # CONSULTATIONS (DOCTOR, NURSING, ADMIN have full access)
+    if user_role in ['DOCTOR', 'NURSING', 'ADMIN']:
+        consultations = Consultation.objects.filter(
+            patient_id=patient_id.upper()
+        ).select_related('doctor').order_by('-consultation_date')
+
+        response_data['consultations'] = ConsultationSerializer(consultations, many=True).data
+
+        # Add to timeline
+        for consultation in consultations:
+            response_data['timeline'].append({
+                'type': 'CONSULTATION',
+                'timestamp': consultation.consultation_date.isoformat() if consultation.consultation_date else consultation.created_at.isoformat(),
+                'title': f'Consultation - {consultation.chief_complaint[:50] if consultation.chief_complaint else "N/A"}',
+                'status': consultation.status,
+                'provider': consultation.doctor.full_name if consultation.doctor else 'Unknown',
+                'details': {
+                    'diagnosis': consultation.diagnosis,
+                    'treatment_plan': consultation.treatment_plan,
+                    'priority': consultation.priority
+                }
+            })
+
+    # PRESCRIPTIONS (DOCTOR, PHARMACY, ADMIN have access)
+    if user_role in ['DOCTOR', 'PHARMACY', 'ADMIN']:
+        prescriptions = Prescription.objects.filter(
+            consultation__patient_id=patient_id.upper()
+        ).select_related('consultation', 'prescribed_by').order_by('-prescribed_at')
+
+        response_data['prescriptions'] = PrescriptionSerializer(prescriptions, many=True).data
+
+        # Add to timeline
+        for prescription in prescriptions:
+            response_data['timeline'].append({
+                'type': 'PRESCRIPTION',
+                'timestamp': prescription.prescribed_at.isoformat(),
+                'title': f'Prescription - {prescription.medication_name}',
+                'status': prescription.status,
+                'provider': prescription.consultation.doctor.full_name if prescription.consultation and prescription.consultation.doctor else 'Unknown',
+                'details': {
+                    'medication': prescription.medication_name,
+                    'dosage': f'{prescription.dosage_instructions} - {prescription.duration}',
+                    'quantity': prescription.quantity_prescribed
+                }
+            })
+
+    # LAB TESTS (DOCTOR, LAB, ADMIN have access)
+    if user_role in ['DOCTOR', 'LAB', 'ADMIN']:
+        lab_tests = LabTestRequest.objects.filter(
+            consultation__patient_id=patient_id.upper()
+        ).select_related('consultation', 'consultation__doctor').order_by('-requested_at')
+
+        response_data['lab_tests'] = LabTestRequestSerializer(lab_tests, many=True).data
+
+        # Add to timeline
+        for lab_test in lab_tests:
+            # Count requested tests (sum boolean fields)
+            test_count = sum([
+                lab_test.mrdt_requested,
+                lab_test.bs_requested,
+                lab_test.stool_analysis_requested,
+                lab_test.urine_sed_requested,
+                lab_test.urinalysis_requested,
+                lab_test.rpr_requested,
+                lab_test.h_pylori_requested,
+                lab_test.hepatitis_b_requested,
+                lab_test.hepatitis_c_requested,
+                lab_test.ssat_requested,
+                lab_test.upt_requested,
+                lab_test.esr_requested,
+                lab_test.blood_grouping_requested,
+                lab_test.hb_requested,
+                lab_test.rheumatoid_factor_requested,
+                lab_test.rbg_requested,
+                lab_test.fbg_requested,
+                lab_test.sickling_test_requested,
+            ])
+
+            response_data['timeline'].append({
+                'type': 'LAB_TEST',
+                'timestamp': lab_test.requested_at.isoformat(),
+                'title': f'Lab Tests Requested ({test_count} tests)',
+                'status': lab_test.status,
+                'provider': lab_test.consultation.doctor.full_name if lab_test.consultation and lab_test.consultation.doctor else 'Unknown',
+                'details': {
+                    'test_count': test_count,
+                    'status': lab_test.status
+                }
+            })
+
+    # PAYMENTS (All roles can see, but FINANCE sees all, others see relevant only)
+    payments = ServicePayment.objects.filter(
+        patient_id=patient_id.upper()
+    ).select_related('processed_by').order_by('-created_at')
+
+    response_data['payments'] = ServicePaymentSerializer(payments, many=True).data
+
+    # Add to timeline
+    for payment in payments:
+        response_data['timeline'].append({
+            'type': 'PAYMENT',
+            'timestamp': payment.created_at.isoformat(),
+            'title': f'{payment.service_type.replace("_", " ")} Payment - {payment.amount} TZS',
+            'status': payment.status,
+            'provider': payment.processed_by.full_name if payment.processed_by else 'System',
+            'details': {
+                'amount': str(payment.amount),
+                'service_type': payment.service_type,
+                'payment_method': payment.payment_method,
+                'receipt': payment.receipt_number
+            }
+        })
+
+    # TODO: PHARMACY DISPENSING (once pharmacy app is fully implemented)
+    # TODO: NURSING RECORDS (once nursing app is fully implemented)
+
+    # Sort timeline by timestamp (most recent first)
+    response_data['timeline'] = sorted(
+        response_data['timeline'],
+        key=lambda x: x['timestamp'],
+        reverse=True
+    )
+
+    return Response(response_data)

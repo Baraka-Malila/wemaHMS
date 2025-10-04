@@ -1,4 +1,4 @@
-Patient Journey with Payment Gates:
+The Full Patient Journey with Payment Gates:
 
   1. RECEPTION → DOCTOR (Consultation)
      ├─ Doctor examines patient

@@ -21,6 +21,15 @@ export default function LabDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [testQueue, setTestQueue] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    pending: 0,
+    completedToday: 0,
+    critical: 0,
+    avgProcessingTime: '0m'
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     // Get current user data using auth manager
@@ -28,7 +37,60 @@ export default function LabDashboard() {
     if (user) {
       setCurrentUser(user);
     }
+    loadLabQueue();
   }, []);
+
+  const loadLabQueue = async () => {
+    try {
+      setLoading(true);
+      const token = auth.getToken();
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+      const response = await fetch(`${API_URL}/api/lab/patients/`, {
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const queue = data.patients_queue || [];
+
+        // Add status field (API doesn't return it - all items are PENDING)
+        const queueWithStatus = queue.map((item: any) => ({
+          ...item,
+          status: 'PENDING',
+          id: item.request_id
+        }));
+
+        setTestQueue(queueWithStatus);
+
+        // Calculate stats from real data
+        const pending = queueWithStatus.length;
+        const critical = queue.filter((t: any) =>
+          t.priority?.toUpperCase() === 'URGENT' ||
+          t.priority?.toUpperCase() === 'STAT' ||
+          t.priority?.toUpperCase() === 'EMERGENCY'
+        ).length;
+
+        setStats({
+          pending,
+          completedToday: 0, // TODO: Get from results API
+          critical,
+          avgProcessingTime: '45m' // TODO: Calculate from actual data
+        });
+        setError('');
+      } else {
+        setError('Failed to load lab queue');
+      }
+    } catch (error) {
+      setError('Error loading lab queue');
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Dynamic greeting based on time
   const getGreeting = () => {
@@ -38,27 +100,26 @@ export default function LabDashboard() {
     return 'Good Evening';
   };
 
-  // Mock data - replace with API calls
-  const stats = [
+  const statsDisplay = [
     {
       title: 'Pending Tests',
-      value: '15',
-      change: '3 urgent cases',
+      value: stats.pending.toString(),
+      change: `${stats.critical} urgent cases`,
       icon: Clock,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50'
     },
     {
       title: 'Completed Today',
-      value: '23',
-      change: '+8 from yesterday',
+      value: stats.completedToday.toString(),
+      change: 'Tests completed',
       icon: CheckCircle,
       color: 'text-green-600',
       bgColor: 'bg-green-50'
     },
     {
       title: 'Critical Results',
-      value: '2',
+      value: stats.critical.toString(),
       change: 'Requires attention',
       icon: AlertTriangle,
       color: 'text-red-600',
@@ -66,7 +127,7 @@ export default function LabDashboard() {
     },
     {
       title: 'Processing Time',
-      value: '45m',
+      value: stats.avgProcessingTime,
       change: 'Average today',
       icon: TestTube,
       color: 'text-blue-600',
@@ -74,64 +135,20 @@ export default function LabDashboard() {
     }
   ];
 
-  const testQueue = [
-    {
-      id: 'LAB001',
-      patientId: 'PAT001',
-      patientName: 'John Doe',
-      testType: 'Complete Blood Count',
-      priority: 'Routine',
-      status: 'PENDING',
-      requestedBy: 'Dr. Smith',
-      requestTime: '09:30 AM',
-      expectedTime: '2 hours',
-      instructions: 'Fasting not required. Patient on medication.'
-    },
-    {
-      id: 'LAB002',
-      patientId: 'PAT002',
-      patientName: 'Mary Johnson',
-      testType: 'CT Scan Brain',
-      priority: 'URGENT',
-      status: 'IN_PROGRESS',
-      requestedBy: 'Dr. Smith',
-      requestTime: '10:15 AM',
-      expectedTime: '1 hour',
-      instructions: 'Patient allergic to iodine - use alternative contrast.'
-    },
-    {
-      id: 'LAB003',
-      patientId: 'PAT005',
-      patientName: 'Michael Brown',
-      testType: 'Troponin I',
-      priority: 'STAT',
-      status: 'COMPLETED',
-      requestedBy: 'Dr. Smith',
-      requestTime: '11:30 AM',
-      expectedTime: '30 minutes',
-      instructions: 'CRITICAL: Notify immediately if positive.',
-      result: 'CRITICAL: Elevated levels - 2.5 ng/mL'
-    },
-    {
-      id: 'LAB004',
-      patientId: 'PAT003',
-      patientName: 'David Smith',
-      testType: 'Lipid Profile',
-      priority: 'Routine',
-      status: 'COMPLETED',
-      requestedBy: 'Dr. Smith',
-      requestTime: '08:45 AM',
-      expectedTime: '3 hours',
-      instructions: '12-hour fasting required.',
-      result: 'Normal - All values within range'
-    }
-  ];
+  const filteredQueue = testQueue.filter(test => {
+    const matchesSearch = test.patient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         test.patient_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         test.test_type?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === 'all' || test.status === filterStatus;
+    return matchesSearch && matchesStatus;
+  });
 
   const getStatusColor = (status: string) => {
-    switch (status) {
+    switch (status?.toUpperCase()) {
       case 'PENDING':
         return 'bg-yellow-100 text-yellow-800';
       case 'IN_PROGRESS':
+      case 'PROCESSING':
         return 'bg-blue-100 text-blue-800';
       case 'COMPLETED':
         return 'bg-green-100 text-green-800';
@@ -141,26 +158,20 @@ export default function LabDashboard() {
   };
 
   const getPriorityColor = (priority: string) => {
-    switch (priority) {
+    switch (priority?.toUpperCase()) {
       case 'STAT':
+      case 'EMERGENCY':
         return 'text-red-600 bg-red-50';
       case 'URGENT':
+      case 'HIGH':
         return 'text-orange-600 bg-orange-50';
-      case 'Routine':
+      case 'ROUTINE':
+      case 'NORMAL':
         return 'text-green-600 bg-green-50';
       default:
         return 'text-gray-600 bg-gray-50';
     }
   };
-
-  const filteredTests = testQueue.filter(test => {
-    const matchesSearch = test.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         test.patientId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         test.testType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         test.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || test.status === filterStatus;
-    return matchesSearch && matchesFilter;
-  });
 
   return (
     <div className="space-y-8">
@@ -183,9 +194,22 @@ export default function LabDashboard() {
         </div>
       </div>
 
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-800">{error}</p>
+          <button
+            onClick={loadLabQueue}
+            className="mt-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => {
+        {statsDisplay.map((stat, index) => {
           const Icon = stat.icon;
           return (
             <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -246,10 +270,18 @@ export default function LabDashboard() {
           </div>
         </div>
 
+        {/* Loading State */}
+        {loading && (
+          <div className="p-12 text-center">
+            <div className="text-gray-500">Loading lab queue...</div>
+          </div>
+        )}
+
         {/* Test Cards */}
-        <div className="p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {filteredTests.map((test) => (
+        {!loading && (
+          <div className="p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {filteredQueue.map((test) => (
               <div
                 key={test.id}
                 className={`bg-white rounded-lg border-2 p-4 ${
@@ -261,15 +293,15 @@ export default function LabDashboard() {
                 {/* Test Header */}
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{test.testType}</h3>
-                    <p className="text-sm text-gray-600">{test.patientName} • {test.patientId}</p>
+                    <h3 className="text-lg font-semibold text-gray-900">{test.test_type || 'Lab Test'}</h3>
+                    <p className="text-sm text-gray-600">{test.patient_name} • {test.patient_id}</p>
                   </div>
                   <div className="flex flex-col items-end space-y-1">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(test.status)}`}>
-                      {test.status.replace('_', ' ')}
+                      {test.status?.replace('_', ' ') || 'PENDING'}
                     </span>
                     <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md ${getPriorityColor(test.priority)}`}>
-                      {test.priority}
+                      {test.priority || 'NORMAL'}
                     </span>
                   </div>
                 </div>
@@ -277,29 +309,31 @@ export default function LabDashboard() {
                 {/* Test Details */}
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Lab ID:</span>
-                    <span className="font-medium">{test.id}</span>
+                    <span className="text-gray-600">Request ID:</span>
+                    <span className="font-medium">{test.request_id?.substring(0, 8)}...</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Requested by:</span>
-                    <span className="font-medium">{test.requestedBy}</span>
+                    <span className="font-medium">{test.requested_by}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Request time:</span>
-                    <span className="font-medium">{test.requestTime}</span>
+                    <span className="font-medium">{test.requested_at ? new Date(test.requested_at).toLocaleTimeString() : 'N/A'}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Expected time:</span>
-                    <span className="font-medium">{test.expectedTime}</span>
+                    <span className="text-gray-600">Patient ID:</span>
+                    <span className="font-medium">{test.patient_id}</span>
                   </div>
                 </div>
 
                 {/* Instructions */}
-                <div className="mt-3 p-2 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-700">
-                    <span className="font-medium">Instructions:</span> {test.instructions}
-                  </p>
-                </div>
+                {test.instructions && (
+                  <div className="mt-3 p-2 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-700">
+                      <span className="font-medium">Instructions:</span> {test.instructions}
+                    </p>
+                  </div>
+                )}
 
                 {/* Result (if completed) */}
                 {test.result && (
@@ -341,11 +375,12 @@ export default function LabDashboard() {
                   </button>
                 </div>
               </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {filteredTests.length === 0 && (
+        {filteredQueue.length === 0 && !loading && (
           <div className="text-center py-12">
             <TestTube className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No tests found</h3>

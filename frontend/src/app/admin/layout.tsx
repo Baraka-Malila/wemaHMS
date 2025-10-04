@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 import auth from '@/lib/auth';
 import NotificationsDropdown from '@/components/admin/NotificationsDropdown';
-import SettingsDropdown from '@/components/admin/SettingsDropdown';
+import SettingsDropdown from '@/components/shared/SettingsDropdown';
 
 export default function AdminLayout({
   children,

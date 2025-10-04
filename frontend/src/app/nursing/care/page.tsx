@@ -1,8 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
+import PatientCompleteFileModal from '@/components/PatientCompleteFileModal';
 
 export default function PatientCarePage() {
+  const [fileModalOpen, setFileModalOpen] = useState(false);
+  const [filePatientId, setFilePatientId] = useState('');
+
   const patients = [
     {
       id: 'P001',
@@ -262,6 +266,20 @@ export default function PatientCarePage() {
                   <td className="px-6 py-4">
                     <div className="flex space-x-2">
                       <button
+                        onClick={() => {
+                          setFilePatientId(patient.id);
+                          setFileModalOpen(true);
+                        }}
+                        className="px-3 py-1.5 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-md hover:bg-purple-100"
+                        style={{
+                          fontSize: '12px',
+                          lineHeight: '15px',
+                          fontWeight: '500'
+                        }}
+                      >
+                        Patient File
+                      </button>
+                      <button
                         className="px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100"
                         style={{
                           fontSize: '12px',
@@ -289,6 +307,13 @@ export default function PatientCarePage() {
           </table>
         </div>
       </div>
+
+      {/* Patient Complete File Modal */}
+      <PatientCompleteFileModal
+        isOpen={fileModalOpen}
+        onClose={() => setFileModalOpen(false)}
+        patientId={filePatientId}
+      />
     </div>
   );
 }

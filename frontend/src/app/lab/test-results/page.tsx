@@ -1,25 +1,28 @@
 'use client';
 
 import { useState } from 'react';
-import { 
-  Search, 
-  Filter, 
-  Download, 
-  Eye, 
-  AlertTriangle, 
-  CheckCircle, 
+import {
+  Search,
+  Filter,
+  Download,
+  Eye,
+  AlertTriangle,
+  CheckCircle,
   Clock,
   FileText,
   Calendar,
   User,
   TestTube
 } from 'lucide-react';
+import PatientCompleteFileModal from '@/components/PatientCompleteFileModal';
 
 export default function TestResults() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [dateRange, setDateRange] = useState('today');
+  const [fileModalOpen, setFileModalOpen] = useState(false);
+  const [filePatientId, setFilePatientId] = useState('');
 
   // Mock data - replace with API calls
   const testResults = [
@@ -353,6 +356,16 @@ export default function TestResults() {
                   Lab ID: {result.id}
                 </div>
                 <div className="flex space-x-2">
+                  <button
+                    onClick={() => {
+                      setFilePatientId(result.patientId);
+                      setFileModalOpen(true);
+                    }}
+                    className="flex items-center space-x-1 px-3 py-2 bg-purple-50 text-purple-600 text-sm font-medium rounded-md hover:bg-purple-100 transition-colors"
+                  >
+                    <FileText className="h-4 w-4" />
+                    <span>Patient File</span>
+                  </button>
                   <button className="flex items-center space-x-1 px-3 py-2 bg-blue-50 text-blue-600 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors">
                     <Eye className="h-4 w-4" />
                     <span>View Details</span>
@@ -373,12 +386,19 @@ export default function TestResults() {
             <h3 className="mt-2 text-sm font-medium text-gray-900">No results found</h3>
             <p className="mt-1 text-sm text-gray-500">
               {searchTerm || filterStatus !== 'all' || filterType !== 'all'
-                ? 'Try adjusting your search criteria.' 
+                ? 'Try adjusting your search criteria.'
                 : 'No test results available.'}
             </p>
           </div>
         )}
       </div>
+
+      {/* Patient Complete File Modal */}
+      <PatientCompleteFileModal
+        isOpen={fileModalOpen}
+        onClose={() => setFileModalOpen(false)}
+        patientId={filePatientId}
+      />
     </div>
   );
 }
